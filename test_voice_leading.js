@@ -7,11 +7,13 @@
 const fs = require('fs');
 const path = require('path');
 function loadTheoryCore() {
-  // Dependency order for the logic-only layer. render/state/audio/app are
-  // omitted: they reference the DOM and are exercised by test_dom_smoke.js.
-  const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js'];
+  // Dependency order for the logic-only layer. render/audio/app are omitted:
+  // they reference the DOM and are exercised by test_dom_smoke.js. state.js is
+  // included for the pure generation model (buildRandomNumerals); its DOM
+  // touches live inside functions this suite never calls.
+  const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/state.js'];
   const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
-  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE };');
+  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, buildRandomNumerals, SECONDARY_TARGETS };');
   return fn();
 }
 const T = loadTheoryCore();
@@ -348,6 +350,112 @@ console.log('\nTest 7: cumulative voicing tiers');
     const r = key(realizeFixed([ch('G', 'dom7')], 'rsp')[0].pcs);
     const j = key(realizeFixed([ch('G', 'dom7')], 'seventh')[0].pcs);
     check(s !== r && r !== j && s !== j, 'strict / rsp / jazz G7 are three distinct voicings');
+  }
+}
+
+// ---------------------------------------------------------------
+console.log('\nTest 8: variable-length generation + secondary dominants (Phase 4)');
+{
+  const N = 300;
+  const isSecondary = num => num.includes('/');
+
+  for (const mode of ['major', 'minor']) {
+    const targets = T.SECONDARY_TARGETS[mode];
+    let lengthBad = 0, resolutionBad = 0, finalBad = 0, quotaBad = 0, parseBad = 0;
+
+    for (let bars = 2; bars <= 8; bars++) {
+      for (let t = 0; t < N; t++) {
+        const density = t % 3 === 0 ? 0.45 : 1.0; // exercise both characters
+        const nums = T.buildRandomNumerals(mode, bars, density);
+
+        // Length always matches the requested bars
+        if (nums.length !== bars) { lengthBad++; check(false, `${mode}/${bars}: length ${nums.length}`); }
+
+        let count = 0;
+        nums.forEach((num, i) => {
+          if (!isSecondary(num)) return;
+          count++;
+          // Never the final chord
+          if (i === nums.length - 1) { finalBad++; check(false, `${mode}/${bars}: secondary dominant on final chord`); }
+          // Always V7/x with an allowed target, immediately followed by it
+          const [prim, target] = num.split('/');
+          if (prim !== 'V7' || !targets.includes(target)) { parseBad++; check(false, `${mode}/${bars}: bad secondary form ${num}`); }
+          if (nums[i + 1] !== target) { resolutionBad++; check(false, `${mode}/${bars}: ${num} not followed by ${target} (got ${nums[i + 1]})`); }
+        });
+
+        // At most one per 4 bars; two allowed at 7-8 bars
+        const quota = bars >= 7 ? 2 : 1;
+        if (count > quota) { quotaBad++; check(false, `${mode}/${bars}: ${count} secondaries > quota ${quota}`); }
+      }
+    }
+    if (!lengthBad && !resolutionBad && !finalBad && !quotaBad && !parseBad) {
+      console.log(`  ${mode}: lengths 2-8 exact; every V7/x interior, well-formed, resolving to its target; quota respected`);
+    }
+  }
+
+  // Frequency bounds: secondaries present in >5% and <50% of 8-bar
+  // generations at full density (the seventh-tier pool question is below).
+  {
+    const M = 400;
+    let withSec = 0;
+    for (let t = 0; t < M; t++) {
+      if (T.buildRandomNumerals('major', 8, 1.0).some(isSecondary)) withSec++;
+    }
+    const frac = withSec / M;
+    check(frac > 0.05 && frac < 0.5, `8-bar secondary-dominant frequency in (5%, 50%) — got ${(frac * 100).toFixed(1)}%`);
+    console.log(`  8-bar full-density presence: ${(frac * 100).toFixed(1)}%`);
+
+    // Density scaling: sparse progressions use them noticeably less often
+    let sparse = 0;
+    for (let t = 0; t < M; t++) {
+      if (T.buildRandomNumerals('major', 8, 0.45).some(isSecondary)) sparse++;
+    }
+    check(sparse / M < frac, `sparser character uses fewer secondaries (${(sparse / M * 100).toFixed(1)}% < ${(frac * 100).toFixed(1)}%)`);
+  }
+
+  // The parser's secondary path draws from the tier's cumulative dominant
+  // pool: V7/ii at 'seventh' stays dominant-family (triad floor is rare), and
+  // at 'extended' the pool can upgrade it past plain dom7.
+  {
+    const tallies = { seventh: {}, extended: {} };
+    for (const cx of ['seventh', 'extended']) {
+      for (let t = 0; t < 300; t++) {
+        const q = T.parseRomanNumeral('V7/ii', 'C', 'major', cx).quality;
+        tallies[cx][q] = (tallies[cx][q] || 0) + 1;
+      }
+    }
+    const domFrac = Object.entries(tallies.seventh)
+      .filter(([q]) => q.startsWith('dom')).reduce((s, [, c]) => s + c, 0) / 300;
+    check(domFrac >= 0.9, `V7/ii@seventh dominant-family >=90% (got ${(domFrac * 100).toFixed(0)}%)`);
+    check(Object.keys(tallies.extended).some(q => q === 'dom9' || q === 'dom13'),
+      'V7/ii@extended reaches the extended dominant pool (dom9/dom13 seen)');
+    // And the target root is right: V7/ii in C resolves to D, so its root is A
+    const sec = T.parseRomanNumeral('V7/ii', 'C', 'major', 'seventh');
+    check(sec.root === 'A', `V7/ii in C is rooted on A (got ${sec.root})`);
+  }
+
+  // Whole pipeline stays healthy at every length: parse + optimize + realize
+  // a generated progression at 2 and 8 bars across tiers (downstream is
+  // length-generic — verify, don't rewrite).
+  {
+    let bad = 0;
+    for (const bars of [2, 8]) {
+      for (const cx of ['simple', 'seventh', 'altered']) {
+        for (let t = 0; t < 40; t++) {
+          const nums = T.buildRandomNumerals('major', bars, 1.0);
+          const chords = nums.map(n => T.parseRomanNumeral(n, 'C', 'major', cx));
+          const { indices, shifts } = T.computeProgressionVoicings(chords, cx);
+          if (indices.length !== bars || shifts.length !== bars) { bad++; check(false, `${bars}/${cx}: optimizer arrays wrong length`); }
+          chords.forEach((c, i) => {
+            const d = T.getChordNotesAtIndex(c.root, c.quality, cx, indices[i], shifts[i]);
+            for (const p of [...d.leftHandPitches, ...d.rightHandPitches]) {
+              if (!Number.isFinite(p.midi) || !p.name) { bad++; check(false, `${bars}/${cx}: bad pitch on ${c.root}${c.quality}`); }
+            }
+          });
+        }
+      }
+    }
+    if (!bad) console.log('  2- and 8-bar generations parse, optimize and realize cleanly across tiers');
   }
 }
 

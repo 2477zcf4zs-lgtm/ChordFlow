@@ -20,6 +20,7 @@
       settingsPanel: document.getElementById('settingsPanel'),
       beatsPerChord: document.getElementById('beatsPerChord'),
       keySelect: document.getElementById('keySelect'),
+      barsSelect: document.getElementById('barsSelect'),
       complexitySelect: document.getElementById('complexitySelect'),
       modeSelect: document.getElementById('modeSelect'),
       chordContainer: document.getElementById('chordContainer'),
@@ -131,6 +132,14 @@
       
       elements.modeSelect.addEventListener('change', (e) => {
         state.mode = e.target.value;
+        generateRandomProgression();
+      });
+
+      // Bars applies to random generation; regenerate immediately (mirrors the
+      // mode control). Playback, if running, re-anchors via
+      // buildProgressionFromSource -> resetPlaybackClock.
+      elements.barsSelect.addEventListener('change', (e) => {
+        state.bars = parseInt(e.target.value);
         generateRandomProgression();
       });
       
