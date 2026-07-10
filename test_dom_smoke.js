@@ -124,8 +124,13 @@ async function main() {
     window.toggleVoicingPanel(true);
     const pianoSvg = document.querySelector('#pianoKeyboard svg');
     check(!!pianoSvg, 'piano keyboard SVG rendered');
-    const highlighted = pianoSvg ? pianoSvg.innerHTML.match(/var\(--accent-(coral|blue)\)/g) : [];
-    check(highlighted && highlighted.length >= 5, 'piano highlights LH+RH keys (' + (highlighted ? highlighted.length : 0) + ')');
+    // Both hands must be highlighted. Count per hand rather than a total: the
+    // quality pool's rare triad floor can legitimately produce 4 total keys
+    // (LH root + RH triad), which made a >=5 total check flaky (~3%).
+    const lhKeys = (pianoSvg ? pianoSvg.innerHTML.match(/var\(--accent-coral\)/g) : []) || [];
+    const rhKeys = (pianoSvg ? pianoSvg.innerHTML.match(/var\(--accent-blue\)/g) : []) || [];
+    check(lhKeys.length >= 1 && rhKeys.length >= 3,
+      'piano highlights both hands (LH ' + lhKeys.length + ', RH ' + rhKeys.length + ')');
     check(/\d/.test(document.getElementById('rightHandNotes').textContent), 'right hand shows octave numbers');
 
     // Voicing cycling
@@ -340,6 +345,48 @@ async function main() {
     check(!!transport && ['prevChordBtn', 'playBtn', 'stopBtn', 'nextChordBtn', 'tempoBtn', 'newBtn']
       .every(id => transport.contains(document.getElementById(id))),
       'transport bar holds play/stop/prev/next/tempo/new');
+
+    // --- Phase 4: bars control ---
+    const barsSelect = document.getElementById('barsSelect');
+    check(!!barsSelect && document.getElementById('settingsPanel').contains(barsSelect),
+      'bars select lives in the settings panel');
+    const setBars = (v) => { barsSelect.value = String(v); barsSelect.dispatchEvent(new window.Event('change')); };
+    setBars(6);
+    check(st().bars === 6 && st().progression.length === 6, '6 bars generates 6 chords');
+    check(document.querySelectorAll('.beat-dot').length === 6 * st().beatsPerChord,
+      'beat dots follow the new length');
+    setBars(2);
+    check(st().progression.length === 2, '2 bars generates 2 chords');
+    // Changing bars during playback keeps playing on the new progression
+    await window.startPlayback();
+    setBars(8);
+    check(st().isPlaying === true && st().progression.length === 8 && engine().schedulerId !== null,
+      'bars change during playback: still playing, 8 chords, scheduler alive');
+    window.stopAndReset();
+    setBars(4);
+    check(st().bars === 4 && st().progression.length === 4, 'bars restores to default 4');
+
+    // Any generated secondary dominant reaching the DOM renders with its V7/x
+    // numeral and resolves next door (probe a few hundred generations).
+    let sawSecondary = false, secondaryOk = true;
+    for (let g = 0; g < 300 && !sawSecondary; g++) {
+      window.generateRandomProgression();
+      const idx = st().sourceNumerals.findIndex(nm => nm.includes('/'));
+      if (idx !== -1) {
+        sawSecondary = true;
+        const target = st().sourceNumerals[idx].split('/')[1];
+        // Quality must stay in the dominant pool: dom-family, or the pool's
+        // rare deliberate triad floor ('maj' — still dominant function on
+        // V/x). The >=90% dom-family distribution is asserted statistically
+        // in test_voice_leading.js where N is large enough not to flake.
+        const q = st().progression[idx].quality;
+        secondaryOk = st().sourceNumerals[idx + 1] === target &&
+          (q.startsWith('dom') || q === 'maj') &&
+          document.querySelectorAll('.chord-box').length === st().progression.length;
+      }
+    }
+    check(sawSecondary && secondaryOk, 'a generated V7/x parses dominant, resolves next door, and renders');
+    window.loadProgression(0);
 
     check(errors.length === 0, 'no script errors during interaction' + (errors.length ? ' -> ' + errors.join('; ') : ''));
   } catch (e) {

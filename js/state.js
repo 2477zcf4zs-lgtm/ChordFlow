@@ -13,6 +13,7 @@
       key: 'C',
       mode: 'major',
       complexity: 'seventh',
+      bars: 4,            // random-generation length in bars (one chord per bar), 2-8
       progression: [],
       sourceNumerals: [],   // roman numerals the progression was built from (for transpose)
       substitutions: [],    // per-index applied substitution type, e.g. 'tritone' (for re-derivation)
@@ -62,6 +63,13 @@
         const next = state.progression[(i + 1) % n];
         const nextIsTonic = next.root === key || /^[Ii]$/.test(next.degree || '');
         if (isDomFamily(chord.quality) && nextIsTonic) continue;  // cadential: keep color
+        // A secondary dominant is cadential TO ITS TARGET: V7/x resolving to x
+        // keeps its color just like V7 resolving to I (Phase 4).
+        const src = state.sourceNumerals[i];
+        if (isDomFamily(chord.quality) && typeof src === 'string' && src.includes('/')) {
+          const targetRoot = parseBasicNumeral(src.split('/')[1], key, mode, 'simple').root;
+          if (next.root === targetRoot) continue;
+        }
         if (Math.random() < relaxProb) {
           // Re-pick from the same pool with the below-tier weights doubled
           // (halving density doubles downScale), biasing toward simpler colour.
@@ -105,39 +113,104 @@
       }
     }
 
+    // ============================================
+    // RANDOM GENERATION — light phrase model (Phase 4)
+    // ============================================
+
+    /**
+     * Degree pools by phrase position. First chord leans tonic (ii/IV openings
+     * at lower weight), last chord is cadential (tonic, or dominant-function
+     * for a turnaround feel), interior draws from the full degree pool.
+     */
+    const PHRASE_POOLS = {
+      major: {
+        first: [['I', 6], ['ii', 1.2], ['IV', 1.2], ['vi', 0.8]],
+        interior: [['ii', 3], ['IV', 3], ['V', 3], ['vi', 3], ['I', 2], ['iii', 1.5]],
+        last: [['I', 5], ['V', 2]]
+      },
+      minor: {
+        first: [['i', 6], ['iv', 1.2], ['VI', 0.8]],
+        interior: [['iv', 3], ['VII', 2.5], ['VI', 2.5], ['III', 2], ['i', 2], ['V', 2], ['v', 1], ['ii', 1]],
+        last: [['i', 5], ['V', 2]]
+      }
+    };
+
+    // Degrees a secondary dominant may tonicize (spec: ii, IV, V, vi — never a
+    // diminished target, so minor's ii° is excluded; minor-mode analogues are
+    // iv, V and VI).
+    const SECONDARY_TARGETS = {
+      major: ['ii', 'IV', 'V', 'vi'],
+      minor: ['iv', 'V', 'VI']
+    };
+
+    /**
+     * Build a random progression as roman numerals: `bars` chords (one per
+     * bar) from the phrase pools, then a secondary-dominant pass that converts
+     * the chord BEFORE a tonicizable degree into `V7/<target>` — conversion
+     * (not insertion) keeps the length exactly `bars`. Pure: no state/DOM.
+     *
+     * Secondary-dominant rules (Phase 4):
+     * - probability scales with density (rarer in sparse progressions)
+     * - target must immediately follow (guaranteed by conversion)
+     * - phrase-interior only (never the opening chord, never the final chord)
+     * - at most one per 4 bars; two allowed in 7-8 bar progressions
+     */
+    function buildRandomNumerals(mode, bars, density) {
+      const pools = PHRASE_POOLS[mode] || PHRASE_POOLS.major;
+      const n = Math.max(2, Math.min(8, Math.floor(bars) || 4));
+      const numerals = new Array(n);
+
+      numerals[0] = weightedPick(pools.first);
+      numerals[n - 1] = weightedPick(pools.last);
+      // A 2-bar phrase reading I-I (or i-i) says nothing; force motion.
+      if (n === 2 && numerals[1] === numerals[0]) {
+        numerals[1] = numerals[0] === 'V' ? (mode === 'major' ? 'I' : 'i') : 'V';
+      }
+
+      for (let i = 1; i <= n - 2; i++) {
+        let pick;
+        let guard = 0;
+        do {
+          pick = weightedPick(pools.interior);
+        } while (++guard < 12 &&
+          (pick === numerals[i - 1] || (i === n - 2 && pick === numerals[n - 1])));
+        numerals[i] = pick;
+      }
+
+      // Secondary-dominant pass: convert numerals[t-1] into V7/<numerals[t]>.
+      // t-1 ranges over interior positions only (1 .. n-2), so the secondary
+      // dominant is never the opening or the final chord, and its target
+      // always follows it. Skip 4-6 bar phrases past one conversion, allow a
+      // second in 7-8 bar phrases; 2-bar phrases have no interior slot.
+      const targets = SECONDARY_TARGETS[mode] || SECONDARY_TARGETS.major;
+      const quota = n >= 7 ? 2 : 1;
+      let applied = 0;
+      for (let t = 2; t <= n - 1 && applied < quota; t++) {
+        if (!targets.includes(numerals[t])) continue;
+        if (String(numerals[t - 1]).includes('/')) continue;
+        // Per-candidate probability tuned so ~1/3 of 8-bar full-density
+        // progressions contain a secondary (an 8-bar phrase offers ~5-6
+        // candidate positions; the statistical test bounds presence to 5-50%).
+        if (Math.random() < 0.09 * density) {
+          numerals[t - 1] = 'V7/' + numerals[t];
+          applied++;
+          t++; // keep converted pairs from chaining back-to-back
+        }
+      }
+
+      return numerals;
+    }
+
     function generateRandomProgression() {
       const { mode } = state;
-      
-      // Common chord progression patterns for random generation
-      const patterns = {
-        major: [
-          ['I', 'IV', 'V', 'I'],
-          ['I', 'vi', 'IV', 'V'],
-          ['ii', 'V', 'I', 'vi'],
-          ['I', 'IV', 'vi', 'V'],
-          ['iii', 'vi', 'ii', 'V'],
-          ['I', 'iii', 'IV', 'V'],
-          ['vi', 'IV', 'I', 'V'],
-          ['I', 'V', 'vi', 'iii', 'IV', 'I', 'IV', 'V']
-        ],
-        minor: [
-          ['i', 'iv', 'V', 'i'],
-          ['i', 'VII', 'VI', 'V'],
-          ['i', 'iv', 'VII', 'III'],
-          ['i', 'VI', 'III', 'VII'],
-          ['i', 'iv', 'v', 'i'],
-          ['i', 'bVI', 'bVII', 'i']
-        ]
-      };
 
-      const modePatterns = patterns[mode];
-      const pattern = modePatterns[Math.floor(Math.random() * modePatterns.length)];
-
-      state.sourceNumerals = pattern.slice();
-      state.substitutions = [];
       // Roll a per-progression density character here (not in the builder), so
       // a later key change transposes the SAME character instead of re-rolling.
+      // Rolled before the numerals so the secondary-dominant probability can
+      // scale with it.
       state.density = Math.random() < 0.7 ? 1.0 : 0.45;
+      state.sourceNumerals = buildRandomNumerals(mode, state.bars, state.density);
+      state.substitutions = [];
       state.progressionName = 'Random Progression';
       state.progressionStyle = mode === 'major' ? 'Major' : 'Minor';
 
