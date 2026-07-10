@@ -214,6 +214,18 @@
       white-space: nowrap;
     }
 
+    .as-written-chip {
+      flex: none;
+      font-size: 0.68rem;
+      letter-spacing: 0.04em;
+      color: var(--accent-blue);
+      background: rgba(91, 143, 212, 0.12);
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid rgba(91, 143, 212, 0.3);
+      white-space: nowrap;
+    }
+
     /* Horizontally scrollable, scroll-snapping chord strip. The auto margins
        on the first/last cells center a short progression while still allowing
        a long one to scroll edge-to-edge. */
@@ -603,6 +615,120 @@
       font-size: 0.7rem;
       color: var(--text-muted);
       font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* My Progressions (5.2) */
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 0.78rem;
+      gap: 6px;
+    }
+
+    .my-progressions {
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .my-progressions-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .my-progressions-head .panel-title {
+      margin-bottom: 0;
+    }
+
+    .my-progressions-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .saved-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .saved-item {
+      display: flex;
+      align-items: stretch;
+      gap: 6px;
+    }
+
+    .saved-load {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      font: inherit;
+      color: inherit;
+      text-align: left;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 9px 12px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+
+    .saved-load:hover {
+      border-color: var(--accent-gold);
+    }
+
+    .saved-load:focus-visible,
+    .saved-action:focus-visible {
+      outline: 2px solid var(--accent-gold);
+      outline-offset: 2px;
+    }
+
+    .saved-name {
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .saved-meta {
+      flex: none;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .saved-action {
+      font: inherit;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 0 10px;
+      cursor: pointer;
+    }
+
+    .saved-action:hover {
+      color: var(--text-primary);
+      border-color: var(--text-muted);
+    }
+
+    .saved-action--danger:hover {
+      color: var(--accent-coral);
+      border-color: var(--accent-coral);
+    }
+
+    .saved-empty,
+    .saved-unavailable {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      padding: 4px 2px;
     }
 
     /* Library panel (a tab panel inside .panel-area) */

@@ -459,4 +459,64 @@ console.log('\nTest 8: variable-length generation + secondary dominants (Phase 4
   }
 }
 
+// ---------------------------------------------------------------
+console.log('\nTest 9: as-written library audit (Phase 5)');
+{
+  // Every entry carries an original key the UI can select
+  const SELECTABLE = ['C', 'C#', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+  let keyBad = 0;
+  for (const prog of T.PROGRESSION_LIBRARY) {
+    if (!prog.originalKey || !SELECTABLE.includes(prog.originalKey)) {
+      keyBad++; check(false, `${prog.name}: originalKey missing/unselectable (${prog.originalKey})`);
+    }
+  }
+  if (!keyBad) console.log('  all 53 entries carry a selectable originalKey');
+
+  // Explicit suffixes are deterministic: every SUFFIXED numeral in a tune
+  // parses to the same quality on every parse (the pools no longer roll
+  // them). Bare numerals (e.g. Blue Bossa's tonic 'i') and secondaries stay
+  // pooled by design.
+  const isBare = n => /^[b#]?[IViv]+[°ø+]?$/.test(n);
+  const deterministic = (entry) => {
+    const runs = [];
+    for (let t = 0; t < 25; t++) {
+      runs.push(entry.chords
+        .filter(n => !n.includes('/') && !isBare(n))
+        .map(n => T.parseRomanNumeral(n, entry.originalKey, entry.mode, 'seventh', 1.0).quality).join(','));
+    }
+    return new Set(runs).size === 1;
+  };
+  const autumn = T.PROGRESSION_LIBRARY.find(p => p.name.includes('Autumn Leaves'));
+  const attya = T.PROGRESSION_LIBRARY.find(p => p.name.includes('All The Things'));
+  const bossa = T.PROGRESSION_LIBRARY.find(p => p.name.includes('Blue Bossa'));
+  check(deterministic(autumn), 'Autumn Leaves parses deterministically (as written)');
+  check(deterministic(attya), 'All The Things You Are parses deterministically');
+  check(deterministic(bossa), 'Blue Bossa parses deterministically');
+
+  // And to the RIGHT written qualities, spot-checked against the charts
+  const al = autumn.chords.map(n => T.parseRomanNumeral(n, 'Bb', 'major', 'seventh'));
+  check(al.map(c => c.root).join(' ') === 'C F Bb Eb A D G',
+    'Autumn Leaves roots in Bb: C F Bb Eb A D G (got ' + al.map(c => c.root).join(' ') + ')');
+  check(al.map(c => c.quality).join(',') === 'min7,dom7,maj7,maj7,m7b5,dom7b9,min7',
+    'Autumn Leaves qualities as written (got ' + al.map(c => c.quality).join(',') + ')');
+
+  // Bare-numeral entries still roll pools (variety is the point of patterns)
+  {
+    const axis = T.PROGRESSION_LIBRARY.find(p => p.name.startsWith('Axis'));
+    const seen = new Set();
+    for (let t = 0; t < 60; t++) {
+      seen.add(axis.chords.map(n => T.parseRomanNumeral(n, 'C', 'major', 'seventh').quality).join(','));
+    }
+    check(seen.size > 1, 'bare-numeral pattern entries keep pool variety (' + seen.size + ' variants seen)');
+  }
+
+  // Suffix pinning fundamentals (incl. the previously-unparseable V7b9 form)
+  check(T.parseRomanNumeral('V7b9', 'C', 'major', 'seventh').quality === 'dom7b9' &&
+    T.parseRomanNumeral('V7b9', 'C', 'major', 'seventh').root === 'G', 'V7b9 pins dom7b9 on G');
+  check(T.parseRomanNumeral('Imaj7', 'C', 'major', 'simple').quality === 'maj',
+    'simple tier reduces pinned qualities to triads');
+  check(T.parseRomanNumeral('ii7', 'C', 'minor', 'seventh').quality === 'm7b5',
+    'invariant 7 guardrail still outranks a pinned ii7 in minor');
+}
+
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));

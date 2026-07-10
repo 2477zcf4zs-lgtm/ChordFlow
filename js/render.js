@@ -510,6 +510,58 @@
       else if (state.activeTab === 'voicing') showTab(null);
     }
 
+    /** Show/hide the "as written" chip from state.asWritten (5.1). */
+    function updateAsWrittenChip() {
+      const chip = document.getElementById('asWrittenChip');
+      if (chip) chip.hidden = !state.asWritten;
+    }
+
+    // ============================================
+    // MY PROGRESSIONS (5.2) — saved-list rendering
+    // ============================================
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    /** Rebuild the My Progressions list. Click handling is delegated once in
+        setupEventListeners (mirrors libraryGrid/chordContainer). */
+    function renderSavedProgressions() {
+      const listEl = document.getElementById('savedList');
+      const emptyEl = document.getElementById('savedEmpty');
+      const unavailableEl = document.getElementById('savedUnavailable');
+      const actions = document.querySelector('.my-progressions-actions');
+      if (!listEl) return;
+
+      if (!storageAvailable()) {
+        // Degrade gracefully: hide the machinery, say why.
+        listEl.innerHTML = '';
+        emptyEl.hidden = true;
+        unavailableEl.hidden = false;
+        if (actions) actions.hidden = true;
+        return;
+      }
+      unavailableEl.hidden = true;
+      if (actions) actions.hidden = false;
+
+      const saved = readSavedProgressions();
+      emptyEl.hidden = saved.length > 0;
+      listEl.innerHTML = saved.map(entry => `
+        <div class="saved-item" data-id="${escapeHtml(entry.id)}">
+          <button class="saved-load" type="button" data-action="load" data-id="${escapeHtml(entry.id)}"
+                  aria-label="Load saved progression ${escapeHtml(entry.name)}">
+            <span class="saved-name">${escapeHtml(entry.name)}</span>
+            <span class="saved-meta">${escapeHtml(entry.key)} ${escapeHtml(entry.mode)} · ${entry.sourceNumerals.length} chords</span>
+          </button>
+          <button class="saved-action" type="button" data-action="rename" data-id="${escapeHtml(entry.id)}"
+                  aria-label="Rename ${escapeHtml(entry.name)}">Rename</button>
+          <button class="saved-action saved-action--danger" type="button" data-action="delete" data-id="${escapeHtml(entry.id)}"
+                  aria-label="Delete ${escapeHtml(entry.name)}">Delete</button>
+        </div>
+      `).join('');
+    }
+
     /**
      * Keep the active (playing) or selected chord visible in the horizontal
      * strip. Feature-checked and try/caught for jsdom, and honoring

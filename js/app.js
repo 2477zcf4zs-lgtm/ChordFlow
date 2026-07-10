@@ -36,6 +36,11 @@
       libraryToggle: document.getElementById('libraryToggle'),
       libraryPanel: document.getElementById('libraryPanel'),
       libraryGrid: document.getElementById('libraryGrid'),
+      saveProgressionBtn: document.getElementById('saveProgressionBtn'),
+      exportSavedBtn: document.getElementById('exportSavedBtn'),
+      importSavedBtn: document.getElementById('importSavedBtn'),
+      importSavedInput: document.getElementById('importSavedInput'),
+      savedList: document.getElementById('savedList'),
       // Chord dictionary elements
       dictToggle: document.getElementById('dictToggle'),
       chordDictPanel: document.getElementById('chordDictPanel'),
@@ -115,15 +120,21 @@
       
       elements.keySelect.addEventListener('change', (e) => {
         state.key = e.target.value;
+        // Leaving the original key ends the as-written presentation (5.1).
+        state.asWritten = false;
+        updateAsWrittenChip();
         // Transpose the SAME progression into the new key (and re-apply its
         // substitutions) rather than replacing it with a different one.
         if (state.sourceNumerals.length > 0) {
           buildProgressionFromSource();
         }
       });
-      
+
       elements.complexitySelect.addEventListener('change', (e) => {
         state.complexity = e.target.value;
+        // Tier logic taking over ends the as-written presentation (5.1).
+        state.asWritten = false;
+        updateAsWrittenChip();
         // Re-derive the same progression's chord qualities at the new complexity.
         if (state.sourceNumerals.length > 0) {
           buildProgressionFromSource();
@@ -171,6 +182,62 @@
         if (item) {
           loadProgression(parseInt(item.dataset.index));
         }
+      });
+
+      // My Progressions (5.2). One delegated listener on the list, mirroring
+      // libraryGrid. prompt/confirm are try/caught: jsdom doesn't implement
+      // them and a blocked dialog must not take the app down.
+      elements.saveProgressionBtn.addEventListener('click', () => {
+        let name = null;
+        try { name = window.prompt('Name this progression', state.progressionName || 'My progression'); } catch (e) { name = ''; }
+        if (name === null) return; // user cancelled
+        saveCurrentProgression(name);
+      });
+
+      elements.savedList.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const id = btn.dataset.id;
+        if (btn.dataset.action === 'load') {
+          loadSavedProgression(id);
+        } else if (btn.dataset.action === 'rename') {
+          let name = null;
+          try { name = window.prompt('New name'); } catch (err) { name = null; }
+          if (name) renameSavedProgression(id, name);
+        } else if (btn.dataset.action === 'delete') {
+          let ok = true;
+          try { ok = window.confirm('Delete this saved progression?'); } catch (err) { ok = true; }
+          if (ok) deleteSavedProgression(id);
+        }
+      });
+
+      elements.exportSavedBtn.addEventListener('click', () => {
+        try {
+          const blob = new Blob([exportSavedProgressionsJson()], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'chordflow-progressions.json';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (e) {
+          elements.statusText.textContent = 'Export not supported here';
+        }
+      });
+
+      elements.importSavedBtn.addEventListener('click', () => elements.importSavedInput.click());
+      elements.importSavedInput.addEventListener('change', () => {
+        const file = elements.importSavedInput.files && elements.importSavedInput.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const n = importSavedProgressionsJson(String(reader.result));
+          elements.statusText.textContent = n > 0 ? `Imported ${n} progression${n === 1 ? '' : 's'}` : 'Import failed: not a ChordFlow export';
+        };
+        reader.readAsText(file);
+        elements.importSavedInput.value = '';
       });
       
       // Keyboard shortcuts
@@ -220,10 +287,11 @@
 
     function init() {
       renderLibrary();
+      renderSavedProgressions();
       initChordDictionary();
       setupEventListeners();
       updateStatus();
-      
+
       // Load a default progression
       loadProgression(0);
     }
