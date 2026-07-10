@@ -1,13 +1,16 @@
 // Self-contained regression tests for ChordFlow's voice leading engine.
-// Usage: node test_voice_leading.js  (expects chord_generator.html in the same directory)
+// Usage: node test_voice_leading.js
+// Loads the pure-logic layer (no DOM) by concatenating the split classic
+// scripts and evaluating them in a single function scope — the same shared
+// global scope the browser gives them, minus the state/render/audio layers
+// that touch the DOM.
 const fs = require('fs');
 const path = require('path');
 function loadTheoryCore() {
-  const src = fs.readFileSync(path.join(__dirname, 'chord_generator.html'), 'utf8');
-  const start = src.indexOf('<script>') + 8;
-  let end = src.indexOf('// APPLICATION STATE');
-  end = src.lastIndexOf('// ============================================', end);
-  const core = src.slice(start, end);
+  // Dependency order for the logic-only layer. render/state/audio/app are
+  // omitted: they reference the DOM and are exercised by test_dom_smoke.js.
+  const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js'];
+  const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
   const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE };');
   return fn();
 }

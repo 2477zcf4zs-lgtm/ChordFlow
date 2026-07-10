@@ -1,20 +1,23 @@
 // DOM smoke test: loads the app in jsdom and exercises the main UI paths.
 // Usage: node test_dom_smoke.js
-const fs = require('fs');
+//
+// The app is now split into external classic scripts (css/, js/*.js) loaded by
+// index.html, so jsdom must actually fetch and run those resources. We load the
+// real file with JSDOM.fromFile({ resources: 'usable', runScripts: 'dangerously' })
+// and wait until init() has run (the library has rendered) before the checks.
 const path = require('path');
-const { JSDOM } = require('jsdom');
+const { JSDOM, ResourceLoader } = require('jsdom');
 
-const html = fs.readFileSync(path.join(__dirname, 'chord_generator.html'), 'utf8');
+// Load local resources (css/*, js/*) but skip remote ones (the Google Fonts
+// stylesheet) so the test stays hermetic and doesn't depend on the network.
+class LocalResourceLoader extends ResourceLoader {
+  fetch(url, options) {
+    if (url.startsWith('file:')) return super.fetch(url, options);
+    return Promise.resolve(Buffer.from(''));
+  }
+}
 
 const errors = [];
-const dom = new JSDOM(html, {
-  runScripts: 'dangerously',
-  pretendToBeVisual: true, // requestAnimationFrame support
-});
-dom.window.addEventListener('error', (e) => errors.push('window error: ' + e.message));
-
-const { window } = dom;
-const { document } = window;
 
 let failures = 0;
 function check(cond, msg) {
@@ -58,7 +61,39 @@ function installAudioMock(window) {
   window.webkitAudioContext = Ctx;
 }
 
-setTimeout(async () => {
+// Poll until a predicate holds or we time out (used to wait for the external
+// scripts to load and init() to run before exercising the app).
+function waitFor(pred, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    (function poll() {
+      let ok = false;
+      try { ok = pred(); } catch (e) { /* not ready yet */ }
+      if (ok) return resolve();
+      if (Date.now() - start > timeoutMs) return reject(new Error('timeout waiting for app init'));
+      setTimeout(poll, 15);
+    })();
+  });
+}
+
+let window, document;
+
+async function main() {
+  const dom = await JSDOM.fromFile(path.join(__dirname, 'index.html'), {
+    runScripts: 'dangerously',
+    resources: new LocalResourceLoader(),
+    pretendToBeVisual: true, // requestAnimationFrame support
+  });
+  window = dom.window;
+  window.addEventListener('error', (e) => errors.push('window error: ' + e.message));
+  document = window.document;
+
+  // Wait for the split scripts to load and init() to finish: renderLibrary()
+  // populates 53 .library-item nodes and loadProgression(0) fills state.
+  await waitFor(() =>
+    document.querySelectorAll('.library-item').length === 53 &&
+    typeof window.loadProgression === 'function', 8000);
+
   try {
     check(errors.length === 0, 'no script errors on load' + (errors.length ? ' -> ' + errors.join('; ') : ''));
 
@@ -182,6 +217,35 @@ setTimeout(async () => {
     keySelect.dispatchEvent(new window.Event('change'));
     check(st().density === d0, '#2.4 density character preserved across key change');
 
+    // --- Loop counter survives pause/resume (Phase 1 bug fix, item 7) ---
+    // Drive the mock audio clock past a full loop, pause, resume, and assert the
+    // loop count doesn't reset (it used to derive from chordStep, which restarts
+    // from the resume position). Uses schedulerTick + visualSync directly with a
+    // hand-advanced ctx.currentTime for determinism.
+    window.stopAndReset();
+    window.loadProgression(0);              // 3-chord progression
+    const ctx = engine().ctx;               // mock AudioContext; currentTime is writable
+    ctx.currentTime = 0;
+    await window.startPlayback();
+    let guard = 0;
+    while (st().loopCount < 2 && guard++ < 20000) {
+      ctx.currentTime += 0.05;
+      window.schedulerTick();
+      window.visualSync();
+    }
+    const loopBeforePause = st().loopCount;
+    check(loopBeforePause >= 2, 'played past at least one full loop before pause (loop ' + loopBeforePause + ')');
+    // Pause (stop, no reset) then resume from the same spot.
+    window.stopPlayback();
+    await window.startPlayback();
+    // Let the freshly scheduled beat become audible so visualSync recomputes loopCount.
+    ctx.currentTime += 0.3;
+    window.schedulerTick();
+    window.visualSync();
+    check(st().loopCount >= loopBeforePause,
+      'loop counter survives pause/resume (' + loopBeforePause + ' -> ' + st().loopCount + ')');
+    window.stopAndReset();
+
     check(errors.length === 0, 'no script errors during interaction' + (errors.length ? ' -> ' + errors.join('; ') : ''));
   } catch (e) {
     failures++;
@@ -190,4 +254,10 @@ setTimeout(async () => {
 
   console.log('\n' + (failures ? failures + ' FAILURE(S)' : 'DOM SMOKE PASSED'));
   process.exit(failures ? 1 : 0);
-}, 60);
+}
+
+main().catch((e) => {
+  console.log('  EXCEPTION: ' + (e && e.stack ? e.stack : e));
+  console.log('\n1 FAILURE(S)');
+  process.exit(1);
+});

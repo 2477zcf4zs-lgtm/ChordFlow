@@ -1,0 +1,13 @@
+{
+  "name": "chordflow",
+  "version": "2.0.0",
+  "description": "ChordFlow — a chord-progression practice tool for jazz/keys players.",
+  "scripts": {
+    "test": "node test_voice_leading.js && node test_dom_smoke.js",
+    "start": "npx serve ."
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "jsdom": "^24.1.0"
+  }
+}

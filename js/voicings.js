@@ -1,0 +1,694 @@
+// voicings.js — KEYBOARD_VOICINGS templates, realizeHand/realizeVoicing, voicingsFor,
+// VOICING_TIER_COSTS, the DP voice-leading optimizer, and chord/note formatters.
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+
+    // Keyboard voicings using interval names for correct spelling
+    // Format: { left: [intervals], right: [intervals], name: 'description', type: 'A'|'B'|null }
+    // Type A = 3rd on bottom of RH (3-5-7-9), Type B = 7th on bottom of RH (7-9-3-5)
+    // These are the classic "Bill Evans" rootless voicings that provide smooth voice leading
+    const KEYBOARD_VOICINGS = {
+      // ============================================
+      // TRIADS (No rootless option - use standard voicings)
+      // ============================================
+      maj: {
+        voicings: [
+          { left: ['R'], right: ['3', '5', 'R'], name: 'Root position', type: null },
+          { left: ['R', '5'], right: ['R', '3', '5'], name: 'Open voicing', type: null },
+          { left: ['R'], right: ['5', 'R', '3'], name: '2nd inversion', type: null }
+        ]
+      },
+      min: {
+        voicings: [
+          { left: ['R'], right: ['b3', '5', 'R'], name: 'Root position', type: null },
+          { left: ['R', '5'], right: ['R', 'b3', '5'], name: 'Open voicing', type: null },
+          { left: ['R'], right: ['5', 'R', 'b3'], name: '2nd inversion', type: null }
+        ]
+      },
+      dim: {
+        voicings: [
+          { left: ['R'], right: ['b3', 'b5', 'R'], name: 'Root position', type: null },
+          { left: ['R', 'b5'], right: ['R', 'b3'], name: 'Open voicing', type: null }
+        ]
+      },
+      aug: {
+        voicings: [
+          { left: ['R'], right: ['3', '#5', 'R'], name: 'Root position', type: null },
+          { left: ['R', '#5'], right: ['R', '3'], name: 'Open voicing', type: null }
+        ]
+      },
+      sus4: {
+        voicings: [
+          { left: ['R'], right: ['4', '5', 'R'], name: 'Root position', type: null },
+          { left: ['R', '5'], right: ['R', '4'], name: 'Open voicing', type: null }
+        ]
+      },
+      sus2: {
+        voicings: [
+          { left: ['R'], right: ['2', '5', 'R'], name: 'Root position', type: null },
+          { left: ['R', '5'], right: ['R', '2'], name: 'Open voicing', type: null }
+        ]
+      },
+      
+      // ============================================
+      // 7TH CHORDS - Bill Evans Rootless Voicings
+      // ============================================
+      
+      // Major 7 - Imaj7 chord
+      // Type A: 3-5-7-9 (E-G-B-D for Cmaj7)
+      // Type B: 7-9-3-5 (B-D-E-G for Cmaj7)
+      maj7: {
+        voicings: [
+          // Strict: chord tones only (R-3-5-7)
+          { left: ['R'], right: ['3', '5', '7'], name: 'Strict: R | 3-5-7', type: null, tiers: ['strict'] },
+          { left: ['R', '5'], right: ['7', '3'], name: 'Strict spread: R-5 | 7-3', type: null, tiers: ['strict'] },
+          { left: ['R'], right: ['3', '7'], name: 'Shell: R | 3-7', type: null, tiers: ['strict'] },
+          // Root-Shell-Pretty: root + shell (3,7) + one color note
+          { left: ['R'], right: ['3', '7', '9'], name: 'RSP (9): R | 3-7-9', type: null, tiers: ['rsp'] },
+          { left: ['R'], right: ['3', '7', '13'], name: 'RSP (13): R | 3-7-13', type: null, tiers: ['rsp'] },
+          { left: ['R'], right: ['3', '7', '#11'], name: 'RSP (#11): R | 3-7-#11', type: null, tiers: ['rsp'] },
+          // Jazz rootless (Bill Evans A/B)
+          { left: ['R'], right: ['3', '5', '7', '9'], name: 'Type A: 3-5-7-9', type: 'A', tiers: ['jazz'] },
+          { left: ['R'], right: ['7', '9', '3', '5'], name: 'Type B: 7-9-3-5', type: 'B', tiers: ['jazz'] },
+          { left: ['R'], right: ['3', '5', '6', '9'], name: '6/9 color: 3-5-6-9', type: 'A', tiers: ['jazz'] }
+        ]
+      },
+      
+      // Minor 7 - iim7 chord (most common as ii in ii-V-I)
+      // Type A: 3-5-7-9 (F-A-C-E for Dm7)
+      // Type B: 7-9-3-5 (C-E-F-A for Dm7)
+      min7: {
+        voicings: [
+          // Strict: chord tones only (R-b3-5-b7)
+          { left: ['R'], right: ['b3', '5', 'b7'], name: 'Strict: R | 3-5-7', type: null, tiers: ['strict'] },
+          { left: ['R', '5'], right: ['b7', 'b3'], name: 'Strict spread: R-5 | 7-3', type: null, tiers: ['strict'] },
+          { left: ['R'], right: ['b3', 'b7'], name: 'Shell: R | 3-7', type: null, tiers: ['strict'] },
+          // Root-Shell-Pretty: pretty note = 9 or 11
+          { left: ['R'], right: ['b3', 'b7', '9'], name: 'RSP (9): R | 3-7-9', type: null, tiers: ['rsp'] },
+          { left: ['R'], right: ['b3', 'b7', '11'], name: 'RSP (11): R | 3-7-11', type: null, tiers: ['rsp'] },
+          // Jazz rootless (Bill Evans A/B)
+          { left: ['R'], right: ['b3', '5', 'b7', '9'], name: 'Type A: 3-5-7-9', type: 'A', tiers: ['jazz'] },
+          { left: ['R'], right: ['b7', '9', 'b3', '5'], name: 'Type B: 7-9-3-5', type: 'B', tiers: ['jazz'] }
+        ]
+      },
+      
+      // Dominant 7 - V7 chord
+      // Type A: 3-13-7-9 (B-E-F-A for G7) - uses 13 instead of 5
+      // Type B: 7-9-3-13 (F-A-B-E for G7)
+      dom7: {
+        voicings: [
+          // Strict: chord tones only (R-3-5-b7) -- no 9 or 13
+          { left: ['R'], right: ['3', '5', 'b7'], name: 'Strict: R | 3-5-7', type: null, tiers: ['strict'] },
+          { left: ['R', '5'], right: ['b7', '3'], name: 'Strict spread: R-5 | 7-3', type: null, tiers: ['strict'] },
+          { left: ['R'], right: ['3', 'b7'], name: 'Shell: R | 3-7', type: null, tiers: ['strict'] },
+          // Root-Shell-Pretty: pretty note = 13 or 9
+          { left: ['R'], right: ['3', 'b7', '13'], name: 'RSP (13): R | 3-7-13', type: null, tiers: ['rsp'] },
+          { left: ['R'], right: ['3', 'b7', '9'], name: 'RSP (9): R | 3-7-9', type: null, tiers: ['rsp'] },
+          // Jazz rootless (Bill Evans A/B -- 13 replaces the 5)
+          { left: ['R'], right: ['3', '13', 'b7', '9'], name: 'Type A: 3-13-7-9', type: 'A', tiers: ['jazz'] },
+          { left: ['R'], right: ['b7', '9', '3', '13'], name: 'Type B: 7-9-3-13', type: 'B', tiers: ['jazz'] }
+        ]
+      },
+      
+      // Diminished 7
+      dim7: {
+        voicings: [
+          // Symmetric chord -- chord-tone voicings serve every tier
+          { left: ['R'], right: ['b3', 'b5', 'bb7'], name: 'R | 3-b5-bb7', type: null, tiers: ['strict', 'rsp', 'jazz'] },
+          { left: ['R', 'b5'], right: ['bb7', 'b3'], name: 'R-b5 | bb7-b3', type: null, tiers: ['strict', 'rsp', 'jazz'] }
+        ]
+      },
+      
+      // Half-diminished (m7b5) - iiø7 in minor ii-V-i
+      m7b5: {
+        voicings: [
+          // Strict: chord tones only (R-b3-b5-b7)
+          { left: ['R'], right: ['b3', 'b5', 'b7'], name: 'Strict: R | 3-b5-7', type: null, tiers: ['strict'] },
+          { left: ['R', 'b5'], right: ['b7', 'b3'], name: 'Strict spread: R-b5 | 7-3', type: null, tiers: ['strict'] },
+          { left: ['R'], right: ['b3', 'b7'], name: 'Shell: R | 3-7', type: null, tiers: ['strict'] },
+          // Root-Shell-Pretty: pretty note = 11 or b13
+          { left: ['R'], right: ['b3', 'b7', '11'], name: 'RSP (11): R | 3-7-11', type: null, tiers: ['rsp'] },
+          { left: ['R'], right: ['b3', 'b7', 'b13'], name: 'RSP (b13): R | 3-7-b13', type: null, tiers: ['rsp'] },
+          // Jazz rootless (the "m6 shape" and modern 9 color)
+          { left: ['R'], right: ['b3', 'b5', 'b7', 'R'], name: 'Type A: 3-b5-7-R', type: 'A', tiers: ['jazz'] },
+          { left: ['R'], right: ['b7', 'R', 'b3', 'b5'], name: 'Type B: 7-R-3-b5', type: 'B', tiers: ['jazz'] },
+          { left: ['R'], right: ['b3', 'b5', 'b7', '9'], name: 'Modern: 3-b5-7-9', type: 'A', tiers: ['jazz'] }
+        ]
+      },
+      
+      // Minor-Major 7
+      minMaj7: {
+        voicings: [
+          // Strict: chord tones only (R-b3-5-7)
+          { left: ['R'], right: ['b3', '5', '7'], name: 'Strict: R | 3-5-7', type: null, tiers: ['strict'] },
+          { left: ['R', '5'], right: ['7', 'b3'], name: 'Strict spread: R-5 | 7-3', type: null, tiers: ['strict'] },
+          { left: ['R'], right: ['b3', '7'], name: 'Shell: R | 3-7', type: null, tiers: ['strict'] },
+          // Root-Shell-Pretty: pretty note = 9
+          { left: ['R'], right: ['b3', '7', '9'], name: 'RSP (9): R | 3-7-9', type: null, tiers: ['rsp'] },
+          // Jazz rootless (Bill Evans A/B)
+          { left: ['R'], right: ['b3', '5', '7', '9'], name: 'Type A: 3-5-7-9', type: 'A', tiers: ['jazz'] },
+          { left: ['R'], right: ['7', '9', 'b3', '5'], name: 'Type B: 7-9-3-5', type: 'B', tiers: ['jazz'] }
+        ]
+      },
+      
+      // Dominant 7 sus4
+      dom7sus4: {
+        voicings: [
+          // Strict: chord tones only (R-4-5-b7)
+          { left: ['R'], right: ['4', '5', 'b7'], name: 'Strict: R | 4-5-7', type: null, tiers: ['strict'] },
+          { left: ['R', '5'], right: ['b7', '4'], name: 'Strict spread: R-5 | 7-4', type: null, tiers: ['strict'] },
+          { left: ['R'], right: ['4', 'b7'], name: 'Shell: R | 4-7', type: null, tiers: ['strict'] },
+          // Root-Shell-Pretty: pretty note = 9
+          { left: ['R'], right: ['4', 'b7', '9'], name: 'RSP (9): R | 4-7-9', type: null, tiers: ['rsp'] },
+          // Jazz rootless (Bill Evans A/B)
+          { left: ['R'], right: ['4', '5', 'b7', '9'], name: 'Type A: 4-5-7-9', type: 'A', tiers: ['jazz'] },
+          { left: ['R'], right: ['b7', '9', '4', '5'], name: 'Type B: 7-9-4-5', type: 'B', tiers: ['jazz'] }
+        ]
+      },
+      
+      // ============================================
+      // EXTENDED CHORDS - 9ths, 11ths, 13ths
+      // ============================================
+      
+      // Major 9
+      maj9: {
+        voicings: [
+          { left: ['R'], right: ['3', '5', '7', '9'], name: 'Type A: 3-5-7-9', type: 'A' },
+          { left: ['R'], right: ['7', '9', '3', '5'], name: 'Type B: 7-9-3-5', type: 'B' },
+          { left: ['R', '5'], right: ['7', '9', '3'], name: 'R-5 | 7-9-3', type: null }
+        ]
+      },
+      
+      // Minor 9
+      min9: {
+        voicings: [
+          { left: ['R'], right: ['b3', '5', 'b7', '9'], name: 'Type A: 3-5-7-9', type: 'A' },
+          { left: ['R'], right: ['b7', '9', 'b3', '5'], name: 'Type B: 7-9-3-5', type: 'B' },
+          { left: ['R', '5'], right: ['b7', '9', 'b3'], name: 'R-5 | 7-9-3', type: null }
+        ]
+      },
+      
+      // Dominant 9
+      dom9: {
+        voicings: [
+          { left: ['R'], right: ['3', '13', 'b7', '9'], name: 'Type A: 3-13-7-9', type: 'A' },
+          { left: ['R'], right: ['b7', '9', '3', '13'], name: 'Type B: 7-9-3-13', type: 'B' },
+          { left: ['R'], right: ['3', 'b7', '9'], name: 'R | 3-7-9', type: null },
+          { left: ['R', '5'], right: ['b7', '9', '3'], name: 'R-5 | 7-9-3', type: null }
+        ]
+      },
+      
+      // Dominant 11
+      dom11: {
+        voicings: [
+          { left: ['R'], right: ['b7', '9', '11'], name: 'Sus: 7-9-11 (bVII triad)', type: 'B' },
+          { left: ['R'], right: ['4', 'b7', '9'], name: 'Sus: 4-7-9', type: 'A' },
+          { left: ['R', '5'], right: ['b7', '9', '11'], name: 'R-5 | 7-9-11', type: null }
+        ]
+      },
+      
+      // Minor 11
+      min11: {
+        voicings: [
+          { left: ['R'], right: ['b3', '5', 'b7', '11'], name: 'Type A: 3-5-7-11', type: 'A' },
+          { left: ['R'], right: ['b7', '9', 'b3', '11'], name: 'Type B: 7-9-3-11', type: 'B' },
+          { left: ['R', '5'], right: ['b7', 'b3', '11'], name: 'R-5 | 7-3-11', type: null }
+        ]
+      },
+      
+      // Major 13
+      maj13: {
+        voicings: [
+          { left: ['R'], right: ['3', '7', '9', '13'], name: 'Type A: 3-7-9-13', type: 'A' },
+          { left: ['R'], right: ['7', '9', '3', '13'], name: 'Type B: 7-9-3-13', type: 'B' },
+          { left: ['R'], right: ['7', '9', '13'], name: 'R | 7-9-13', type: null }
+        ]
+      },
+      
+      // Dominant 13
+      dom13: {
+        voicings: [
+          { left: ['R'], right: ['3', 'b7', '9', '13'], name: 'Type A: 3-7-9-13', type: 'A' },
+          { left: ['R'], right: ['b7', '9', '3', '13'], name: 'Type B: 7-9-3-13', type: 'B' },
+          { left: ['R'], right: ['b7', '9', '13'], name: 'R | 7-9-13', type: null }
+        ]
+      },
+      
+      // Minor 13
+      min13: {
+        voicings: [
+          { left: ['R'], right: ['b3', 'b7', '9', '13'], name: 'Type A: 3-7-9-13', type: 'A' },
+          { left: ['R'], right: ['b7', '9', 'b3', '13'], name: 'Type B: 7-9-3-13', type: 'B' },
+          { left: ['R'], right: ['b7', '9', '13'], name: 'R | 7-9-13', type: null }
+        ]
+      },
+      
+      // Add9 (no 7th)
+      add9: {
+        voicings: [
+          { left: ['R'], right: ['3', '5', '9'], name: 'R | 3-5-9', type: 'A' },
+          { left: ['R', '5'], right: ['9', '3'], name: 'R-5 | 9-3', type: null }
+        ]
+      },
+      
+      // Minor add9
+      madd9: {
+        voicings: [
+          { left: ['R'], right: ['b3', '5', '9'], name: 'R | 3-5-9', type: 'A' },
+          { left: ['R', '5'], right: ['9', 'b3'], name: 'R-5 | 9-3', type: null }
+        ]
+      },
+      
+      // 6 chord
+      '6': {
+        voicings: [
+          { left: ['R'], right: ['3', '5', '6'], name: 'R | 3-5-6', type: 'A' },
+          { left: ['R'], right: ['6', '9', '3', '5'], name: '6-9-3-5 (6/9 sound)', type: 'B' },
+          { left: ['R', '5'], right: ['6', '3'], name: 'R-5 | 6-3', type: null }
+        ]
+      },
+      
+      // Minor 6
+      'm6': {
+        voicings: [
+          { left: ['R'], right: ['b3', '5', '6'], name: 'R | 3-5-6', type: 'A' },
+          { left: ['R'], right: ['6', '9', 'b3', '5'], name: '6-9-3-5', type: 'B' },
+          { left: ['R', '5'], right: ['6', 'b3'], name: 'R-5 | 6-3', type: null }
+        ]
+      },
+      
+      // 6/9 chord
+      '69': {
+        voicings: [
+          { left: ['R'], right: ['3', '6', '9'], name: 'R | 3-6-9', type: 'A' },
+          { left: ['R'], right: ['6', '9', '3', '5'], name: '6-9-3-5', type: 'B' },
+          { left: ['R', '5'], right: ['6', '9', '3'], name: 'R-5 | 6-9-3', type: null }
+        ]
+      },
+      
+      // ============================================
+      // ALTERED DOMINANTS
+      // ============================================
+      
+      // Dom7b9
+      dom7b9: {
+        voicings: [
+          { left: ['R'], right: ['3', '13', 'b7', 'b9'], name: 'Type A: 3-13-7-b9', type: 'A' },
+          { left: ['R'], right: ['b7', 'b9', '3'], name: 'Type B: 7-b9-3', type: 'B' },
+          { left: ['R', 'b7'], right: ['b9', '3', '5'], name: 'R-7 | b9-3-5', type: null }
+        ]
+      },
+      
+      // Dom7#9 (Hendrix chord)
+      dom7s9: {
+        voicings: [
+          { left: ['R'], right: ['3', 'b7', '#9'], name: 'Type A: 3-7-#9', type: 'A' },
+          { left: ['R'], right: ['b7', '#9', '3'], name: 'Type B: 7-#9-3', type: 'B' },
+          { left: ['R', 'b7'], right: ['#9', '3'], name: 'R-7 | #9-3 (Hendrix)', type: null }
+        ]
+      },
+      
+      // Dom7b5
+      dom7b5: {
+        voicings: [
+          { left: ['R'], right: ['3', 'b5', 'b7'], name: 'R | 3-b5-7', type: 'A' },
+          { left: ['R'], right: ['b7', '3', 'b5'], name: 'R | 7-3-b5', type: 'B' }
+        ]
+      },
+      
+      // Dom7#5
+      dom7s5: {
+        voicings: [
+          { left: ['R'], right: ['3', '#5', 'b7'], name: 'R | 3-#5-7', type: 'A' },
+          { left: ['R'], right: ['b7', '3', '#5'], name: 'R | 7-3-#5', type: 'B' }
+        ]
+      },
+      
+      // Dom7#11 (Lydian dominant)
+      dom7s11: {
+        voicings: [
+          { left: ['R'], right: ['3', 'b7', '9', '#11'], name: '3-7-9-#11', type: 'A' },
+          { left: ['R'], right: ['b7', '9', '3', '#11'], name: '7-9-3-#11', type: 'B' }
+        ]
+      },
+      
+      // Dom7b13
+      dom7b13: {
+        voicings: [
+          { left: ['R'], right: ['3', 'b7', 'b13'], name: '3-7-b13', type: 'A' },
+          { left: ['R'], right: ['b7', '3', 'b13'], name: '7-3-b13', type: 'B' }
+        ]
+      },
+      
+      // Dom7alt (altered dominant - b9, #9, b5/#11, b13)
+      dom7alt: {
+        voicings: [
+          { left: ['R'], right: ['3', 'b13', 'b7', '#9'], name: 'Type A: 3-b13-7-#9', type: 'A' },
+          { left: ['R'], right: ['b7', 'b9', '3', 'b13'], name: 'Type B: 7-b9-3-b13', type: 'B' },
+          { left: ['R'], right: ['b7', '#9', '3', 'b13'], name: '7-#9-3-b13', type: 'B' }
+        ]
+      },
+      
+      // Dom9b5
+      dom9b5: {
+        voicings: [
+          { left: ['R'], right: ['3', 'b5', 'b7', '9'], name: '3-b5-7-9', type: 'A' },
+          { left: ['R'], right: ['b7', '9', '3', 'b5'], name: '7-9-3-b5', type: 'B' }
+        ]
+      },
+      
+      // Dom9#5
+      dom9s5: {
+        voicings: [
+          { left: ['R'], right: ['3', '#5', 'b7', '9'], name: '3-#5-7-9', type: 'A' },
+          { left: ['R'], right: ['b7', '9', '3', '#5'], name: '7-9-3-#5', type: 'B' }
+        ]
+      },
+      
+      // Dom13b9
+      dom13b9: {
+        voicings: [
+          { left: ['R'], right: ['3', 'b7', 'b9', '13'], name: '3-7-b9-13', type: 'A' },
+          { left: ['R'], right: ['b7', 'b9', '3', '13'], name: '7-b9-3-13', type: 'B' }
+        ]
+      },
+      
+      // Dom13#11
+      dom13s11: {
+        voicings: [
+          { left: ['R'], right: ['3', 'b7', '#11', '13'], name: '3-7-#11-13', type: 'A' },
+          { left: ['R'], right: ['b7', '3', '#11', '13'], name: '7-3-#11-13', type: 'B' }
+        ]
+      }
+    };
+
+    // Register constants (MIDI note numbers; C4 = 60)
+    const RH_BASE = 60;          // Base placement for right-hand voicings
+    const RH_TARGET_CENTER = 65; // F4: ideal center of gravity for the RH
+    const RH_SOFT_LOW = 55;      // G3: soft lower bound for RH notes
+    const RH_SOFT_HIGH = 79;     // G5: soft upper bound for RH notes
+    const LH_BASE = 36;          // C2: left-hand roots placed in C2–B2
+
+    const ACCIDENTAL_OFFSET = { '': 0, '#': 1, '##': 2, 'b': -1, 'bb': -2 };
+
+    /**
+     * Written octave per scientific pitch notation: the octave follows the
+     * LETTER, not the sounding pitch (Cb4 sounds as B3 but is written Cb4).
+     */
+    function writtenOctave(name, midi) {
+      const offset = ACCIDENTAL_OFFSET[name.slice(1)] ?? 0;
+      return Math.floor((midi - offset) / 12) - 1;
+    }
+
+    /**
+     * Realize one hand of a voicing as actual pitches.
+     * Interval names are stacked in ascending order: the first lands at or
+     * above baseMidi, and each subsequent note is placed in the lowest octave
+     * strictly above the previous note. Returns [{name, midi, octave}].
+     */
+    function realizeHand(rootNote, intervalNames, baseMidi) {
+      const rootPc = NOTE_TO_SEMITONE[rootNote] ?? 0;
+      const out = [];
+      let prev = -Infinity;
+      for (const iv of intervalNames) {
+        const name = spellInterval(rootNote, iv);
+        const ivDef = INTERVALS[iv];
+        const pc = (rootPc + (ivDef ? ivDef.semitones : 0)) % 12;
+        let midi = baseMidi + ((pc - (baseMidi % 12) + 12) % 12);
+        while (midi <= prev) midi += 12;
+        out.push({ name, midi, octave: writtenOctave(name, midi) });
+        prev = midi;
+      }
+      return out;
+    }
+
+    /**
+     * Realize a full voicing. octaveShift (in semitones, multiples of 12)
+     * moves the right hand up/down; the left hand stays anchored low.
+     */
+    function realizeVoicing(rootNote, voicing, octaveShift = 0) {
+      return {
+        left: realizeHand(rootNote, voicing.left, LH_BASE),
+        right: realizeHand(rootNote, voicing.right, RH_BASE + octaveShift)
+      };
+    }
+
+    /**
+     * Penalty for a right-hand voicing sitting outside the practical register.
+     */
+    function registerPenalty(midis) {
+      if (!midis.length) return 0;
+      let p = 0;
+      for (const m of midis) {
+        if (m < RH_SOFT_LOW) p += (RH_SOFT_LOW - m) * 1.5;
+        if (m > RH_SOFT_HIGH) p += (m - RH_SOFT_HIGH) * 1.5;
+      }
+      const mean = midis.reduce((a, b) => a + b, 0) / midis.length;
+      p += Math.abs(mean - RH_TARGET_CENTER) * 0.2;
+      return p;
+    }
+
+    /**
+     * Voice movement between two realized right hands, in real pitch space.
+     * Symmetric nearest-neighbor distance: every note in each voicing must be
+     * "explained" by a nearby note in the other, so common tones cost 0,
+     * half-step resolutions cost little, and leaps or abandoned voices cost a
+     * lot. Handles voicings of different sizes (shells vs 4-note) gracefully.
+     */
+    function voiceMovementCost(prevMidis, nextMidis) {
+      if (!prevMidis || !prevMidis.length || !nextMidis.length) return 0;
+      let cost = 0;
+      for (const n of nextMidis) {
+        let best = Infinity;
+        for (const p of prevMidis) best = Math.min(best, Math.abs(n - p));
+        cost += best;
+      }
+      for (const p of prevMidis) {
+        let best = Infinity;
+        for (const n of nextMidis) best = Math.min(best, Math.abs(p - n));
+        cost += best;
+      }
+      return cost / 2;
+    }
+
+    const FALLBACK_VOICING = { left: ['R'], right: ['R'], name: 'Basic', type: null };
+
+    // The three seventh-family tiers share the same chord QUALITIES and differ
+    // only in which voicings they offer. This maps a complexity setting to the
+    // voicing tier tag it should filter on; tiers not listed here (simple,
+    // extended, altered) do no filtering and see every voicing for the quality.
+    const COMPLEXITY_TO_TIER = {
+      'seventh-strict': 'strict',  // R-3-5-7 chord tones only, no color
+      'rsp': 'rsp',                // root + shell (3,7) + one "pretty" note
+      'seventh': 'jazz'            // Bill Evans rootless voicings (9/13 color)
+    };
+
+    // Selected complexity → allowed voicing tiers with preference costs.
+    // Lower tiers are always available but cost a little, so the DP optimizer
+    // reaches down only when it buys smoother voice leading or register fit.
+    const VOICING_TIER_COSTS = {
+      'seventh-strict': { strict: 0 },
+      'rsp':            { rsp: 0, strict: 0.8 },
+      'seventh':        { jazz: 0, rsp: 0.8, strict: 1.6 }
+    };
+
+    /**
+     * Cumulative voicing filter — the single source of truth for which voicings
+     * a complexity offers. Returns every voicing whose `tiers` intersects the
+     * allowed set for the complexity; untagged voicings (triads, extended and
+     * altered qualities) are native to the selected tier and always included.
+     * Called from getChordNotesAtIndex, selectChord's cycling, and
+     * buildVoicingCandidates — the returned order defines voicingIndices, so it
+     * must stay identical across those call sites.
+     */
+    function voicingsFor(quality, complexity) {
+      const vd = KEYBOARD_VOICINGS[quality];
+      const all = vd && vd.voicings && vd.voicings.length ? vd.voicings : [FALLBACK_VOICING];
+      const costs = VOICING_TIER_COSTS[complexity];
+      if (!costs) return all; // simple/extended/altered: no tier filtering
+      const allowed = Object.keys(costs);
+      const filtered = all.filter(v => !v.tiers || v.tiers.some(t => allowed.indexOf(t) !== -1));
+      // Fall back to the full list if a quality has no matching tagged voicings.
+      return filtered.length ? filtered : all;
+    }
+
+    /**
+     * All candidate realizations of a chord: every voicing at three octave
+     * placements. Local cost favors staying in register and (mildly) fuller
+     * voicings, so shells remain available for manual selection but aren't
+     * the automatic default.
+     */
+    function buildVoicingCandidates(chord, complexity) {
+      const cands = [];
+      // extended/altered reuse the 'seventh' cost table so their native
+      // (untagged → 0) voicings coexist with any reached-down seventh-family
+      // voicings that quality mixing produces.
+      const tierCosts = VOICING_TIER_COSTS[complexity]
+        || ((complexity === 'extended' || complexity === 'altered') ? VOICING_TIER_COSTS['seventh'] : null);
+      voicingsFor(chord.quality, complexity).forEach((voicing, vIndex) => {
+        // Untagged voicings are native to the selected tier (cost 0). The tier
+        // cost now carries the "prefer fuller voicings" preference, so the raw
+        // sparsity weight is small (0.4) rather than the old 1.0.
+        const tierCost = (tierCosts && voicing.tiers)
+          ? Math.min(...voicing.tiers.map(t => tierCosts[t] ?? Infinity))
+          : 0;
+        for (const shift of [-12, 0, 12]) {
+          const rhMidis = realizeHand(chord.root, voicing.right, RH_BASE + shift).map(n => n.midi);
+          const sparsity = Math.max(0, 4 - rhMidis.length);
+          const localCost = registerPenalty(rhMidis) + sparsity * 0.4 + tierCost;
+          cands.push({ vIndex, shift, rhMidis, localCost });
+        }
+      });
+      return cands;
+    }
+
+    /**
+     * Choose voicing + octave placement for every chord in the progression at
+     * once, minimizing total (voice movement + register cost) via dynamic
+     * programming over the sequence. Global optimization means an early greedy
+     * choice can't paint the progression into a corner.
+     * Returns { indices: [...], shifts: [...] }.
+     */
+    function computeProgressionVoicings(progression, complexity) {
+      const indices = [];
+      const shifts = [];
+      if (!progression || !progression.length) return { indices, shifts };
+
+      const layers = progression.map(chord => buildVoicingCandidates(chord, complexity));
+
+      // Forward pass
+      let costs = layers[0].map(c => c.localCost);
+      const back = [layers[0].map(() => -1)];
+
+      for (let i = 1; i < layers.length; i++) {
+        const nextCosts = [];
+        const pointers = [];
+        for (let j = 0; j < layers[i].length; j++) {
+          let best = Infinity;
+          let bestK = 0;
+          for (let k = 0; k < layers[i - 1].length; k++) {
+            const c = costs[k] + voiceMovementCost(layers[i - 1][k].rhMidis, layers[i][j].rhMidis);
+            if (c < best) { best = c; bestK = k; }
+          }
+          nextCosts.push(best + layers[i][j].localCost);
+          pointers.push(bestK);
+        }
+        costs = nextCosts;
+        back.push(pointers);
+      }
+
+      // Backtrack from the cheapest final state
+      let j = 0;
+      for (let k = 1; k < costs.length; k++) {
+        if (costs[k] < costs[j]) j = k;
+      }
+      for (let i = layers.length - 1; i >= 0; i--) {
+        indices[i] = layers[i][j].vIndex;
+        shifts[i] = layers[i][j].shift;
+        j = back[i][j];
+      }
+
+      return { indices, shifts };
+    }
+
+    /**
+     * Recompute and store optimal voicings for the current progression.
+     */
+    function recomputeProgressionVoicings() {
+      const result = computeProgressionVoicings(state.progression, state.complexity);
+      state.voicingIndices = result.indices;
+      state.voicingShifts = result.shifts;
+    }
+
+    /**
+     * Best octave placement for a manually chosen voicing: closest fit in
+     * register and, if given, smoothest connection from the previous chord.
+     */
+    function bestShiftForVoicing(rootNote, voicing, prevRhMidis) {
+      let best = 0;
+      let bestCost = Infinity;
+      for (const shift of [-12, 0, 12]) {
+        const rhMidis = realizeHand(rootNote, voicing.right, RH_BASE + shift).map(n => n.midi);
+        const c = registerPenalty(rhMidis) + voiceMovementCost(prevRhMidis, rhMidis);
+        if (c < bestCost) { bestCost = c; best = shift; }
+      }
+      return best;
+    }
+
+    /**
+     * Get a specific voicing by index, realized in register.
+     * Pure function: no hidden state, safe to call from any UI path.
+     */
+    function getChordNotesAtIndex(rootNote, quality, complexity, index, octaveShift) {
+      let chordInfo;
+      for (const level of ['simple', 'seventh', 'extended', 'altered']) {
+        if (CHORD_TYPES[level][quality]) {
+          chordInfo = CHORD_TYPES[level][quality];
+          break;
+        }
+      }
+      if (!chordInfo) chordInfo = CHORD_TYPES.simple.maj;
+
+      const voicings = voicingsFor(quality, complexity);
+      const safeIndex = ((index || 0) % voicings.length + voicings.length) % voicings.length;
+      const voicing = voicings[safeIndex];
+
+      // If no placement was provided, pick the one that best fits the register
+      let shift = octaveShift;
+      if (shift === undefined || shift === null) {
+        shift = bestShiftForVoicing(rootNote, voicing, null);
+      }
+
+      const realized = realizeVoicing(rootNote, voicing, shift);
+
+      return {
+        leftHand: realized.left.map(n => n.name),
+        rightHand: realized.right.map(n => n.name),
+        leftHandPitches: realized.left,
+        rightHandPitches: realized.right,
+        name: chordInfo.name,
+        voicingName: voicing.name,
+        voicingIndex: safeIndex,
+        octaveShift: shift
+      };
+    }
+
+    /**
+     * Default voicing for a chord in isolation (voicing 0, best register).
+     */
+    function getChordNotes(rootNote, quality, complexity) {
+      return getChordNotesAtIndex(rootNote, quality, complexity, 0, undefined);
+    }
+
+    function formatNoteDisplay(n) {
+      if (NOTE_DISPLAY[n]) return NOTE_DISPLAY[n];
+      if (n.includes('##')) return n.charAt(0) + '\u{1D12A}';
+      if (n.includes('bb')) return n.charAt(0) + '\u{1D12B}';
+      if (n.includes('#')) return n.charAt(0) + '\u266F';
+      if (n.includes('b')) return n.charAt(0) + '\u266D';
+      return n;
+    }
+
+    function formatChordSymbol(root, quality) {
+      // Defensive check for undefined root
+      if (!root) {
+        console.warn('formatChordSymbol called with undefined root');
+        return '?';
+      }
+      
+      let chordInfo;
+      for (const level of ['simple', 'seventh', 'extended', 'altered']) {
+        if (CHORD_TYPES[level][quality]) {
+          chordInfo = CHORD_TYPES[level][quality];
+          break;
+        }
+      }
+      
+      const symbol = chordInfo ? chordInfo.symbol : '';
+      
+      // Format root note for display (shared formatter: handles single and
+      // double accidentals uniformly)
+      return formatNoteDisplay(root) + symbol;
+    }
+
