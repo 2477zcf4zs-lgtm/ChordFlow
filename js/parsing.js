@@ -181,6 +181,36 @@
       return parseBasicNumeral(numeral, key, mode, complexity, false, density);
     }
 
+    // Chart-style suffix -> quality (uppercase / lowercase roman resolve dom vs
+    // min families). Returns null for no/unknown suffix so pools take over.
+    const EXPLICIT_SUFFIXES = {
+      upper: {
+        '7': 'dom7', '9': 'dom9', '11': 'dom11', '13': 'dom13',
+        'maj7': 'maj7', 'maj9': 'maj9', 'maj13': 'maj13',
+        '6': '6', '69': '69', 'add9': 'add9',
+        '7b9': 'dom7b9', '7#9': 'dom7s9', '7b5': 'dom7b5', '7#5': 'dom7s5',
+        '7#11': 'dom7s11', '7b13': 'dom7b13', '7alt': 'dom7alt',
+        '9b5': 'dom9b5', '9#5': 'dom9s5', '13b9': 'dom13b9', '13#11': 'dom13s11'
+      },
+      lower: {
+        '7': 'min7', '9': 'min9', '11': 'min11', '13': 'min13',
+        '6': 'm6', 'add9': 'madd9', 'maj7': 'minMaj7'
+      }
+    };
+
+    function explicitSuffixQuality(workingNumeral, isUpperCase) {
+      const m = /^([IViv]+)(.+)$/.exec(workingNumeral);
+      if (!m) return null;
+      const table = isUpperCase ? EXPLICIT_SUFFIXES.upper : EXPLICIT_SUFFIXES.lower;
+      return table[m[2]] || null;
+    }
+
+    /** The 'simple' tier reduces a pinned chart quality to its triad. */
+    function triadReduction(quality) {
+      if (quality.startsWith('min') || quality === 'm6' || quality === 'madd9') return 'min';
+      return 'maj';
+    }
+
     function parseBasicNumeral(numeral, key, mode, complexity, isSecondary = false, density = 1.0) {
       // The strict-7th and root-shell-pretty tiers select essentially the same
       // chord QUALITIES as the jazz-rootless seventh tier; they differ mainly
@@ -206,19 +236,11 @@
         workingNumeral = workingNumeral.substring(1);
       }
       
-      // Strip quality indicators for core numeral detection
-      // Be careful not to strip 'i' or 'v' from the roman numeral itself
-      const coreNumeral = workingNumeral
-        .replace(/°/g, '')
-        .replace(/ø/g, '')
-        .replace(/\+/g, '')
-        .replace(/maj/gi, '')
-        .replace(/dim/gi, '')
-        .replace(/aug/gi, '')
-        .replace(/sus/gi, '')
-        .replace(/add/gi, '')
-        .replace(/\d+/g, '')  // Remove numbers
-        .trim();
+      // Core numeral = the leading roman-letter run once °/ø/+ symbols are
+      // dropped. Taking the prefix (instead of globally stripping known words
+      // and digits) survives altered suffixes like 'V7b9' or 'II13#11', whose
+      // 'b'/'#' fragments used to corrupt the numeral.
+      const coreNumeral = (/^[IViv]+/.exec(workingNumeral.replace(/[°ø+]/g, '')) || [''])[0];
       
       // Determine if major or minor based on case
       const isUpperCase = coreNumeral === coreNumeral.toUpperCase() && coreNumeral.length > 0;
@@ -261,7 +283,21 @@
       const downScale = 1 / density;
       const scale = (pairs, f) => pairs.map(([v, w]) => [v, w * f]);
 
-      if (isDiminished) {
+      // --- Explicit chart suffixes pin the quality (as-written library, 5.1) ---
+      // A numeral like Imaj7, ii7, V7b9 or bIImaj7 reproduces the chart instead
+      // of rolling pools. Secondary dominants are exempt: V7/x keeps following
+      // the tier's dominant pools (Phase 4). The 'simple' tier reduces pinned
+      // qualities to their triad, mirroring how °7 reduces to dim there.
+      // °/ø/+/sus stay with their existing branches below.
+      const pinned = !isSecondary && !isDiminished && !isHalfDiminished &&
+        !isAugmented && !/sus/i.test(numeral)
+        ? explicitSuffixQuality(workingNumeral, isUpperCase)
+        : null;
+      if (pinned) {
+        quality = complexity === 'simple' ? triadReduction(pinned) : pinned;
+        // The vii°-in-major / ii-in-minor guardrails below intentionally still
+        // apply after this (function preservation, invariant 7).
+      } else if (isDiminished) {
         if (complexity === 'simple') {
           quality = 'dim';
         } else if (numeral.includes('°7') || isSharp || isSecondary) {

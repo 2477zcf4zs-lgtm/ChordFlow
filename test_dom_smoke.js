@@ -10,9 +10,15 @@ const { JSDOM, ResourceLoader } = require('jsdom');
 
 // Load local resources (css/*, js/*) but skip remote ones (the Google Fonts
 // stylesheet) so the test stays hermetic and doesn't depend on the network.
+// The page runs under http://localhost/ (see url option below) so jsdom grants
+// it a real origin — required for localStorage (5.2); file: URLs get none —
+// and this loader maps those localhost URLs back onto the repo files.
+const fs = require('fs');
 class LocalResourceLoader extends ResourceLoader {
   fetch(url, options) {
     if (url.startsWith('file:')) return super.fetch(url, options);
+    const local = /^https?:\/\/localhost\/(.+)$/.exec(url);
+    if (local) return fs.promises.readFile(path.join(__dirname, decodeURIComponent(local[1])));
     return Promise.resolve(Buffer.from(''));
   }
 }
@@ -80,6 +86,7 @@ let window, document;
 
 async function main() {
   const dom = await JSDOM.fromFile(path.join(__dirname, 'index.html'), {
+    url: 'http://localhost/index.html', // real origin -> working localStorage
     runScripts: 'dangerously',
     resources: new LocalResourceLoader(),
     pretendToBeVisual: true, // requestAnimationFrame support
@@ -386,6 +393,87 @@ async function main() {
       }
     }
     check(sawSecondary && secondaryOk, 'a generated V7/x parses dominant, resolves next door, and renders');
+    window.loadProgression(0);
+
+    // --- Phase 5: as-written library loading ---
+    const libIndex = (frag) => window.eval('PROGRESSION_LIBRARY').findIndex(p => p.name.includes(frag));
+    const chip = document.getElementById('asWrittenChip');
+    const autumnIdx = libIndex('Autumn Leaves');
+    window.loadProgression(autumnIdx);
+    check(st().key === 'Bb' && document.getElementById('keySelect').value === 'Bb',
+      'Autumn Leaves opens in its original key (Bb), key select follows');
+    check(st().asWritten === true && chip.hidden === false, 'as-written chip shows on library load');
+    check(st().progression.map(c => c.quality).join(',') === 'min7,dom7,maj7,maj7,m7b5,dom7b9,min7',
+      'Autumn Leaves qualities reproduce the chart');
+    // Leaving the original key resumes normal behavior and clears the chip
+    const keySel = document.getElementById('keySelect');
+    keySel.value = 'C';
+    keySel.dispatchEvent(new window.Event('change'));
+    check(st().asWritten === false && chip.hidden === true, 'key change clears as-written');
+    check(st().progression.map(c => c.root).join(' ') === 'D G C F B E A',
+      'as-written chart transposes like any progression (Bb->C roots: ' + st().progression.map(c => c.root).join(' ') + ')');
+    window.loadProgression(autumnIdx);
+    const cxSel = document.getElementById('complexitySelect');
+    cxSel.value = 'extended';
+    cxSel.dispatchEvent(new window.Event('change'));
+    check(st().asWritten === false && chip.hidden === true, 'complexity change clears as-written');
+    cxSel.value = 'seventh';
+    cxSel.dispatchEvent(new window.Event('change'));
+    window.loadProgression(0); // ii-V-I exercise: original key C
+    check(st().key === 'C' && chip.hidden === false, 'exercises open as written in C');
+
+    // --- Phase 5: saved progressions (localStorage round-trips) ---
+    window.localStorage.removeItem('chordflow.savedProgressions.v1');
+    window.renderSavedProgressions();
+    check(document.getElementById('savedEmpty').hidden === false, 'empty state shows before any save');
+
+    // Save a specific, mutated state: Autumn Leaves + tritone sub + key change
+    window.loadProgression(autumnIdx);
+    window.applySubstitution(1, window.getChordSubstitutions(st().progression[1].root, st().progression[1].quality)[0]);
+    const snapshot = {
+      numerals: JSON.stringify(st().sourceNumerals), key: st().key, mode: st().mode,
+      complexity: st().complexity, density: st().density,
+      subs: JSON.stringify(st().substitutions), bars: st().bars
+    };
+    const savedEntry = window.saveCurrentProgression('Smoke Test Tune');
+    check(!!savedEntry && document.querySelectorAll('.saved-item').length === 1,
+      'save persists and renders one saved item');
+
+    // Mutate everything, then load back and compare verbatim
+    window.generateRandomProgression();
+    keySel.value = 'E'; keySel.dispatchEvent(new window.Event('change'));
+    const loadedOk = window.loadSavedProgression(savedEntry.id);
+    check(loadedOk === true, 'saved progression loads by id');
+    check(JSON.stringify(st().sourceNumerals) === snapshot.numerals &&
+      st().key === snapshot.key && st().mode === snapshot.mode &&
+      st().complexity === snapshot.complexity && st().density === snapshot.density &&
+      JSON.stringify(st().substitutions) === snapshot.subs && st().bars === snapshot.bars,
+      'load restores every field verbatim (numerals, key, mode, complexity, density, subs, bars)');
+    check(st().progression[1].substituted === true, 'stored substitution re-applies on load');
+    check(document.getElementById('keySelect').value === snapshot.key &&
+      document.getElementById('complexitySelect').value === snapshot.complexity,
+      'selects sync to the restored state');
+
+    // Rename + export + delete + import
+    check(window.renameSavedProgression(savedEntry.id, 'Renamed Tune') === true &&
+      document.querySelector('.saved-name').textContent === 'Renamed Tune', 'rename persists and re-renders');
+    const exported = window.exportSavedProgressionsJson();
+    check(JSON.parse(exported).savedProgressions.length === 1, 'export emits valid JSON');
+    check(window.deleteSavedProgression(savedEntry.id) === true &&
+      document.querySelectorAll('.saved-item').length === 0 &&
+      document.getElementById('savedEmpty').hidden === false, 'delete removes the item');
+    check(window.importSavedProgressionsJson(exported) === 1 &&
+      document.querySelectorAll('.saved-item').length === 1, 'import restores from exported JSON');
+    check(window.importSavedProgressionsJson('not json at all') === -1, 'garbage import is rejected');
+    window.localStorage.removeItem('chordflow.savedProgressions.v1');
+
+    // Storage-unavailable degradation: force the probe to fail
+    window.eval('var __realStorageAvailable = storageAvailable; storageAvailable = function(){ return false; };');
+    window.renderSavedProgressions();
+    check(document.getElementById('savedUnavailable').hidden === false,
+      'blocked storage degrades to "saving unavailable"');
+    window.eval('storageAvailable = __realStorageAvailable;');
+    window.renderSavedProgressions();
     window.loadProgression(0);
 
     check(errors.length === 0, 'no script errors during interaction' + (errors.length ? ' -> ' + errors.join('; ') : ''));

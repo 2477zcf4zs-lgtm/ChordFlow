@@ -19,6 +19,7 @@
       substitutions: [],    // per-index applied substitution type, e.g. 'tritone' (for re-derivation)
       progressionName: '',
       progressionStyle: '',
+      asWritten: false,   // library tune shown in its original key/qualities (5.1)
       loopCount: 1,
       showVoicing: false,
       activeTab: null,    // which tab panel is open: 'voicing'|'dictionary'|'library'|'settings'|null
@@ -211,6 +212,7 @@
       state.density = Math.random() < 0.7 ? 1.0 : 0.45;
       state.sourceNumerals = buildRandomNumerals(mode, state.bars, state.density);
       state.substitutions = [];
+      state.asWritten = false;
       state.progressionName = 'Random Progression';
       state.progressionStyle = mode === 'major' ? 'Major' : 'Minor';
 
@@ -218,27 +220,187 @@
       elements.progressionStyle.textContent = state.progressionStyle;
 
       buildProgressionFromSource();
+      updateAsWrittenChip();
     }
 
     function loadProgression(index) {
       const prog = PROGRESSION_LIBRARY[index];
-      
+
       // Update mode if progression specifies one
       state.mode = prog.mode || 'major';
       elements.modeSelect.value = state.mode;
-      
+
+      // As-written (5.1): open the tune in its original key. Explicit quality
+      // suffixes in the entry pin the chart's qualities at parse time; the
+      // moment the user changes key or complexity, normal transposition/tier
+      // behavior resumes (that flips asWritten off in the listeners).
+      if (prog.originalKey) {
+        state.key = prog.originalKey;
+        elements.keySelect.value = prog.originalKey;
+      }
+      state.asWritten = true;
+
       state.sourceNumerals = prog.chords.slice();
       state.substitutions = [];
       state.density = Math.random() < 0.7 ? 1.0 : 0.45;
       state.progressionName = prog.name;
       state.progressionStyle = prog.style;
-      
+
       elements.progressionName.textContent = state.progressionName;
       elements.progressionStyle.textContent = state.progressionStyle;
-      
+
       buildProgressionFromSource();
-      
+      updateAsWrittenChip();
+
       // Close library panel
-      elements.libraryPanel.classList.remove('visible');
+      showTab(null);
     }
 
+
+    // ============================================
+    // PERSONAL SAVED PROGRESSIONS (5.2)
+    // Persisted to localStorage under one versioned key. Every access is
+    // guarded: private-mode Safari (and any storage-less environment) throws,
+    // and the app must degrade gracefully to "saving unavailable".
+    // ============================================
+
+    const SAVED_STORAGE_KEY = 'chordflow.savedProgressions.v1';
+
+    function storageAvailable() {
+      try {
+        const probe = '__chordflow_probe__';
+        window.localStorage.setItem(probe, probe);
+        window.localStorage.removeItem(probe);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function readSavedProgressions() {
+      try {
+        const raw = window.localStorage.getItem(SAVED_STORAGE_KEY);
+        const list = raw ? JSON.parse(raw) : [];
+        return Array.isArray(list) ? list : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function writeSavedProgressions(list) {
+      try {
+        window.localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(list));
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    /** Snapshot the current progression under `name`. Returns the entry or null. */
+    function saveCurrentProgression(name) {
+      if (!state.sourceNumerals.length) return null;
+      const entry = {
+        id: 'sp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8),
+        name: String(name || state.progressionName || 'Untitled').trim() || 'Untitled',
+        createdAt: new Date().toISOString(),
+        sourceNumerals: state.sourceNumerals.slice(),
+        key: state.key,
+        mode: state.mode,
+        complexity: state.complexity,
+        density: state.density,
+        substitutions: state.substitutions.slice(),
+        bars: state.bars
+      };
+      const list = readSavedProgressions();
+      list.push(entry);
+      if (!writeSavedProgressions(list)) return null;
+      renderSavedProgressions();
+      return entry;
+    }
+
+    /** Restore every stored field verbatim — no re-rolls (density included). */
+    function loadSavedProgression(id) {
+      const entry = readSavedProgressions().find(e => e.id === id);
+      if (!entry) return false;
+
+      state.key = entry.key;
+      state.mode = entry.mode;
+      state.complexity = entry.complexity;
+      state.density = entry.density;
+      state.bars = entry.bars || state.bars;
+      state.sourceNumerals = entry.sourceNumerals.slice();
+      state.substitutions = (entry.substitutions || []).slice();
+      state.asWritten = false;
+      state.progressionName = entry.name;
+      state.progressionStyle = 'Saved';
+
+      elements.keySelect.value = state.key;
+      elements.modeSelect.value = state.mode;
+      elements.complexitySelect.value = state.complexity;
+      if (elements.barsSelect) elements.barsSelect.value = String(state.bars);
+      elements.progressionName.textContent = state.progressionName;
+      elements.progressionStyle.textContent = state.progressionStyle;
+
+      buildProgressionFromSource();
+      updateAsWrittenChip();
+      showTab(null);
+      return true;
+    }
+
+    function renameSavedProgression(id, newName) {
+      const list = readSavedProgressions();
+      const entry = list.find(e => e.id === id);
+      if (!entry) return false;
+      const name = String(newName || '').trim();
+      if (!name) return false;
+      entry.name = name;
+      if (!writeSavedProgressions(list)) return false;
+      renderSavedProgressions();
+      return true;
+    }
+
+    function deleteSavedProgression(id) {
+      const list = readSavedProgressions();
+      const next = list.filter(e => e.id !== id);
+      if (next.length === list.length) return false;
+      if (!writeSavedProgressions(next)) return false;
+      renderSavedProgressions();
+      return true;
+    }
+
+    /** Export all saved progressions as pretty JSON (for download/backup). */
+    function exportSavedProgressionsJson() {
+      return JSON.stringify({ version: 1, savedProgressions: readSavedProgressions() }, null, 2);
+    }
+
+    /**
+     * Import from exported JSON (or a bare array). Entries merge by id —
+     * existing ids are replaced, new ones appended. Returns the number
+     * imported, or -1 for unparseable/invalid input.
+     */
+    function importSavedProgressionsJson(text) {
+      let incoming;
+      try {
+        const parsed = JSON.parse(text);
+        incoming = Array.isArray(parsed) ? parsed : parsed && parsed.savedProgressions;
+      } catch (e) {
+        return -1;
+      }
+      if (!Array.isArray(incoming)) return -1;
+      const valid = incoming.filter(e => e && typeof e === 'object' &&
+        Array.isArray(e.sourceNumerals) && e.sourceNumerals.length && e.key && e.mode);
+      if (!valid.length) return -1;
+
+      const list = readSavedProgressions();
+      let count = 0;
+      for (const entry of valid) {
+        if (!entry.id) entry.id = 'sp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+        if (!entry.name) entry.name = 'Imported';
+        const at = list.findIndex(e => e.id === entry.id);
+        if (at !== -1) list[at] = entry; else list.push(entry);
+        count++;
+      }
+      if (!writeSavedProgressions(list)) return -1;
+      renderSavedProgressions();
+      return count;
+    }
