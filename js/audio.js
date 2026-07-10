@@ -20,6 +20,7 @@
       schedulerId: null,
       rafId: null,
       loopBase: 0,        // loops completed before the current play span (survives pause/resume)
+      auditionGain: null, // one-shot step-audition gain; replaced per audition, never the sessionGain
       visualQueue: []     // scheduled beats awaiting their visual update
     };
 
@@ -324,6 +325,80 @@
         stopPlayback();
       } else {
         startPlayback();
+      }
+    }
+
+    // ============================================
+    // STEP TRANSPORT (Prev/Next chord)
+    // ============================================
+
+    /**
+     * One-shot audition of a chord while stopped. Plays through a dedicated
+     * auditionGain connected to master — deliberately NOT the sessionGain, so
+     * the playback session-token discipline is untouched. Each audition
+     * replaces the previous gain, so retriggering cuts the prior chord off.
+     */
+    function auditionChord(index) {
+      if (!state.progression.length) return;
+      if (!ensureAudioContext()) return; // no Web Audio: step silently
+      const ctx = audioEngine.ctx;
+
+      if (audioEngine.auditionGain) {
+        const old = audioEngine.auditionGain;
+        const t0 = ctx.currentTime;
+        old.gain.setValueAtTime(old.gain.value, t0);
+        old.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
+        setTimeout(() => old.disconnect(), 120);
+        audioEngine.auditionGain = null;
+      }
+
+      const g = ctx.createGain();
+      g.gain.value = 1;
+      g.connect(audioEngine.master);
+      audioEngine.auditionGain = g;
+
+      const t = ctx.currentTime + 0.02;
+      const duration = 1.4;
+      const d = chordPitchesAt(index);
+      // Same slight roll as scheduled playback so it sounds played, not stamped
+      d.leftHandPitches.forEach((p, i) => {
+        synthNote(p.midi, t + i * 0.006, duration, 0.30, g);
+      });
+      d.rightHandPitches.forEach((p, i) => {
+        synthNote(p.midi, t + 0.008 + i * 0.007, duration, 0.16, g);
+      });
+    }
+
+    /**
+     * Step to the previous/next chord (delta = -1 / +1), with wraparound.
+     * Stopped: moves the selection (voicing panel follows) and auditions it.
+     * Playing: jumps playback to the chord's downbeat, resyncing the scheduler
+     * clock and anchoring loopBase so the loop display doesn't jump.
+     */
+    function stepChord(delta) {
+      const n = state.progression.length;
+      if (!n) return;
+
+      if (state.isPlaying) {
+        const newIndex = ((state.currentChordIndex + delta) % n + n) % n;
+        // Freeze the displayed loop count across the jump: chordStep restarts
+        // from the new position, so fold completed loops into loopBase.
+        audioEngine.loopBase = state.loopCount - 1;
+        state.currentChordIndex = newIndex;
+        state.currentBeat = 0;
+        audioEngine.beatCounter = newIndex * state.beatsPerChord;
+        audioEngine.visualQueue = [];
+        if (audioEngine.ctx) {
+          audioEngine.nextBeatTime = audioEngine.ctx.currentTime + 0.06;
+        }
+        updatePlaybackState();
+        updateProgress();
+      } else {
+        const selectedIdx = state.selectedChordIndex !== null
+          ? state.selectedChordIndex : state.currentChordIndex;
+        const newIndex = ((selectedIdx + delta) % n + n) % n;
+        selectChord(newIndex); // voicing panel already follows selection
+        auditionChord(newIndex);
       }
     }
 

@@ -5,6 +5,8 @@
 
     const elements = {
       playBtn: document.getElementById('playBtn'),
+      prevChordBtn: document.getElementById('prevChordBtn'),
+      nextChordBtn: document.getElementById('nextChordBtn'),
       stopBtn: document.getElementById('stopBtn'),
       newBtn: document.getElementById('newBtn'),
       voicingBtn: document.getElementById('voicingBtn'),
@@ -37,6 +39,7 @@
       dictChordName: document.getElementById('dictChordName'),
       dictChordFullName: document.getElementById('dictChordFullName'),
       dictChordFormula: document.getElementById('dictChordFormula'),
+      dictChordTip: document.getElementById('dictChordTip'),
       dictSubstitutions: document.getElementById('dictSubstitutions'),
       dictVoicingList: document.getElementById('dictVoicingList')
     };
@@ -48,6 +51,8 @@
     function setupEventListeners() {
       // Transport controls
       elements.playBtn.addEventListener('click', () => { togglePlayback(); elements.playBtn.blur(); });
+      elements.prevChordBtn.addEventListener('click', () => { stepChord(-1); elements.prevChordBtn.blur(); });
+      elements.nextChordBtn.addEventListener('click', () => { stepChord(1); elements.nextChordBtn.blur(); });
       elements.stopBtn.addEventListener('click', () => { stopAndReset(); elements.stopBtn.blur(); });
       elements.newBtn.addEventListener('click', () => {
         stopPlayback();
@@ -175,6 +180,14 @@
           case 'ArrowRight':
             e.preventDefault();
             setTempo(state.tempo + 5);
+            break;
+          case 'BracketLeft':
+            e.preventDefault();
+            stepChord(-1);
+            break;
+          case 'BracketRight':
+            e.preventDefault();
+            stepChord(1);
             break;
         }
       });

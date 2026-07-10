@@ -798,6 +798,15 @@
       margin-bottom: 12px;
     }
 
+    .dict-chord-tip {
+      font-size: 0.82rem;
+      font-style: italic;
+      color: var(--text-muted);
+      line-height: 1.45;
+      padding: 0 2px;
+      margin: -4px 0 12px;
+    }
+
     .dict-voicing-list {
       display: flex;
       flex-direction: column;

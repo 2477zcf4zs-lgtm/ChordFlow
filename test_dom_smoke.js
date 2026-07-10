@@ -246,6 +246,50 @@ async function main() {
       'loop counter survives pause/resume (' + loopBeforePause + ' -> ' + st().loopCount + ')');
     window.stopAndReset();
 
+    // --- Phase 2: step transport (Prev/Next chord) ---
+    const prevBtn = document.getElementById('prevChordBtn');
+    const nextBtn = document.getElementById('nextChordBtn');
+    check(prevBtn && prevBtn.tagName === 'BUTTON' && prevBtn.getAttribute('aria-label') === 'Previous chord',
+      'Prev chord is a <button> with aria-label');
+    check(nextBtn && nextBtn.tagName === 'BUTTON' && nextBtn.getAttribute('aria-label') === 'Next chord',
+      'Next chord is a <button> with aria-label');
+
+    // Stopped: stepping moves the selection with wraparound and auditions the chord
+    window.loadProgression(0); // 3 chords, playback stopped
+    nextBtn.click();
+    check(st().selectedChordIndex === 1, 'Next while stopped selects chord 1');
+    check(engine().auditionGain !== null, 'stepping while stopped auditions through auditionGain');
+    check(engine().sessionGain === null, 'audition never touches sessionGain');
+    prevBtn.click();
+    prevBtn.click();
+    check(st().selectedChordIndex === 2, 'Prev wraps around to the last chord');
+
+    // Playing: stepping jumps playback without stopping it or jumping the loop display
+    window.stopAndReset();
+    await window.startPlayback();
+    const idxBefore = st().currentChordIndex;
+    const loopBeforeStep = st().loopCount;
+    nextBtn.click();
+    check(st().isPlaying === true, 'still playing after step during playback');
+    check(st().currentChordIndex === (idxBefore + 1) % st().progression.length,
+      'step during playback advances currentChordIndex');
+    check(st().loopCount === loopBeforeStep, 'loop display does not jump on step');
+    check(engine().schedulerId !== null, 'scheduler still alive after step');
+    prevBtn.click();
+    check(st().currentChordIndex === idxBefore, 'prev during playback steps back');
+    window.stopAndReset();
+
+    // --- Phase 2: dictionary tips ---
+    st().dictQuality = 'maj9';
+    window.renderDictChordInfo();
+    const tipEl = document.getElementById('dictChordTip');
+    check(tipEl && !tipEl.hidden && tipEl.textContent.startsWith('Think of it as'),
+      'dictionary shows a "Think of it as…" tip for maj9');
+    check(tipEl.textContent.includes('Em7'), 'maj9 tip names the min7-on-the-3rd shortcut');
+    st().dictQuality = 'maj7'; // no tip drafted for maj7
+    window.renderDictChordInfo();
+    check(tipEl.hidden === true, 'tip line hidden for a quality without a tip');
+
     check(errors.length === 0, 'no script errors during interaction' + (errors.length ? ' -> ' + errors.join('; ') : ''));
   } catch (e) {
     failures++;

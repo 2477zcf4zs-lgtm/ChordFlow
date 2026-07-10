@@ -51,6 +51,31 @@
       dom13s11: '1 - 3 - 5 - ♭7 - 9 - ♯11 - 13'
     };
 
+    // TIPS: drafted for review — Anthony to veto/edit wording
+    // Practical "think of it as…" shortcuts, rendered in the dictionary panel.
+    // Every claim below was verified against CHORD_FORMULAS/INTERVALS (root G or
+    // C, pitch-class arithmetic). Qualities with no honest shortcut have none.
+    const CHORD_TIPS = {
+      // Em7 = E G B D = 3-5-7-9 of C. Exact match.
+      maj9: 'a min7 chord built on the 3rd, over the root: Cmaj9 = Em7/C (E–G–B–D covers 3–5–7–9).',
+      // Dm = D F A = ♭3-♭5-♭7 of B. Exact match.
+      m7b5: 'a minor triad a minor 3rd up, over the root: Bm7♭5 = Dm/B (D–F–A covers ♭3–♭5–♭7).',
+      // C = C E G = ♭7-9-11 of D.
+      min11: 'a major triad a whole step below, over the root: Dm11 → C/D (C–E–G covers ♭7–9–11).',
+      // A♭ melodic minor over G contains 3, ♭7 and every altered tension (♭9 ♯9 ♯11 ♭13).
+      dom7alt: 'melodic minor a half step up: G7alt → A♭ melodic minor (it holds the 3, ♭7, ♭9, ♯9, ♯11 and ♭13).',
+      // A = A C♯ E = 9-♯11-13 of G; the ♯11 plus the 9 and 13 colors.
+      dom7s11: 'upper structure: a major triad on the 2 over the ♭7 shell — G7♯11 → A/G7 (A–C♯–E adds 9–♯11–13).',
+      // Exact: dom13s11's formula is 1-3-5-♭7-9-♯11-13 and A/G supplies 9-♯11-13.
+      dom13s11: 'upper structure: a major triad on the 2 over the ♭7 shell — G13♯11 = A/G7 (A–C♯–E is exactly 9–♯11–13).',
+      // B-E-F-A = 3-13-♭7-9 of G: the Bill Evans rootless shape this app plays at the jazz tier.
+      dom13: 'guide tones plus both colors: shell 3–13–♭7–9 (G13 → B–E–F–A) — the classic rootless jazz voicing.',
+      // F/G = ♭7-9-11 (the 9sus sound); Fmaj7/G adds E = 13 (the 13sus sound).
+      dom7sus4: 'a major triad on the ♭7 over the root: G7sus4 → F/G (♭7–9–11, the 9sus sound); make it Fmaj7/G and the added 13 gives you 13sus.',
+      // E-A-D = two stacked perfect 4ths = 3-6-9 of C.
+      '69': 'root and 5th below two stacked 4ths from the 3rd: C69 → E–A–D on top (3–6–9).'
+    };
+
     /**
      * Voice Leading System (pitch-aware)
      *
@@ -523,6 +548,11 @@
       
       // Formula
       elements.dictChordFormula.textContent = CHORD_FORMULAS[dictQuality] || '—';
+
+      // Practical shortcut, when one exists (see CHORD_TIPS)
+      const tip = CHORD_TIPS[dictQuality];
+      elements.dictChordTip.hidden = !tip;
+      elements.dictChordTip.textContent = tip ? 'Think of it as… ' + tip : '';
       
       // Substitutions
       const subs = getChordSubstitutions(dictRoot, dictQuality);
