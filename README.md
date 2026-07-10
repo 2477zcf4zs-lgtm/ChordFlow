@@ -57,6 +57,11 @@ npm test           # runs both suites
 Both suites must exit 0. They also run in CI on every push and pull request
 (`.github/workflows/test.yml`, Node 22, `npm ci && npm test`).
 
+There is also a real-browser layout probe for the mobile/desktop shell
+(`scripts/layout_check.js`) that asserts the no-page-scroll acceptance rules at
+390×844 and 1280×800. It needs `npm i --no-save playwright-core` and a local
+Chromium; it is not part of `npm test`.
+
 ## Deploy (GitHub Pages)
 
 The app is static with `index.html` at the repository root, so GitHub Pages can serve

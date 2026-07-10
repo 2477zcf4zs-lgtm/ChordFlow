@@ -13,6 +13,11 @@
       metroBtn: document.getElementById('metroBtn'),
       tempoSlider: document.getElementById('tempoSlider'),
       tempoDisplay: document.getElementById('tempoDisplay'),
+      tempoBtn: document.getElementById('tempoBtn'),
+      tempoBtnValue: document.getElementById('tempoBtnValue'),
+      tempoPopover: document.getElementById('tempoPopover'),
+      settingsToggle: document.getElementById('settingsToggle'),
+      settingsPanel: document.getElementById('settingsPanel'),
       beatsPerChord: document.getElementById('beatsPerChord'),
       keySelect: document.getElementById('keySelect'),
       complexitySelect: document.getElementById('complexitySelect'),
@@ -59,7 +64,26 @@
         generateRandomProgression();
         elements.newBtn.blur();
       });
-      elements.voicingBtn.addEventListener('click', () => { toggleVoicingPanel(); elements.voicingBtn.blur(); });
+      // Tab bar: one panel open at a time (or none). No blur() here — tabs
+      // are keyboard-navigable and focus-visible styles handle the outline.
+      elements.voicingBtn.addEventListener('click', () => toggleTab('voicing'));
+      elements.dictToggle.addEventListener('click', () => toggleTab('dictionary'));
+      elements.libraryToggle.addEventListener('click', () => toggleTab('library'));
+      elements.settingsToggle.addEventListener('click', () => toggleTab('settings'));
+
+      // Tempo popover (opened from the transport bar's BPM readout)
+      elements.tempoBtn.addEventListener('click', () => {
+        const opening = elements.tempoPopover.hidden;
+        elements.tempoPopover.hidden = !opening;
+        elements.tempoBtn.setAttribute('aria-expanded', opening ? 'true' : 'false');
+      });
+      document.addEventListener('click', (e) => {
+        if (elements.tempoPopover.hidden) return;
+        if (elements.tempoPopover.contains(e.target) || elements.tempoBtn.contains(e.target)) return;
+        elements.tempoPopover.hidden = true;
+        elements.tempoBtn.setAttribute('aria-expanded', 'false');
+      });
+
       elements.metroBtn.addEventListener('click', () => {
         state.metronomeOn = !state.metronomeOn;
         const metroLbl = elements.metroBtn.querySelector('.btn-label');
@@ -110,12 +134,6 @@
         generateRandomProgression();
       });
       
-      // Library
-      elements.libraryToggle.addEventListener('click', () => {
-        elements.libraryPanel.classList.toggle('visible');
-        elements.chordDictPanel.classList.remove('visible'); // Close dict if open
-      });
-      
       // Chord boxes + sub badges: one delegated listener (mirrors libraryGrid).
       // Nodes are rebuilt only on structural changes, so per-node listeners
       // would be re-attached needlessly; delegation also survives those rebuilds.
@@ -144,12 +162,6 @@
         if (item) {
           loadProgression(parseInt(item.dataset.index));
         }
-      });
-      
-      // Chord Dictionary
-      elements.dictToggle.addEventListener('click', () => {
-        elements.chordDictPanel.classList.toggle('visible');
-        elements.libraryPanel.classList.remove('visible'); // Close library if open
       });
       
       // Keyboard shortcuts

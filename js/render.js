@@ -154,6 +154,7 @@
 
       elements.chordContainer.innerHTML = html;
       updatePlaybackState();
+      scrollActiveChordIntoView();
     }
 
     /**
@@ -222,8 +223,9 @@
       } else {
         renderVoicing();
       }
-      
+
       updatePlaybackState();
+      scrollActiveChordIntoView();
     }
     
     function showSubstitutionMenu(chordIndex, badgeElement) {
@@ -234,19 +236,13 @@
       const existingMenu = document.querySelector('.sub-menu');
       if (existingMenu) existingMenu.remove();
       
-      // Create popup menu
+      // Create the menu: a positioned popover on wide viewports, a bottom
+      // sheet on narrow ones (an absolutely positioned popover would be
+      // clipped by the horizontally scrolling chord strip and is awkward to
+      // reach on a phone). Visual styles live in the stylesheet (.sub-menu).
+      const isSheet = typeof window.innerWidth === 'number' && window.innerWidth <= 640;
       const menu = document.createElement('div');
-      menu.className = 'sub-menu';
-      menu.style.cssText = `
-        position: absolute;
-        background: var(--bg-elevated);
-        border: 1px solid var(--accent-coral);
-        border-radius: 12px;
-        padding: 8px;
-        z-index: 100;
-        min-width: 160px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-      `;
+      menu.className = 'sub-menu' + (isSheet ? ' sub-menu--sheet' : '');
       
       let menuHtml = '<div style="font-size: 0.7rem; color: var(--text-muted); padding: 4px 8px; text-transform: uppercase; letter-spacing: 0.1em;">Substitute with:</div>';
       
@@ -269,14 +265,15 @@
       
       menu.innerHTML = menuHtml;
       
-      // Position menu near the badge
-      const rect = badgeElement.getBoundingClientRect();
-      const containerRect = elements.chordContainer.getBoundingClientRect();
-      menu.style.left = `${rect.left - containerRect.left}px`;
-      menu.style.top = `${rect.bottom - containerRect.top + 8}px`;
-      
-      elements.chordContainer.style.position = 'relative';
-      elements.chordContainer.appendChild(menu);
+      // Sheets pin themselves via CSS; popovers anchor to the badge. Both
+      // attach to <body> so the strip's overflow clipping can't cut them off.
+      if (!isSheet) {
+        const rect = badgeElement.getBoundingClientRect();
+        menu.style.position = 'fixed';
+        menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 180))}px`;
+        menu.style.top = `${rect.bottom + 8}px`;
+      }
+      document.body.appendChild(menu);
       
       // Add hover effects and click handlers
       menu.querySelectorAll('.sub-menu-item').forEach((item, i) => {
@@ -470,14 +467,65 @@
       elements.voicingDescription.textContent = `${chordData.name} • ${chordData.voicingName}`;
     }
 
-    function toggleVoicingPanel(show) {
-      state.showVoicing = show !== undefined ? show : !state.showVoicing;
-      elements.voicingPanel.classList.toggle('visible', state.showVoicing);
-      elements.voicingBtn.classList.toggle('active', state.showVoicing);
-      
-      if (state.showVoicing) {
-        renderVoicing();
+    // ============================================
+    // TAB PANELS — voicing / dictionary / library / settings are mutually
+    // exclusive panels in .panel-area, driven by the tab bar.
+    // ============================================
+
+    function tabTargets() {
+      return {
+        voicing: [elements.voicingBtn, elements.voicingPanel],
+        dictionary: [elements.dictToggle, elements.chordDictPanel],
+        library: [elements.libraryToggle, elements.libraryPanel],
+        settings: [elements.settingsToggle, elements.settingsPanel]
+      };
+    }
+
+    /** Open the named tab (or close all with null). Single writer of activeTab/showVoicing. */
+    function showTab(name) {
+      const targets = tabTargets();
+      state.activeTab = name && targets[name] ? name : null;
+      for (const key of Object.keys(targets)) {
+        const on = key === state.activeTab;
+        const btn = targets[key][0];
+        const panel = targets[key][1];
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-selected', on ? 'true' : 'false');
+        panel.classList.toggle('visible', on);
       }
+      state.showVoicing = state.activeTab === 'voicing';
+      if (state.showVoicing) renderVoicing();
+      updatePlaybackState(); // the 'selected' chord highlight tracks showVoicing
+    }
+
+    function toggleTab(name) {
+      showTab(state.activeTab === name ? null : name);
+    }
+
+    /** Back-compat shim: every existing caller (selectChord, V key, tests)
+        keeps working; the voicing panel is now the 'voicing' tab. */
+    function toggleVoicingPanel(show) {
+      const want = show !== undefined ? show : !state.showVoicing;
+      if (want) showTab('voicing');
+      else if (state.activeTab === 'voicing') showTab(null);
+    }
+
+    /**
+     * Keep the active (playing) or selected chord visible in the horizontal
+     * strip. Feature-checked and try/caught for jsdom, and honoring
+     * prefers-reduced-motion by snapping instead of smooth-scrolling.
+     */
+    function scrollActiveChordIntoView() {
+      const idx = state.isPlaying
+        ? state.currentChordIndex
+        : (state.selectedChordIndex !== null ? state.selectedChordIndex : state.currentChordIndex);
+      const cell = elements.chordContainer.querySelector('.chord-cell[data-index="' + idx + '"]');
+      if (!cell || typeof cell.scrollIntoView !== 'function') return;
+      const reduced = typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      try {
+        cell.scrollIntoView({ inline: 'center', block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+      } catch (e) { /* environments without scroll options */ }
     }
 
     function renderLibrary() {

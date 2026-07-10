@@ -290,6 +290,57 @@ async function main() {
     window.renderDictChordInfo();
     check(tipEl.hidden === true, 'tip line hidden for a quality without a tip');
 
+    // --- Phase 3: tab bar (exclusive panels) ---
+    const tabBar = document.querySelector('.tab-bar');
+    check(tabBar && tabBar.getAttribute('role') === 'tablist', 'tab bar present with role=tablist');
+    check(document.querySelectorAll('.tab-btn').length === 4, 'four tab buttons');
+    const libToggle = document.getElementById('libraryToggle');
+    const dictToggle = document.getElementById('dictToggle');
+    const settingsToggle = document.getElementById('settingsToggle');
+    libToggle.click();
+    check(document.getElementById('libraryPanel').classList.contains('visible'), 'library tab opens library panel');
+    check(libToggle.getAttribute('aria-selected') === 'true', 'library tab aria-selected');
+    dictToggle.click();
+    check(document.getElementById('chordDictPanel').classList.contains('visible') &&
+      !document.getElementById('libraryPanel').classList.contains('visible'),
+      'tabs are exclusive (dictionary closes library)');
+    settingsToggle.click();
+    check(document.getElementById('settingsPanel').classList.contains('visible'), 'settings tab opens settings panel');
+    check(document.getElementById('settingsPanel').contains(document.getElementById('keySelect')) &&
+      document.getElementById('settingsPanel').contains(document.getElementById('metroBtn')),
+      'key select + metronome relocated into settings panel');
+    settingsToggle.click();
+    check(st().activeTab === null && !document.getElementById('settingsPanel').classList.contains('visible'),
+      'clicking the active tab closes it');
+    window.toggleVoicingPanel(true);
+    check(st().activeTab === 'voicing' && st().showVoicing === true &&
+      document.getElementById('voicingBtn').getAttribute('aria-selected') === 'true',
+      'toggleVoicingPanel(true) routes through the voicing tab');
+    window.toggleVoicingPanel(false);
+
+    // --- Phase 3: tempo popover in the transport bar ---
+    const tempoBtn = document.getElementById('tempoBtn');
+    const tempoPopover = document.getElementById('tempoPopover');
+    check(tempoBtn && tempoBtn.tagName === 'BUTTON' && tempoPopover.hidden === true,
+      'tempo readout button present, popover initially hidden');
+    tempoBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+    check(tempoPopover.hidden === false && tempoBtn.getAttribute('aria-expanded') === 'true',
+      'tempo button opens the popover');
+    document.body.dispatchEvent(new window.Event('click', { bubbles: true }));
+    check(tempoPopover.hidden === true && tempoBtn.getAttribute('aria-expanded') === 'false',
+      'clicking outside closes the popover');
+    window.setTempo(140);
+    check(document.getElementById('tempoBtnValue').textContent === '140' &&
+      document.getElementById('tempoDisplay').textContent === '140',
+      'setTempo updates both the transport readout and the popover display');
+    window.setTempo(120);
+
+    // --- Phase 3: transport bar structure ---
+    const transport = document.querySelector('.transport-bar');
+    check(!!transport && ['prevChordBtn', 'playBtn', 'stopBtn', 'nextChordBtn', 'tempoBtn', 'newBtn']
+      .every(id => transport.contains(document.getElementById(id))),
+      'transport bar holds play/stop/prev/next/tempo/new');
+
     check(errors.length === 0, 'no script errors during interaction' + (errors.length ? ' -> ' + errors.join('; ') : ''));
   } catch (e) {
     failures++;

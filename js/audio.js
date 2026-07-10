@@ -184,7 +184,10 @@
       if (updated) {
         updatePlaybackState();
         updateProgress();
-        if (chordChanged && state.showVoicing) renderVoicing();
+        if (chordChanged) {
+          if (state.showVoicing) renderVoicing();
+          scrollActiveChordIntoView();
+        }
       }
     }
 
@@ -206,6 +209,7 @@
       state.tempo = Math.max(40, Math.min(220, bpm));
       elements.tempoSlider.value = state.tempo;
       elements.tempoDisplay.textContent = state.tempo;
+      if (elements.tempoBtnValue) elements.tempoBtnValue.textContent = state.tempo;
     }
 
     // ============================================
@@ -393,6 +397,7 @@
         }
         updatePlaybackState();
         updateProgress();
+        scrollActiveChordIntoView();
       } else {
         const selectedIdx = state.selectedChordIndex !== null
           ? state.selectedChordIndex : state.currentChordIndex;

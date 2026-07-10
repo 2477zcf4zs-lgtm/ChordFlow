@@ -20,6 +20,7 @@
       progressionStyle: '',
       loopCount: 1,
       showVoicing: false,
+      activeTab: null,    // which tab panel is open: 'voicing'|'dictionary'|'library'|'settings'|null
       metronomeOn: false,
       density: 1.0,       // per-progression sparsity character (2.4); rolled on new/load
       voicingIndices: [], // Track which voicing is selected for each chord
