@@ -119,6 +119,41 @@
       return getChordNotesAtIndex(chord.root, chord.quality, state.complexity, vIndex, shift);
     }
 
+    // ============================================
+    // COMPING GROOVES
+    // Onset patterns per 4-beat cycle, in beats: t = when the right hand
+    // strikes, d = how long it rings. The pattern repeats every 4 beats of a
+    // chord's span (an 8-beat chord comps it twice), and onsets that don't
+    // fit a short span are dropped. 'block' (no pattern) = one strike held
+    // for the whole chord — the original behavior.
+    // ============================================
+
+    const GROOVE_PATTERNS = {
+      charleston: [{ t: 0, d: 1.5 }, { t: 1.5, d: 2 }],
+      bossa: [{ t: 0, d: 1 }, { t: 1.5, d: 1.5 }, { t: 3, d: 1 }],
+      pulse: [{ t: 0, d: 2 }, { t: 2, d: 2 }]
+    };
+
+    /**
+     * Expand a groove into concrete onsets for one chord. Pure. With swing,
+     * off-beat eighths (fractional part .5) land at the swung 2/3 position.
+     */
+    function grooveOnsets(groove, beatsPerChord, swing) {
+      const pattern = GROOVE_PATTERNS[groove];
+      if (!pattern) return [{ t: 0, d: beatsPerChord }];
+      const out = [];
+      for (let base = 0; base < beatsPerChord; base += 4) {
+        const cycleLen = Math.min(4, beatsPerChord - base);
+        for (const hit of pattern) {
+          if (hit.t >= cycleLen) continue;
+          let t = hit.t;
+          if (swing && t % 1 === 0.5) t = Math.floor(t) + 2 / 3;
+          out.push({ t: base + t, d: hit.d });
+        }
+      }
+      return out;
+    }
+
     /** Schedule everything that happens on one beat. */
     function scheduleBeat(globalBeat, time) {
       const { progression, beatsPerChord } = state;
@@ -130,14 +165,22 @@
 
       if (beatInChord === 0) {
         const secPerBeat = 60 / state.tempo;
-        const duration = beatsPerChord * secPerBeat * 0.92;
         const d = chordPitchesAt(chordIndex);
+        // LH bass holds the whole chord span regardless of groove
+        const span = beatsPerChord * secPerBeat * 0.92;
         // Slight roll (a few ms per note) so the attack sounds played, not stamped
         d.leftHandPitches.forEach((p, i) => {
-          synthNote(p.midi, time + i * 0.006, duration, 0.30, audioEngine.sessionGain);
+          synthNote(p.midi, time + i * 0.006, span, 0.30, audioEngine.sessionGain);
         });
-        d.rightHandPitches.forEach((p, i) => {
-          synthNote(p.midi, time + 0.008 + i * 0.007, duration, 0.16, audioEngine.sessionGain);
+        // RH comps the groove pattern (a single held hit for 'block')
+        const hits = grooveOnsets(state.groove, beatsPerChord, state.swing);
+        hits.forEach((hit, hi) => {
+          const t0 = time + hit.t * secPerBeat;
+          const dur = hit.d * secPerBeat * 0.92;
+          const vel = hi === 0 ? 0.16 : 0.13; // slight accent on the downbeat hit
+          d.rightHandPitches.forEach((p, i) => {
+            synthNote(p.midi, t0 + 0.008 + i * 0.007, dur, vel, audioEngine.sessionGain);
+          });
         });
       }
 
@@ -168,17 +211,20 @@
       const q = audioEngine.visualQueue;
       let updated = false;
       let chordChanged = false;
+      let loopWrapped = false;
       while (q.length && q[0].time <= ctx.currentTime) {
         const ev = q.shift();
         if (ev.beatInChord === 0 && ev.chordIndex !== state.currentChordIndex) chordChanged = true;
-        state.currentChordIndex = ev.chordIndex;
-        state.currentBeat = ev.beatInChord;
         // Derive the loop count from the monotonic chord step, so it also
         // increments correctly for one-chord progressions (the old wrap test
         // using '<' never fired when the index never changed). loopBase carries
         // loops completed before this play span so the count survives pause/resume
         // (chordStep restarts from the resume position on each start).
-        state.loopCount = audioEngine.loopBase + Math.floor(ev.chordStep / state.progression.length) + 1;
+        const newLoopCount = audioEngine.loopBase + Math.floor(ev.chordStep / state.progression.length) + 1;
+        if (newLoopCount > state.loopCount) loopWrapped = true;
+        state.currentChordIndex = ev.chordIndex;
+        state.currentBeat = ev.beatInChord;
+        state.loopCount = newLoopCount;
         updated = true;
       }
       if (updated) {
@@ -188,6 +234,39 @@
           if (state.showVoicing) renderVoicing();
           scrollActiveChordIntoView();
         }
+      }
+      // Practice modes fire once per completed pass through the progression.
+      if (loopWrapped && state.isPlaying) handleLoopBoundary();
+    }
+
+    // Flat spellings for the practice-transposer (matches the key select).
+    const FLAT_KEY_CYCLE = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+    /**
+     * Practice modes (per completed loop): tempo ramp, and the 12-keys
+     * transposer (cycle of 4ths — the classic shed order — or half steps).
+     * The transpose reuses the normal key-change path, so voicings re-optimize
+     * and playback re-anchors to the top of the progression in the new key.
+     */
+    function handleLoopBoundary() {
+      if (state.tempoRamp > 0) setTempo(state.tempo + state.tempoRamp);
+      if (state.autoTranspose && state.autoTranspose !== 'off') {
+        const pc = NOTE_TO_SEMITONE[state.key];
+        if (pc === undefined) return;
+        const step = state.autoTranspose === 'chromatic' ? 1 : 5;
+        const nextKey = FLAT_KEY_CYCLE[(pc + step) % 12];
+        // Keep the loop display climbing across the rebuild (which zeroes the
+        // chord step, same as pause/resume).
+        audioEngine.loopBase = state.loopCount - 1;
+        state.key = nextKey;
+        state.asWritten = false;
+        elements.keySelect.value = nextKey;
+        updateAsWrittenChip();
+        buildProgressionFromSource();
+        // The rebuild resets loopCount to 1; restore the climbing count so the
+        // next visual event doesn't read as another wrap and transpose again.
+        state.loopCount = audioEngine.loopBase + 1;
+        updateProgress();
       }
     }
 

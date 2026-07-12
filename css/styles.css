@@ -238,6 +238,11 @@
     .chord-cell:first-child { margin-left: auto; }
     .chord-cell:last-child { margin-right: auto; }
 
+    /* Flashcard practice: symbols hidden, numerals stay (layout preserved) */
+    .chord-container.symbols-hidden .chord-symbol {
+      visibility: hidden;
+    }
+
     .chord-box {
       appearance: none;
       -webkit-appearance: none;

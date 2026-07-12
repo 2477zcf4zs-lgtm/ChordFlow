@@ -250,6 +250,45 @@
             </button>
           </div>
           <div class="control-row">
+            <label for="grooveSelect">Comping</label>
+            <select id="grooveSelect">
+              <option value="block" selected>Block chords</option>
+              <option value="charleston">Charleston</option>
+              <option value="bossa">Bossa</option>
+              <option value="pulse">Half-note pulse</option>
+            </select>
+          </div>
+          <div class="control-row">
+            <label>Swing 8ths</label>
+            <button class="btn btn-secondary" id="swingBtn" title="Swing the groove's off-beat eighths">
+              <span class="btn-label">Swing: Off</span>
+            </button>
+          </div>
+
+          <div class="panel-title" style="margin-top: 20px;">Practice</div>
+          <div class="control-row">
+            <label for="autoTransposeSelect">12 Keys</label>
+            <select id="autoTransposeSelect" title="Transpose the progression each loop">
+              <option value="off" selected>Off</option>
+              <option value="fourths">Cycle of 4ths / loop</option>
+              <option value="chromatic">Half step / loop</option>
+            </select>
+          </div>
+          <div class="control-row">
+            <label for="tempoRampSelect">Tempo ramp</label>
+            <select id="tempoRampSelect" title="Raise the tempo each loop">
+              <option value="0" selected>Off</option>
+              <option value="2">+2 BPM / loop</option>
+              <option value="5">+5 BPM / loop</option>
+            </select>
+          </div>
+          <div class="control-row">
+            <label>Symbols</label>
+            <button class="btn btn-secondary" id="hideSymbolsBtn" title="Hide chord symbols — comp from the numerals (flashcard mode)">
+              <span class="btn-label">Symbols: Shown</span>
+            </button>
+          </div>
+          <div class="control-row">
             <label for="barsSelect">Bars</label>
             <select id="barsSelect">
               <option value="2">2 bars</option>

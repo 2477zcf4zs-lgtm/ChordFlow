@@ -11,9 +11,9 @@ function loadTheoryCore() {
   // they reference the DOM and are exercised by test_dom_smoke.js. state.js is
   // included for the pure generation model (buildRandomNumerals); its DOM
   // touches live inside functions this suite never calls.
-  const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/state.js'];
+  const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/audio.js', 'js/state.js'];
   const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
-  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, buildRandomNumerals, SECONDARY_TARGETS };');
+  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets };');
   return fn();
 }
 const T = loadTheoryCore();
@@ -517,6 +517,42 @@ console.log('\nTest 9: as-written library audit (Phase 5)');
     'simple tier reduces pinned qualities to triads');
   check(T.parseRomanNumeral('ii7', 'C', 'minor', 'seventh').quality === 'm7b5',
     'invariant 7 guardrail still outranks a pinned ii7 in minor');
+}
+
+// ---------------------------------------------------------------
+console.log('\nTest 10: comping groove onsets');
+{
+  const ts = hits => hits.map(h => +h.t.toFixed(4)).join(',');
+
+  // block = one strike held for the whole chord (original behavior)
+  check(ts(T.grooveOnsets('block', 4, false)) === '0' && T.grooveOnsets('block', 4, false)[0].d === 4,
+    'block@4 is a single whole-span hit');
+  check(T.grooveOnsets('block', 8, false)[0].d === 8, 'block@8 holds all 8 beats');
+
+  // charleston: 1 and the and-of-2; repeats per 4-beat cycle
+  check(ts(T.grooveOnsets('charleston', 4, false)) === '0,1.5', 'charleston@4 hits 0 and 1.5');
+  check(ts(T.grooveOnsets('charleston', 8, false)) === '0,1.5,4,5.5', 'charleston@8 repeats per cycle');
+  // swing moves the off-beat eighth to the 2/3 position
+  check(ts(T.grooveOnsets('charleston', 4, true)) === '0,' + +(1 + 2 / 3).toFixed(4),
+    'swing shifts the and-of-2 to 1+2/3');
+
+  // bossa: 3 hits per cycle; short spans drop late onsets
+  check(ts(T.grooveOnsets('bossa', 4, false)) === '0,1.5,3', 'bossa@4 hits 0, 1.5, 3');
+  check(ts(T.grooveOnsets('bossa', 2, false)) === '0,1.5', 'bossa@2 drops the beat-3 hit');
+
+  // pulse: straight half notes, never swung (no off-beat eighths)
+  check(ts(T.grooveOnsets('pulse', 4, true)) === '0,2', 'pulse@4 hits 0 and 2 (swing no-op)');
+
+  // Every onset lands inside the chord span with a positive duration
+  let bad = 0;
+  for (const g of ['block', 'charleston', 'bossa', 'pulse']) {
+    for (const bpc of [2, 4, 8]) {
+      for (const h of T.grooveOnsets(g, bpc, true)) {
+        if (h.t < 0 || h.t >= bpc || h.d <= 0) { bad++; check(false, `${g}@${bpc}: bad onset ${JSON.stringify(h)}`); }
+      }
+    }
+  }
+  if (!bad) console.log('  all groove onsets in-span with positive durations');
 }
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));

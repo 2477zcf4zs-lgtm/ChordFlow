@@ -21,6 +21,11 @@
       beatsPerChord: document.getElementById('beatsPerChord'),
       keySelect: document.getElementById('keySelect'),
       barsSelect: document.getElementById('barsSelect'),
+      grooveSelect: document.getElementById('grooveSelect'),
+      swingBtn: document.getElementById('swingBtn'),
+      autoTransposeSelect: document.getElementById('autoTransposeSelect'),
+      tempoRampSelect: document.getElementById('tempoRampSelect'),
+      hideSymbolsBtn: document.getElementById('hideSymbolsBtn'),
       complexitySelect: document.getElementById('complexitySelect'),
       modeSelect: document.getElementById('modeSelect'),
       chordContainer: document.getElementById('chordContainer'),
@@ -152,6 +157,35 @@
       elements.barsSelect.addEventListener('change', (e) => {
         state.bars = parseInt(e.target.value);
         generateRandomProgression();
+      });
+
+      // Comping groove + swing: the scheduler reads these live on each chord,
+      // so no rebuild is needed — they take effect from the next chord.
+      elements.grooveSelect.addEventListener('change', (e) => {
+        state.groove = e.target.value;
+      });
+      elements.swingBtn.addEventListener('click', () => {
+        state.swing = !state.swing;
+        const lbl = elements.swingBtn.querySelector('.btn-label');
+        if (lbl) lbl.textContent = state.swing ? 'Swing: On' : 'Swing: Off';
+        elements.swingBtn.classList.toggle('active', state.swing);
+        elements.swingBtn.blur();
+      });
+
+      // Practice modes (read at each loop boundary / render)
+      elements.autoTransposeSelect.addEventListener('change', (e) => {
+        state.autoTranspose = e.target.value;
+      });
+      elements.tempoRampSelect.addEventListener('change', (e) => {
+        state.tempoRamp = parseInt(e.target.value) || 0;
+      });
+      elements.hideSymbolsBtn.addEventListener('click', () => {
+        state.hideSymbols = !state.hideSymbols;
+        elements.chordContainer.classList.toggle('symbols-hidden', state.hideSymbols);
+        const lbl = elements.hideSymbolsBtn.querySelector('.btn-label');
+        if (lbl) lbl.textContent = state.hideSymbols ? 'Symbols: Hidden' : 'Symbols: Shown';
+        elements.hideSymbolsBtn.classList.toggle('active', state.hideSymbols);
+        elements.hideSymbolsBtn.blur();
       });
       
       // Chord boxes + sub badges: one delegated listener (mirrors libraryGrid).
