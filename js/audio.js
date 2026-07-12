@@ -21,6 +21,7 @@
       rafId: null,
       loopBase: 0,        // loops completed before the current play span (survives pause/resume)
       auditionGain: null, // one-shot step-audition gain; replaced per audition, never the sessionGain
+      padVoices: {},      // tap-to-play: per-pad gain voices, keyed by chord index
       visualQueue: []     // scheduled beats awaiting their visual update
     };
 
@@ -484,6 +485,76 @@
       d.rightHandPitches.forEach((p, i) => {
         synthNote(p.midi, t + 0.008 + i * 0.007, duration, 0.16, g);
       });
+    }
+
+    // ============================================
+    // TAP-TO-PLAY PADS
+    // Each pad press opens its own gain voice on `master` (never sessionGain,
+    // so the playback session token is untouched and pads work stopped or
+    // playing). One-shot rings to its natural conclusion; Hold sounds while
+    // the finger is down and drops a damper on release.
+    // ============================================
+
+    const PAD_ONESHOT_SEC = 3.2; // ring time for a one-shot tap
+    const PAD_HOLD_CEIL_SEC = 12; // upper bound a held pad can ring before auto-release
+
+    /** Release/clean up any voice currently on this pad. */
+    function padRelease(index, immediate) {
+      const g = audioEngine.padVoices[index];
+      if (!g) return;
+      delete audioEngine.padVoices[index];
+      const ctx = audioEngine.ctx;
+      if (!ctx) return;
+      // Hold releases drop the damper; a retrigger (immediate) also damps the
+      // old strike fast so it doesn't stack. One-shot releases are ignored
+      // (the note is already ringing out on its own envelope).
+      if (state.padMode === 'hold' || immediate) {
+        const t = ctx.currentTime;
+        try {
+          g.gain.cancelScheduledValues(t);
+          g.gain.setTargetAtTime(0.0001, t, 0.05);
+        } catch (e) { /* mock/analyser nodes */ }
+        setTimeout(() => { try { g.disconnect(); } catch (e) {} }, 400);
+      } else {
+        // one-shot: let it ring, disconnect after the tail
+        setTimeout(() => { try { g.disconnect(); } catch (e) {} }, (PAD_ONESHOT_SEC + 1) * 1000);
+      }
+    }
+
+    /** Strike the chord at `index` from the pad grid. */
+    function padPress(index) {
+      if (!state.progression.length) return;
+      if (!ensureAudioContext()) return;
+      const ctx = audioEngine.ctx;
+      padRelease(index, true); // retrigger cleanly
+
+      const g = ctx.createGain();
+      g.gain.value = 1;
+      g.connect(audioEngine.master);
+      audioEngine.padVoices[index] = g;
+
+      const t = ctx.currentTime + 0.005;
+      // Hold schedules a long ceiling we cut on release; one-shot rings out.
+      const dur = state.padMode === 'hold' ? PAD_HOLD_CEIL_SEC : PAD_ONESHOT_SEC;
+      const d = chordPitchesAt(index);
+      d.leftHandPitches.forEach((p, i) => {
+        synthNote(p.midi, t + i * 0.006, dur, 0.30, g);
+      });
+      d.rightHandPitches.forEach((p, i) => {
+        synthNote(p.midi, t + 0.008 + i * 0.007, dur, 0.16, g);
+      });
+
+      // One-shot voices self-release after their ring so padVoices doesn't grow.
+      if (state.padMode !== 'hold') {
+        setTimeout(() => {
+          if (audioEngine.padVoices[index] === g) delete audioEngine.padVoices[index];
+        }, PAD_ONESHOT_SEC * 1000);
+      }
+    }
+
+    /** Damp every sounding pad (used when leaving the Pads tab / on stop). */
+    function padReleaseAll() {
+      for (const index of Object.keys(audioEngine.padVoices)) padRelease(index, true);
     }
 
     /**

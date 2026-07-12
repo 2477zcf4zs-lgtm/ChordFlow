@@ -153,8 +153,47 @@
       });
 
       elements.chordContainer.innerHTML = html;
+      renderPadGrid();
       updatePlaybackState();
       scrollActiveChordIntoView();
+    }
+
+    /**
+     * Performance pads (tap-to-play): one big pad per chord filling the panel,
+     * numeral + symbol, no piano. Rebuilt only on structural change (mirrors
+     * renderChordStructure); press/release is delegated once in
+     * setupEventListeners. The grid auto-fits its column count to the chord
+     * count so 8 bars land on a phone without scrolling (see CSS).
+     */
+    function renderPadGrid() {
+      const grid = elements.padGrid;
+      if (!grid) return;
+      const { progression } = state;
+      if (!progression.length) { grid.innerHTML = ''; return; }
+      grid.dataset.count = progression.length;
+      grid.innerHTML = progression.map((chord, index) => {
+        const symbol = formatChordSymbol(chord.root, chord.quality);
+        const marker = chord.substituted ? '<span class="sub-marker" title="Substituted">sub</span>' : '';
+        return `<button class="pad" type="button" data-index="${index}"
+                  aria-label="Play chord ${index + 1}, ${chord.root} ${chord.quality}">
+            <span class="pad-numeral">${chord.degree}${marker}</span>
+            <span class="pad-symbol">${symbol}</span>
+          </button>`;
+      }).join('');
+      updatePadPlaybackState();
+    }
+
+    /** Mirror playback/selection onto the pads (class toggles only). */
+    function updatePadPlaybackState() {
+      const grid = elements.padGrid;
+      if (!grid) return;
+      const { currentChordIndex, isPlaying } = state;
+      const selectedIdx = state.selectedChordIndex !== null ? state.selectedChordIndex : currentChordIndex;
+      grid.querySelectorAll('.pad').forEach(pad => {
+        const index = parseInt(pad.dataset.index);
+        pad.classList.toggle('playing', isPlaying && index === currentChordIndex);
+        pad.classList.toggle('selected', !isPlaying && index === selectedIdx);
+      });
     }
 
     /**
@@ -188,6 +227,8 @@
           dots.forEach(d => d.classList.remove('active'));
         }
       });
+
+      updatePadPlaybackState();
     }
     
     function selectChord(index) {
@@ -474,6 +515,7 @@
 
     function tabTargets() {
       return {
+        pads: [elements.padsToggle, elements.padsPanel],
         voicing: [elements.voicingBtn, elements.voicingPanel],
         dictionary: [elements.dictToggle, elements.chordDictPanel],
         library: [elements.libraryToggle, elements.libraryPanel],
@@ -495,6 +537,7 @@
       }
       state.showVoicing = state.activeTab === 'voicing';
       if (state.showVoicing) renderVoicing();
+      if (state.activeTab !== 'pads') padReleaseAll(); // silence held pads on leave
       updatePlaybackState(); // the 'selected' chord highlight tracks showVoicing
     }
 
