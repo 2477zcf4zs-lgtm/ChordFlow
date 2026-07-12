@@ -49,13 +49,16 @@
     }
 
     /**
-     * A single EP-ish synth note: two slightly detuned triangles plus a sine
-     * an octave down for body, through a lowpass whose cutoff falls over the
-     * note (pluck-like), with a fast-attack / slow-decay envelope.
-     * `perc` (comping stabs) uses a snappier decay and quicker filter fall so
-     * short articulated hits read as rhythm, not clipped pads.
+     * A single piano-ish synth note: two slightly detuned triangles plus a
+     * sine an octave down for body, shaped by a piano-style envelope —
+     * near-instant hammer attack, NO sustain plateau (a fast strike decay
+     * flows into a long singing tail whose length scales with pitch: bass
+     * strings ring far longer than treble), and a quick damper when the
+     * "key" comes up at `duration`. Strike brightness follows velocity.
+     * Articulation (staccato stabs vs held chords) falls out of duration:
+     * the damper is what cuts a short hit, exactly like the instrument.
      */
-    function synthNote(midi, time, duration, velocity, dest, perc = false) {
+    function synthNote(midi, time, duration, velocity, dest) {
       const ctx = audioEngine.ctx;
       const freq = midiToFreq(midi);
 
@@ -75,20 +78,23 @@
       const filter = ctx.createBiquadFilter();
       filter.type = 'lowpass';
       filter.Q.value = 0.4;
-      const bright = Math.min(freq * 7, 6000);
+      // Hammer transient: a harder strike is brighter; the brightness fades
+      // over the first second like a string's upper partials dying first.
+      const strike = Math.min(1, velocity / 0.3);
+      const bright = Math.min(freq * (4.5 + strike * 5), 7000);
       filter.frequency.setValueAtTime(bright, time);
-      filter.frequency.exponentialRampToValueAtTime(
-        Math.max(freq * 2, 500), time + Math.min(duration, perc ? 0.35 : 1.2));
+      filter.frequency.exponentialRampToValueAtTime(Math.max(freq * 1.5, 400), time + 0.9);
 
       const env = ctx.createGain();
       const end = time + duration;
-      const decayAt = perc ? Math.min(0.22, duration * 0.5) : Math.min(0.6, duration * 0.6);
-      const sustain = perc ? 0.3 : 0.45;
+      // Bass strings ring for seconds, treble dies quickly: the tail's time
+      // constant slides from ~3.5s at C2 (midi 36) down to ~0.7s up top.
+      const tailTau = Math.max(0.55, 3.5 - (midi - 36) * 0.04);
       env.gain.setValueAtTime(0.0001, time);
-      env.gain.exponentialRampToValueAtTime(velocity, time + 0.012);
-      env.gain.exponentialRampToValueAtTime(velocity * sustain, time + decayAt);
-      env.gain.exponentialRampToValueAtTime(Math.max(velocity * 0.25, 0.001), end);
-      env.gain.exponentialRampToValueAtTime(0.0001, end + (perc ? 0.1 : 0.18));
+      env.gain.exponentialRampToValueAtTime(velocity, time + 0.006);          // hammer attack
+      env.gain.setTargetAtTime(velocity * 0.3, time + 0.006, 0.08);           // strike decay
+      env.gain.setTargetAtTime(0.0001, time + 0.3, tailTau);                  // singing tail
+      env.gain.setTargetAtTime(0.0001, end, 0.045);                           // damper at key-up
 
       o1.connect(filter);
       o2.connect(filter);
@@ -96,7 +102,7 @@
       subGain.connect(filter);
       filter.connect(env);
       env.connect(dest);
-      [o1, o2, sub].forEach(o => { o.start(time); o.stop(end + 0.25); });
+      [o1, o2, sub].forEach(o => { o.start(time); o.stop(end + 0.35); });
     }
 
     /** Short metronome blip, accented on beat 1. */
@@ -184,16 +190,15 @@
           synthNote(p.midi, time + i * 0.006, span, 0.30, audioEngine.sessionGain);
         });
         // RH comps the groove pattern (a single held hit for 'block').
-        // gate articulates each hit's ring; v carries the pattern's accents;
-        // non-block hits get the percussive envelope.
-        const perc = !!GROOVE_PATTERNS[state.groove];
+        // gate articulates each hit's ring, v carries the pattern's accents;
+        // the piano envelope's damper does the actual cutting.
         const hits = grooveOnsets(state.groove, beatsPerChord, state.swing);
         hits.forEach((hit) => {
           const t0 = time + hit.t * secPerBeat;
           const dur = Math.max(0.09, hit.d * secPerBeat * hit.gate);
           const vel = 0.16 * hit.v;
           d.rightHandPitches.forEach((p, i) => {
-            synthNote(p.midi, t0 + 0.008 + i * 0.007, dur, vel, audioEngine.sessionGain, perc);
+            synthNote(p.midi, t0 + 0.008 + i * 0.007, dur, vel, audioEngine.sessionGain);
           });
         });
       }
