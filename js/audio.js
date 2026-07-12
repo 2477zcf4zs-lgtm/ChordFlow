@@ -502,22 +502,22 @@
     function padRelease(index, immediate) {
       const g = audioEngine.padVoices[index];
       if (!g) return;
-      delete audioEngine.padVoices[index];
       const ctx = audioEngine.ctx;
-      if (!ctx) return;
-      // Hold releases drop the damper; a retrigger (immediate) also damps the
-      // old strike fast so it doesn't stack. One-shot releases are ignored
-      // (the note is already ringing out on its own envelope).
+      // Hold releases, and any forced cut (immediate: a retrigger or tab-leave),
+      // drop the damper now and free the slot. A plain one-shot finger-up does
+      // NOT free the slot: the note keeps ringing on its own envelope AND stays
+      // tracked, so a re-tap can still cut it (padPress calls padRelease(_, true)
+      // first) instead of stacking a second voice. padPress's timer disconnects
+      // and frees the slot once the ring is done.
       if (state.padMode === 'hold' || immediate) {
+        delete audioEngine.padVoices[index];
+        if (!ctx) return;
         const t = ctx.currentTime;
         try {
           g.gain.cancelScheduledValues(t);
           g.gain.setTargetAtTime(0.0001, t, 0.05);
         } catch (e) { /* mock/analyser nodes */ }
         setTimeout(() => { try { g.disconnect(); } catch (e) {} }, 400);
-      } else {
-        // one-shot: let it ring, disconnect after the tail
-        setTimeout(() => { try { g.disconnect(); } catch (e) {} }, (PAD_ONESHOT_SEC + 1) * 1000);
       }
     }
 
@@ -544,11 +544,16 @@
         synthNote(p.midi, t + 0.008 + i * 0.007, dur, 0.16, g);
       });
 
-      // One-shot voices self-release after their ring so padVoices doesn't grow.
+      // One-shot voices self-release after their ring: disconnect and free the
+      // slot, but only if this exact voice is still current (a retrigger or a
+      // forced cut already handled it otherwise). Keeps padVoices from growing.
       if (state.padMode !== 'hold') {
         setTimeout(() => {
-          if (audioEngine.padVoices[index] === g) delete audioEngine.padVoices[index];
-        }, PAD_ONESHOT_SEC * 1000);
+          if (audioEngine.padVoices[index] === g) {
+            delete audioEngine.padVoices[index];
+            try { g.disconnect(); } catch (e) {}
+          }
+        }, (PAD_ONESHOT_SEC + 0.5) * 1000);
       }
     }
 
