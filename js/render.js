@@ -143,7 +143,7 @@
         html += `
           <div class="chord-cell" data-index="${index}">
             <button class="chord-box" type="button" data-index="${index}" aria-label="Chord ${index + 1}, ${symbol}. Activate to view its voicing.">
-              <div class="chord-numeral">${chord.degree}${marker}</div>
+              <div class="chord-numeral">${escapeHtml(chord.degree)}${marker}</div>
               <div class="chord-symbol">${symbol}</div>
               <div class="beat-indicator">${dots}</div>
             </button>
@@ -176,7 +176,7 @@
         const marker = chord.substituted ? '<span class="sub-marker" title="Substituted">sub</span>' : '';
         return `<button class="pad" type="button" data-index="${index}"
                   aria-label="Play chord ${index + 1}, ${chord.root} ${chord.quality}">
-            <span class="pad-numeral">${chord.degree}${marker}</span>
+            <span class="pad-numeral">${escapeHtml(chord.degree)}${marker}</span>
             <span class="pad-symbol">${symbol}</span>
           </button>`;
       }).join('');

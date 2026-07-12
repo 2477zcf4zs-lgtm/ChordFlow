@@ -584,14 +584,44 @@ async function main() {
     // grid column count adapts to the progression length
     check(document.getElementById('padGrid').dataset.count === '3', 'pad grid tags its chord count for layout');
 
-    // One-shot: press opens a voice; release leaves it ringing (removed from
-    // the held-voice map but audio continues on its own envelope).
+    // XSS regression (review finding #1): a chord degree carrying markup (as an
+    // imported saved progression's numeral can) must render as text, not HTML,
+    // in both the pad grid and the chord strip.
+    {
+      const evil = '<img src=x onerror="window.__xss=1">';
+      st().progression[0].degree = evil;
+      window.renderChordStructure();
+      check(!window.eval('window.__xss'), 'chord degree with markup does not execute (escaped)');
+      check(document.querySelector('.pad-numeral').innerHTML.indexOf('<img') === -1 &&
+        document.querySelector('.chord-numeral').innerHTML.indexOf('<img') === -1,
+        'degree markup is escaped in pad grid and chord strip');
+      check(document.querySelector('.pad-numeral').textContent.indexOf('<img') === 0,
+        'escaped degree still shows as literal text');
+      window.loadProgression(0); // restore clean state (also closes the tab)
+      padsToggle.click();        // reopen pads for the remaining pad checks
+    }
+
+    // One-shot: press opens a voice; a plain finger-up leaves it ringing AND
+    // tracked so a re-tap can cut it (rather than stacking a second voice).
     check(st().padMode === 'oneshot', 'default trigger mode is one-shot');
     window.padPress(1);
     check(engine().padVoices[1] != null, 'pad press opens a voice');
     check(engine().sessionGain === null, 'pads never touch the playback sessionGain');
     window.padRelease(1);
-    check(engine().padVoices[1] == null, 'one-shot release frees the held-voice slot');
+    check(engine().padVoices[1] != null, 'one-shot finger-up leaves the voice ringing');
+    // Re-tap cuts the previous voice instead of stacking (review finding #2):
+    // padPress -> padRelease(_, true) must damp the old gain (cancelScheduledValues)
+    // and the slot must hold exactly the new voice.
+    const prevVoice = engine().padVoices[1];
+    let prevCut = false;
+    const origCancel = prevVoice.gain.cancelScheduledValues.bind(prevVoice.gain);
+    prevVoice.gain.cancelScheduledValues = (t) => { prevCut = true; return origCancel(t); };
+    window.padPress(1);
+    check(prevCut === true, 'one-shot re-tap cuts the previous voice (no stacking)');
+    check(engine().padVoices[1] !== prevVoice && Object.keys(engine().padVoices).length === 1,
+      're-tap keeps a single voice for the pad');
+    window.padReleaseAll();
+    check(Object.keys(engine().padVoices).length === 0, 'padReleaseAll frees ringing one-shot voices');
 
     // Hold: voice stays while held, damped on release.
     document.getElementById('padModeBtn').click();
