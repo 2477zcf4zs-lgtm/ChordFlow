@@ -543,16 +543,25 @@ console.log('\nTest 10: comping groove onsets');
   // pulse: straight half notes, never swung (no off-beat eighths)
   check(ts(T.grooveOnsets('pulse', 4, true)) === '0,2', 'pulse@4 hits 0 and 2 (swing no-op)');
 
-  // Every onset lands inside the chord span with a positive duration
+  // Articulation: every hit carries a sane gate + velocity; the charleston is
+  // long-short (tenuto downbeat, staccato stab); block keeps its historical
+  // 0.92 ring so the original behavior is untouched.
+  const ch = T.grooveOnsets('charleston', 4, false);
+  check(ch[0].gate > ch[1].gate && ch[1].gate <= 0.4, 'charleston articulates long-short (DAAH-dit)');
+  check(T.grooveOnsets('block', 4, false)[0].gate === 0.92, 'block gate preserves the original ring');
+
+  // Every onset lands inside the chord span with positive duration/gate/velocity
   let bad = 0;
   for (const g of ['block', 'charleston', 'bossa', 'pulse']) {
     for (const bpc of [2, 4, 8]) {
       for (const h of T.grooveOnsets(g, bpc, true)) {
-        if (h.t < 0 || h.t >= bpc || h.d <= 0) { bad++; check(false, `${g}@${bpc}: bad onset ${JSON.stringify(h)}`); }
+        if (h.t < 0 || h.t >= bpc || h.d <= 0 || !(h.gate > 0 && h.gate <= 1) || !(h.v > 0)) {
+          bad++; check(false, `${g}@${bpc}: bad onset ${JSON.stringify(h)}`);
+        }
       }
     }
   }
-  if (!bad) console.log('  all groove onsets in-span with positive durations');
+  if (!bad) console.log('  all groove onsets in-span with positive durations, gates and velocities');
 }
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));

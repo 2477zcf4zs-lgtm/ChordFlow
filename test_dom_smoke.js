@@ -516,6 +516,12 @@ async function main() {
     const rampSel = document.getElementById('tempoRampSelect');
     atSel.value = 'fourths'; atSel.dispatchEvent(new window.Event('change'));
     rampSel.value = '5'; rampSel.dispatchEvent(new window.Event('change'));
+    // Record every scheduled note with the key active at schedule time, to
+    // prove the old key never bleeds across the transpose seam (the bug was
+    // the wrap beat getting scheduled in the old key ~120ms early, doubling
+    // beat one of the new loop).
+    window.eval('window.__synthLog = []; var __realSynthNote = synthNote;' +
+      'synthNote = function (m, t, d, v, dest, perc) { window.__synthLog.push({ t: t, key: state.key }); };');
     await window.startPlayback();
     engine().ctx.currentTime = 0;
     let g2 = 0;
@@ -528,9 +534,28 @@ async function main() {
       '12-keys practice transposes C -> F at the loop boundary');
     check(st().tempo === 125, 'tempo ramp adds +5 BPM at the boundary (120 -> ' + st().tempo + ')');
     check(st().isPlaying === true && engine().schedulerId !== null, 'playback survives the transpose');
-    check(st().loopCount >= 2, 'loop count keeps climbing across the transpose (loop ' + st().loopCount + ')');
     check(st().progression.map(c => c.root).join(' ') === 'G C F',
       'progression re-derived in F: G C F (got ' + st().progression.map(c => c.root).join(' ') + ')');
+    // Seam cleanliness: the last C-key note and the first F-key note must be
+    // a full chord apart (block groove, 4 beats @120 = 2s). The old bug put a
+    // C-key downbeat ~0.06s before the F one.
+    {
+      const log = window.__synthLog;
+      const fTimes = log.filter(e => e.key === 'F').map(e => e.t);
+      const cTimes = log.filter(e => e.key === 'C').map(e => e.t);
+      const firstF = Math.min.apply(null, fTimes);
+      const lastC = Math.max.apply(null, cTimes);
+      check(fTimes.length > 0 && cTimes.length > 0 && firstF - lastC > 1.0,
+        'clean seam: no old-key audio doubles the new downbeat (gap ' + (firstF - lastC).toFixed(2) + 's)');
+    }
+    // The loop display lags to audible time by design: drain the queue past
+    // the seam and confirm it climbs instead of resetting.
+    for (let i = 0; i < 50 && st().loopCount < 2; i++) {
+      engine().ctx.currentTime += 0.05;
+      window.schedulerTick();
+      window.visualSync();
+    }
+    check(st().loopCount >= 2, 'loop count keeps climbing across the transpose (loop ' + st().loopCount + ')');
     // Second boundary: F -> Bb, +5 more BPM
     let g3 = 0;
     while (st().key === 'F' && g3++ < 20000) {
@@ -539,6 +564,7 @@ async function main() {
       window.visualSync();
     }
     check(st().key === 'Bb' && st().tempo === 130, 'second loop: F -> Bb, tempo 130');
+    window.eval('synthNote = __realSynthNote;'); // restore the real synth
     window.stopAndReset();
     atSel.value = 'off'; atSel.dispatchEvent(new window.Event('change'));
     rampSel.value = '0'; rampSel.dispatchEvent(new window.Event('change'));
