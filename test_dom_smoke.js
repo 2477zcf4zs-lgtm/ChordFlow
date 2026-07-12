@@ -305,7 +305,7 @@ async function main() {
     // --- Phase 3: tab bar (exclusive panels) ---
     const tabBar = document.querySelector('.tab-bar');
     check(tabBar && tabBar.getAttribute('role') === 'tablist', 'tab bar present with role=tablist');
-    check(document.querySelectorAll('.tab-btn').length === 4, 'four tab buttons');
+    check(document.querySelectorAll('.tab-btn').length === 5, 'five tab buttons (pads + voicing + dictionary + library + settings)');
     const libToggle = document.getElementById('libraryToggle');
     const dictToggle = document.getElementById('dictToggle');
     const settingsToggle = document.getElementById('settingsToggle');
@@ -570,6 +570,49 @@ async function main() {
     rampSel.value = '0'; rampSel.dispatchEvent(new window.Event('change'));
     window.setTempo(120);
     keySel.value = 'C'; keySel.dispatchEvent(new window.Event('change'));
+    window.loadProgression(0);
+
+    // --- Tap-to-play pads ---
+    const padsToggle = document.getElementById('padsToggle');
+    check(!!padsToggle && document.querySelectorAll('.tab-btn').length === 5, 'pads tab present (5 tabs)');
+    window.loadProgression(0); // 3-chord progression
+    padsToggle.click();
+    check(st().activeTab === 'pads' && document.getElementById('padsPanel').classList.contains('visible'),
+      'pads tab opens the pads panel');
+    check(document.querySelectorAll('.pad').length === 3, 'one pad per chord (3)');
+    check(document.querySelector('.pad .pad-symbol').textContent.length > 0, 'pads render the chord symbol');
+    // grid column count adapts to the progression length
+    check(document.getElementById('padGrid').dataset.count === '3', 'pad grid tags its chord count for layout');
+
+    // One-shot: press opens a voice; release leaves it ringing (removed from
+    // the held-voice map but audio continues on its own envelope).
+    check(st().padMode === 'oneshot', 'default trigger mode is one-shot');
+    window.padPress(1);
+    check(engine().padVoices[1] != null, 'pad press opens a voice');
+    check(engine().sessionGain === null, 'pads never touch the playback sessionGain');
+    window.padRelease(1);
+    check(engine().padVoices[1] == null, 'one-shot release frees the held-voice slot');
+
+    // Hold: voice stays while held, damped on release.
+    document.getElementById('padModeBtn').click();
+    check(st().padMode === 'hold' && document.querySelector('#padModeBtn .btn-label').textContent === 'Trigger: Hold',
+      'trigger toggles to hold');
+    window.padPress(0);
+    check(engine().padVoices[0] != null, 'held pad sounds while pressed');
+    window.padPress(2); // polyphony: a second pad without releasing the first
+    check(engine().padVoices[0] != null && engine().padVoices[2] != null, 'pads are polyphonic (two held at once)');
+    window.padRelease(0);
+    window.padRelease(2);
+    check(engine().padVoices[0] == null && engine().padVoices[2] == null, 'hold release damps and frees both');
+
+    // Retrigger the same pad doesn't leak a voice
+    window.padPress(1); window.padPress(1);
+    check(Object.keys(engine().padVoices).length === 1, 'retrigger reuses one slot (no voice leak)');
+    // Leaving the pads tab silences everything
+    padsToggle.click();
+    check(st().activeTab === null && Object.keys(engine().padVoices).length === 0,
+      'leaving the pads tab releases all pads');
+    document.getElementById('padModeBtn').click(); // back to one-shot
     window.loadProgression(0);
 
     check(errors.length === 0, 'no script errors during interaction' + (errors.length ? ' -> ' + errors.join('; ') : ''));

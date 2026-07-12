@@ -70,7 +70,7 @@ function box(el) { return el ? { top: Math.round(el.top), bottom: Math.round(el.
     check(m.panel && m.panel.t >= 0, `open voicing panel starts on screen (top ${Math.round(m.panel.t)})`);
     check(m.playVisible, 'Play button fully visible');
     check(m.piano && m.piano.w > 0 && m.piano.w <= (m.panelAreaW || m.innerW), `piano SVG fits its container (${m.piano && Math.round(m.piano.w)}px)`);
-    check(m.tabCount === 4, 'four tab buttons present');
+    check(m.tabCount === 5, 'five tab buttons present');
     check(errors.length === 0, 'no page errors' + (errors.length ? ' -> ' + errors.join('; ') : ''));
 
     // Tab exclusivity + settings reachable without scrolling the page

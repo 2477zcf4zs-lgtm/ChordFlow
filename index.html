@@ -20,14 +20,23 @@
 
     <div class="app-main">
       <div class="tab-bar" role="tablist" aria-label="Panels">
-        <button class="tab-btn" id="voicingBtn" role="tab" aria-selected="false" aria-controls="voicingPanel">
+        <button class="tab-btn" id="padsToggle" role="tab" aria-label="Pads" aria-selected="false" aria-controls="padsPanel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="8" height="8" rx="1.5"></rect>
+            <rect x="13" y="3" width="8" height="8" rx="1.5"></rect>
+            <rect x="3" y="13" width="8" height="8" rx="1.5"></rect>
+            <rect x="13" y="13" width="8" height="8" rx="1.5"></rect>
+          </svg>
+          <span class="tab-label">Pads</span>
+        </button>
+        <button class="tab-btn" id="voicingBtn" role="tab" aria-label="Voicing" aria-selected="false" aria-controls="voicingPanel">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
             <circle cx="12" cy="12" r="3"></circle>
           </svg>
           <span class="tab-label">Voicing</span>
         </button>
-        <button class="tab-btn" id="dictToggle" role="tab" aria-selected="false" aria-controls="chordDictPanel">
+        <button class="tab-btn" id="dictToggle" role="tab" aria-label="Dictionary" aria-selected="false" aria-controls="chordDictPanel">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"></circle>
             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
@@ -35,14 +44,14 @@
           </svg>
           <span class="tab-label">Dictionary</span>
         </button>
-        <button class="tab-btn" id="libraryToggle" role="tab" aria-selected="false" aria-controls="libraryPanel">
+        <button class="tab-btn" id="libraryToggle" role="tab" aria-label="Library" aria-selected="false" aria-controls="libraryPanel">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
             <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
           </svg>
           <span class="tab-label">Library</span>
         </button>
-        <button class="tab-btn" id="settingsToggle" role="tab" aria-selected="false" aria-controls="settingsPanel">
+        <button class="tab-btn" id="settingsToggle" role="tab" aria-label="Settings" aria-selected="false" aria-controls="settingsPanel">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="3"></circle>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -52,6 +61,17 @@
       </div>
 
       <div class="panel-area">
+        <div class="pads-panel" id="padsPanel" role="tabpanel" aria-labelledby="padsToggle">
+          <div class="pads-head">
+            <div class="panel-title">Tap to play</div>
+            <button class="btn btn-secondary btn-small" id="padModeBtn"
+                    title="One-shot: a tap rings out naturally. Hold: the chord sounds while held — release drops the damper.">
+              <span class="btn-label">Trigger: One-shot</span>
+            </button>
+          </div>
+          <div class="pad-grid" id="padGrid"></div>
+        </div>
+
         <div class="voicing-panel" id="voicingPanel" role="tabpanel" aria-labelledby="voicingBtn">
           <div class="voicing-panel-header">
             <div class="voicing-chord-name" id="voicingChordName">—</div>

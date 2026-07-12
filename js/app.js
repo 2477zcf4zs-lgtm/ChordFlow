@@ -29,6 +29,10 @@
       complexitySelect: document.getElementById('complexitySelect'),
       modeSelect: document.getElementById('modeSelect'),
       chordContainer: document.getElementById('chordContainer'),
+      padsToggle: document.getElementById('padsToggle'),
+      padsPanel: document.getElementById('padsPanel'),
+      padModeBtn: document.getElementById('padModeBtn'),
+      padGrid: document.getElementById('padGrid'),
       progressionName: document.getElementById('progressionName'),
       progressionStyle: document.getElementById('progressionStyle'),
       progressFill: document.getElementById('progressFill'),
@@ -77,6 +81,7 @@
       });
       // Tab bar: one panel open at a time (or none). No blur() here — tabs
       // are keyboard-navigable and focus-visible styles handle the outline.
+      elements.padsToggle.addEventListener('click', () => toggleTab('pads'));
       elements.voicingBtn.addEventListener('click', () => toggleTab('voicing'));
       elements.dictToggle.addEventListener('click', () => toggleTab('dictionary'));
       elements.libraryToggle.addEventListener('click', () => toggleTab('library'));
@@ -179,6 +184,56 @@
       elements.tempoRampSelect.addEventListener('change', (e) => {
         state.tempoRamp = parseInt(e.target.value) || 0;
       });
+      // Tap-to-play pads. Trigger-mode toggle:
+      elements.padModeBtn.addEventListener('click', () => {
+        state.padMode = state.padMode === 'hold' ? 'oneshot' : 'hold';
+        const lbl = elements.padModeBtn.querySelector('.btn-label');
+        if (lbl) lbl.textContent = state.padMode === 'hold' ? 'Trigger: Hold' : 'Trigger: One-shot';
+        elements.padModeBtn.classList.toggle('active', state.padMode === 'hold');
+        padReleaseAll();
+        elements.padModeBtn.blur();
+      });
+
+      // Pointer press/release, delegated once, polyphonic (per pointerId so
+      // multiple fingers sound multiple pads). Document-level up/cancel so a
+      // finger sliding off the pad still releases it.
+      const activePads = new Map(); // pointerId -> { index, pad }
+      elements.padGrid.addEventListener('pointerdown', (e) => {
+        const pad = e.target.closest('.pad');
+        if (!pad) return;
+        e.preventDefault(); // no focus flicker / text selection / synthetic click
+        const index = parseInt(pad.dataset.index);
+        activePads.set(e.pointerId, { index, pad });
+        pad.classList.add('pressed');
+        padPress(index);
+      });
+      const endPad = (e) => {
+        const rec = activePads.get(e.pointerId);
+        if (!rec) return;
+        activePads.delete(e.pointerId);
+        rec.pad.classList.remove('pressed');
+        padRelease(rec.index); // one-shot: rings on; hold: damper
+      };
+      document.addEventListener('pointerup', endPad);
+      document.addEventListener('pointercancel', endPad);
+
+      // Keyboard: press-and-hold via keydown/keyup on the focused pad.
+      elements.padGrid.addEventListener('keydown', (e) => {
+        if (e.repeat || (e.code !== 'Enter' && e.code !== 'Space')) return;
+        const pad = e.target.closest('.pad');
+        if (!pad) return;
+        e.preventDefault();
+        pad.classList.add('pressed');
+        padPress(parseInt(pad.dataset.index));
+      });
+      elements.padGrid.addEventListener('keyup', (e) => {
+        if (e.code !== 'Enter' && e.code !== 'Space') return;
+        const pad = e.target.closest('.pad');
+        if (!pad) return;
+        pad.classList.remove('pressed');
+        padRelease(parseInt(pad.dataset.index));
+      });
+
       elements.hideSymbolsBtn.addEventListener('click', () => {
         state.hideSymbols = !state.hideSymbols;
         elements.chordContainer.classList.toggle('symbols-hidden', state.hideSymbols);
