@@ -24,6 +24,11 @@
       showVoicing: false,
       activeTab: null,    // which tab panel is open: 'voicing'|'dictionary'|'library'|'settings'|null
       metronomeOn: false,
+      groove: 'block',    // comping pattern: block|charleston|bossa|pulse
+      swing: false,       // swing off-beat eighths in the groove
+      autoTranspose: 'off', // per-loop 12-keys practice: off|fourths|chromatic
+      tempoRamp: 0,       // BPM added per completed loop (0 = off)
+      hideSymbols: false, // flashcard mode: hide chord letter symbols
       density: 1.0,       // per-progression sparsity character (2.4); rolled on new/load
       voicingIndices: [], // Track which voicing is selected for each chord
       voicingShifts: [], // Octave placement (in semitones) for each chord's right hand

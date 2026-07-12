@@ -476,6 +476,76 @@ async function main() {
     window.renderSavedProgressions();
     window.loadProgression(0);
 
+    // --- Comping grooves + swing ---
+    const grooveSelect = document.getElementById('grooveSelect');
+    const swingBtn = document.getElementById('swingBtn');
+    check(!!grooveSelect && document.getElementById('settingsPanel').contains(grooveSelect) &&
+      swingBtn && swingBtn.tagName === 'BUTTON', 'comping select + swing toggle live in settings');
+    grooveSelect.value = 'charleston';
+    grooveSelect.dispatchEvent(new window.Event('change'));
+    swingBtn.click();
+    check(st().groove === 'charleston' && st().swing === true, 'groove and swing state track the controls');
+    window.stopAndReset();
+    await window.startPlayback();
+    engine().ctx.currentTime = 0;
+    for (let i = 0; i < 40; i++) { engine().ctx.currentTime += 0.05; window.schedulerTick(); window.visualSync(); }
+    check(st().isPlaying === true && errors.length === 0, 'charleston+swing playback schedules without errors');
+    window.stopAndReset();
+    swingBtn.click();
+    grooveSelect.value = 'block';
+    grooveSelect.dispatchEvent(new window.Event('change'));
+
+    // --- Flashcard mode: hide chord symbols ---
+    const hideBtn = document.getElementById('hideSymbolsBtn');
+    hideBtn.click();
+    check(st().hideSymbols === true &&
+      document.getElementById('chordContainer').classList.contains('symbols-hidden'),
+      'hide-symbols toggles the flashcard class');
+    check(document.querySelectorAll('.chord-numeral').length > 0, 'numerals stay for flashcard practice');
+    hideBtn.click();
+    check(st().hideSymbols === false &&
+      !document.getElementById('chordContainer').classList.contains('symbols-hidden'),
+      'symbols come back');
+
+    // --- Practice loop boundary: 12-keys transposer + tempo ramp ---
+    window.stopAndReset();
+    window.loadProgression(0); // as-written: key C
+    keySel.value = 'C'; keySel.dispatchEvent(new window.Event('change')); // clear as-written, stay in C
+    window.setTempo(120);
+    const atSel = document.getElementById('autoTransposeSelect');
+    const rampSel = document.getElementById('tempoRampSelect');
+    atSel.value = 'fourths'; atSel.dispatchEvent(new window.Event('change'));
+    rampSel.value = '5'; rampSel.dispatchEvent(new window.Event('change'));
+    await window.startPlayback();
+    engine().ctx.currentTime = 0;
+    let g2 = 0;
+    while (st().key === 'C' && g2++ < 20000) {
+      engine().ctx.currentTime += 0.05;
+      window.schedulerTick();
+      window.visualSync();
+    }
+    check(st().key === 'F' && document.getElementById('keySelect').value === 'F',
+      '12-keys practice transposes C -> F at the loop boundary');
+    check(st().tempo === 125, 'tempo ramp adds +5 BPM at the boundary (120 -> ' + st().tempo + ')');
+    check(st().isPlaying === true && engine().schedulerId !== null, 'playback survives the transpose');
+    check(st().loopCount >= 2, 'loop count keeps climbing across the transpose (loop ' + st().loopCount + ')');
+    check(st().progression.map(c => c.root).join(' ') === 'G C F',
+      'progression re-derived in F: G C F (got ' + st().progression.map(c => c.root).join(' ') + ')');
+    // Second boundary: F -> Bb, +5 more BPM
+    let g3 = 0;
+    while (st().key === 'F' && g3++ < 20000) {
+      engine().ctx.currentTime += 0.05;
+      window.schedulerTick();
+      window.visualSync();
+    }
+    check(st().key === 'Bb' && st().tempo === 130, 'second loop: F -> Bb, tempo 130');
+    window.stopAndReset();
+    atSel.value = 'off'; atSel.dispatchEvent(new window.Event('change'));
+    rampSel.value = '0'; rampSel.dispatchEvent(new window.Event('change'));
+    window.setTempo(120);
+    keySel.value = 'C'; keySel.dispatchEvent(new window.Event('change'));
+    window.loadProgression(0);
+
     check(errors.length === 0, 'no script errors during interaction' + (errors.length ? ' -> ' + errors.join('; ') : ''));
   } catch (e) {
     failures++;
