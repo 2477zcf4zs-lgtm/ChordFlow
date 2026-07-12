@@ -52,8 +52,10 @@
      * A single EP-ish synth note: two slightly detuned triangles plus a sine
      * an octave down for body, through a lowpass whose cutoff falls over the
      * note (pluck-like), with a fast-attack / slow-decay envelope.
+     * `perc` (comping stabs) uses a snappier decay and quicker filter fall so
+     * short articulated hits read as rhythm, not clipped pads.
      */
-    function synthNote(midi, time, duration, velocity, dest) {
+    function synthNote(midi, time, duration, velocity, dest, perc = false) {
       const ctx = audioEngine.ctx;
       const freq = midiToFreq(midi);
 
@@ -76,15 +78,17 @@
       const bright = Math.min(freq * 7, 6000);
       filter.frequency.setValueAtTime(bright, time);
       filter.frequency.exponentialRampToValueAtTime(
-        Math.max(freq * 2, 500), time + Math.min(duration, 1.2));
+        Math.max(freq * 2, 500), time + Math.min(duration, perc ? 0.35 : 1.2));
 
       const env = ctx.createGain();
       const end = time + duration;
+      const decayAt = perc ? Math.min(0.22, duration * 0.5) : Math.min(0.6, duration * 0.6);
+      const sustain = perc ? 0.3 : 0.45;
       env.gain.setValueAtTime(0.0001, time);
       env.gain.exponentialRampToValueAtTime(velocity, time + 0.012);
-      env.gain.exponentialRampToValueAtTime(velocity * 0.45, time + Math.min(0.6, duration * 0.6));
+      env.gain.exponentialRampToValueAtTime(velocity * sustain, time + decayAt);
       env.gain.exponentialRampToValueAtTime(Math.max(velocity * 0.25, 0.001), end);
-      env.gain.exponentialRampToValueAtTime(0.0001, end + 0.18);
+      env.gain.exponentialRampToValueAtTime(0.0001, end + (perc ? 0.1 : 0.18));
 
       o1.connect(filter);
       o2.connect(filter);
@@ -128,19 +132,26 @@
     // for the whole chord — the original behavior.
     // ============================================
 
+    // Per-hit articulation: `gate` is the fraction of the nominal length that
+    // actually sounds (tenuto ~0.85+, staccato ~0.35), `v` a velocity
+    // multiplier for accents. The charleston is the idiomatic long-short
+    // ("DAAH-dit"): held downbeat, clipped stab on the and-of-2. Bossa comps
+    // crisp even stabs with the pickup accented; the pulse is detached.
     const GROOVE_PATTERNS = {
-      charleston: [{ t: 0, d: 1.5 }, { t: 1.5, d: 2 }],
-      bossa: [{ t: 0, d: 1 }, { t: 1.5, d: 1.5 }, { t: 3, d: 1 }],
-      pulse: [{ t: 0, d: 2 }, { t: 2, d: 2 }]
+      charleston: [{ t: 0, d: 1.5, gate: 0.85, v: 1.0 }, { t: 1.5, d: 1, gate: 0.35, v: 0.9 }],
+      bossa: [{ t: 0, d: 1, gate: 0.6, v: 1.0 }, { t: 1.5, d: 1.5, gate: 0.55, v: 0.85 }, { t: 3, d: 1, gate: 0.6, v: 0.95 }],
+      pulse: [{ t: 0, d: 2, gate: 0.75, v: 1.0 }, { t: 2, d: 2, gate: 0.75, v: 0.85 }]
     };
 
     /**
      * Expand a groove into concrete onsets for one chord. Pure. With swing,
      * off-beat eighths (fractional part .5) land at the swung 2/3 position.
+     * 'block' returns the original single whole-span hit (gate 0.92 preserves
+     * its historical ring length exactly).
      */
     function grooveOnsets(groove, beatsPerChord, swing) {
       const pattern = GROOVE_PATTERNS[groove];
-      if (!pattern) return [{ t: 0, d: beatsPerChord }];
+      if (!pattern) return [{ t: 0, d: beatsPerChord, gate: 0.92, v: 1.0 }];
       const out = [];
       for (let base = 0; base < beatsPerChord; base += 4) {
         const cycleLen = Math.min(4, beatsPerChord - base);
@@ -148,7 +159,7 @@
           if (hit.t >= cycleLen) continue;
           let t = hit.t;
           if (swing && t % 1 === 0.5) t = Math.floor(t) + 2 / 3;
-          out.push({ t: base + t, d: hit.d });
+          out.push({ t: base + t, d: hit.d, gate: hit.gate, v: hit.v });
         }
       }
       return out;
@@ -172,14 +183,17 @@
         d.leftHandPitches.forEach((p, i) => {
           synthNote(p.midi, time + i * 0.006, span, 0.30, audioEngine.sessionGain);
         });
-        // RH comps the groove pattern (a single held hit for 'block')
+        // RH comps the groove pattern (a single held hit for 'block').
+        // gate articulates each hit's ring; v carries the pattern's accents;
+        // non-block hits get the percussive envelope.
+        const perc = !!GROOVE_PATTERNS[state.groove];
         const hits = grooveOnsets(state.groove, beatsPerChord, state.swing);
-        hits.forEach((hit, hi) => {
+        hits.forEach((hit) => {
           const t0 = time + hit.t * secPerBeat;
-          const dur = hit.d * secPerBeat * 0.92;
-          const vel = hi === 0 ? 0.16 : 0.13; // slight accent on the downbeat hit
+          const dur = Math.max(0.09, hit.d * secPerBeat * hit.gate);
+          const vel = 0.16 * hit.v;
           d.rightHandPitches.forEach((p, i) => {
-            synthNote(p.midi, t0 + 0.008 + i * 0.007, dur, vel, audioEngine.sessionGain);
+            synthNote(p.midi, t0 + 0.008 + i * 0.007, dur, vel, audioEngine.sessionGain, perc);
           });
         });
       }
@@ -188,7 +202,12 @@
         clickAt(time, beatInChord === 0, audioEngine.sessionGain);
       }
 
-      audioEngine.visualQueue.push({ time, chordIndex, beatInChord, chordStep });
+      // Stamp the loop number at schedule time: with the 12-keys seam
+      // rebuilding the progression (and zeroing chordStep) mid-lookahead,
+      // deriving it later in visualSync would misnumber the events still in
+      // flight from the previous loop.
+      const loop = audioEngine.loopBase + Math.floor(chordStep / progression.length) + 1;
+      audioEngine.visualQueue.push({ time, chordIndex, beatInChord, chordStep, loop });
     }
 
     /** Lookahead scheduler: keeps the next ~120ms of audio scheduled. */
@@ -198,6 +217,14 @@
       // normal 120ms lookahead and drop notes. Widen the horizon when hidden.
       const ahead = document.hidden ? 1.2 : SCHEDULE_AHEAD_SEC;
       while (audioEngine.nextBeatTime < ctx.currentTime + ahead) {
+        // Practice modes act exactly at the loop seam, BEFORE the wrap beat is
+        // scheduled. Acting here (schedule time) rather than in visualSync
+        // (audible time) is what keeps the old key from bleeding into the new
+        // loop: by visual time the wrap beat's audio had already been written.
+        const span = state.beatsPerChord * state.progression.length;
+        if (span > 0 && audioEngine.beatCounter > 0 && audioEngine.beatCounter % span === 0) {
+          handleLoopSeam(); // may rebuild the progression and zero beatCounter
+        }
         scheduleBeat(audioEngine.beatCounter, audioEngine.nextBeatTime);
         audioEngine.nextBeatTime += 60 / state.tempo;
         audioEngine.beatCounter++;
@@ -211,20 +238,16 @@
       const q = audioEngine.visualQueue;
       let updated = false;
       let chordChanged = false;
-      let loopWrapped = false;
       while (q.length && q[0].time <= ctx.currentTime) {
         const ev = q.shift();
         if (ev.beatInChord === 0 && ev.chordIndex !== state.currentChordIndex) chordChanged = true;
-        // Derive the loop count from the monotonic chord step, so it also
-        // increments correctly for one-chord progressions (the old wrap test
-        // using '<' never fired when the index never changed). loopBase carries
-        // loops completed before this play span so the count survives pause/resume
-        // (chordStep restarts from the resume position on each start).
-        const newLoopCount = audioEngine.loopBase + Math.floor(ev.chordStep / state.progression.length) + 1;
-        if (newLoopCount > state.loopCount) loopWrapped = true;
         state.currentChordIndex = ev.chordIndex;
         state.currentBeat = ev.beatInChord;
-        state.loopCount = newLoopCount;
+        // Loop numbers are stamped into events at schedule time (see
+        // scheduleBeat); consuming them here keeps the display correct while
+        // old-loop events drain past a 12-keys transpose, and survives
+        // pause/resume via loopBase.
+        state.loopCount = ev.loop;
         updated = true;
       }
       if (updated) {
@@ -235,39 +258,45 @@
           scrollActiveChordIntoView();
         }
       }
-      // Practice modes fire once per completed pass through the progression.
-      if (loopWrapped && state.isPlaying) handleLoopBoundary();
     }
 
     // Flat spellings for the practice-transposer (matches the key select).
     const FLAT_KEY_CYCLE = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 
     /**
-     * Practice modes (per completed loop): tempo ramp, and the 12-keys
-     * transposer (cycle of 4ths — the classic shed order — or half steps).
-     * The transpose reuses the normal key-change path, so voicings re-optimize
-     * and playback re-anchors to the top of the progression in the new key.
+     * Practice modes, invoked by the scheduler at the exact loop seam — the
+     * moment the next beat to schedule is a new pass's downbeat: tempo ramp,
+     * and the 12-keys transposer (cycle of 4ths — the classic shed order — or
+     * half steps). The transpose rebuilds through the normal key-change path
+     * (voicings re-optimize), then restores the beat grid and the pending
+     * visual queue so the seam is seamless: the new key's downbeat lands on
+     * the same grid slot the old key's would have, with nothing doubled.
      */
-    function handleLoopBoundary() {
+    function handleLoopSeam() {
       if (state.tempoRamp > 0) setTempo(state.tempo + state.tempoRamp);
-      if (state.autoTranspose && state.autoTranspose !== 'off') {
-        const pc = NOTE_TO_SEMITONE[state.key];
-        if (pc === undefined) return;
-        const step = state.autoTranspose === 'chromatic' ? 1 : 5;
-        const nextKey = FLAT_KEY_CYCLE[(pc + step) % 12];
-        // Keep the loop display climbing across the rebuild (which zeroes the
-        // chord step, same as pause/resume).
-        audioEngine.loopBase = state.loopCount - 1;
-        state.key = nextKey;
-        state.asWritten = false;
-        elements.keySelect.value = nextKey;
-        updateAsWrittenChip();
-        buildProgressionFromSource();
-        // The rebuild resets loopCount to 1; restore the climbing count so the
-        // next visual event doesn't read as another wrap and transpose again.
-        state.loopCount = audioEngine.loopBase + 1;
-        updateProgress();
-      }
+      if (!state.autoTranspose || state.autoTranspose === 'off') return;
+      const pc = NOTE_TO_SEMITONE[state.key];
+      if (pc === undefined) return;
+      const step = state.autoTranspose === 'chromatic' ? 1 : 5;
+      const nextKey = FLAT_KEY_CYCLE[(pc + step) % 12];
+
+      // Completed loops so far; the new span restarts chordStep at 0, so
+      // events scheduled after this stamp loopBase + 1.
+      audioEngine.loopBase = state.loopCount;
+      const keepNextBeatTime = audioEngine.nextBeatTime;
+      const keepQueue = audioEngine.visualQueue;
+
+      state.key = nextKey;
+      state.asWritten = false;
+      elements.keySelect.value = nextKey;
+      updateAsWrittenChip();
+      buildProgressionFromSource(); // resets the clock/queue — restored below
+
+      audioEngine.beatCounter = 0;                    // new span starts at its beat 0
+      audioEngine.nextBeatTime = keepNextBeatTime;    // …on the old grid slot
+      audioEngine.visualQueue = keepQueue;            // old loop's tail still drains
+      state.loopCount = audioEngine.loopBase;         // display flips when its events arrive
+      updateProgress();
     }
 
     /** Reset the playback clock to the top of the progression. */
