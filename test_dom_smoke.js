@@ -597,6 +597,15 @@ async function main() {
         'degree markup is escaped in pad grid and chord strip');
       check(document.querySelector('.pad-numeral').textContent.indexOf('<img') === 0,
         'escaped degree still shows as literal text');
+      // The same vector reaches ${symbol}: an imported entry's key becomes the
+      // chord root on the unknown-numeral fallback, and formatNoteDisplay
+      // returns strings without '#'/'b' verbatim. It must be escaped too.
+      st().progression[0].root = evil;
+      st().progression[0].quality = 'zz'; // unknown quality -> symbol is just the root
+      window.renderChordStructure();
+      check(document.querySelector('.pad-symbol').innerHTML.indexOf('<img') === -1 &&
+        document.querySelector('.chord-symbol').innerHTML.indexOf('<img') === -1,
+        'chord symbol built from a malicious root is escaped in pad grid and chord strip');
       window.loadProgression(0); // restore clean state (also closes the tab)
       padsToggle.click();        // reopen pads for the remaining pad checks
     }
@@ -623,6 +632,29 @@ async function main() {
     window.padReleaseAll();
     check(Object.keys(engine().padVoices).length === 0, 'padReleaseAll frees ringing one-shot voices');
 
+    // Ring-out self-cleanup (review finding: this timer path was untested).
+    // padRingCleanup is what padPress's timer calls; drive it directly. It must
+    // wait for the audio clock (a slow resume() shifts the tail later than the
+    // wall-clock timer), free the slot + disconnect once the tail is over, and
+    // never touch a newer voice that superseded the one it was armed with.
+    window.padPress(1);
+    const ringVoice = engine().padVoices[1];
+    let ringDisconnected = false;
+    ringVoice.disconnect = () => { ringDisconnected = true; };
+    window.padRingCleanup(1, ringVoice, engine().ctx.currentTime + 5); // audio clock hasn't reached the tail's end
+    check(engine().padVoices[1] === ringVoice && !ringDisconnected,
+      'ring cleanup re-arms instead of clipping a tail the audio clock says is still sounding');
+    window.padRingCleanup(1, ringVoice, engine().ctx.currentTime); // tail is over
+    check(engine().padVoices[1] == null && ringDisconnected,
+      'ring-out cleanup frees the slot and disconnects the voice');
+    window.padPress(1);
+    const staleVoice = engine().padVoices[1];
+    window.padPress(1); // retrigger: staleVoice was cut, the slot holds the new voice
+    window.padRingCleanup(1, staleVoice, 0);
+    check(engine().padVoices[1] != null && engine().padVoices[1] !== staleVoice,
+      'a stale ring cleanup leaves the newer voice untouched');
+    window.padReleaseAll();
+
     // Hold: voice stays while held, damped on release.
     document.getElementById('padModeBtn').click();
     check(st().padMode === 'hold' && document.querySelector('#padModeBtn .btn-label').textContent === 'Trigger: Hold',
@@ -634,6 +666,15 @@ async function main() {
     window.padRelease(0);
     window.padRelease(2);
     check(engine().padVoices[0] == null && engine().padVoices[2] == null, 'hold release damps and frees both');
+
+    // A voice follows the mode it was STRUCK in (captured as g.padHold), not
+    // whatever state.padMode reads at release time: a hold-struck voice whose
+    // release arrives after a mode change must still damp and free its slot.
+    window.padPress(0);
+    st().padMode = 'oneshot'; // change mode out from under the held voice
+    window.padRelease(0);
+    check(engine().padVoices[0] == null, 'hold-struck voice damps on release even after a mode change');
+    st().padMode = 'hold'; // restore for the remaining hold checks
 
     // Retrigger the same pad doesn't leak a voice
     window.padPress(1); window.padPress(1);

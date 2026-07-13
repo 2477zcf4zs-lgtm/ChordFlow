@@ -507,9 +507,11 @@
       // drop the damper now and free the slot. A plain one-shot finger-up does
       // NOT free the slot: the note keeps ringing on its own envelope AND stays
       // tracked, so a re-tap can still cut it (padPress calls padRelease(_, true)
-      // first) instead of stacking a second voice. padPress's timer disconnects
-      // and frees the slot once the ring is done.
-      if (state.padMode === 'hold' || immediate) {
+      // first) instead of stacking a second voice. padRingCleanup disconnects
+      // and frees the slot once the ring is done. The voice remembers the mode
+      // it was struck in (padHold): a hold-struck voice must damp on release
+      // even if state.padMode changed while it was down.
+      if (g.padHold || immediate) {
         delete audioEngine.padVoices[index];
         if (!ctx) return;
         const t = ctx.currentTime;
@@ -531,11 +533,15 @@
       const g = ctx.createGain();
       g.gain.value = 1;
       g.connect(audioEngine.master);
+      // Capture the trigger mode on the voice itself: release and cleanup
+      // follow the mode the pad was STRUCK in, not whatever state.padMode
+      // happens to read later.
+      g.padHold = state.padMode === 'hold';
       audioEngine.padVoices[index] = g;
 
       const t = ctx.currentTime + 0.005;
       // Hold schedules a long ceiling we cut on release; one-shot rings out.
-      const dur = state.padMode === 'hold' ? PAD_HOLD_CEIL_SEC : PAD_ONESHOT_SEC;
+      const dur = g.padHold ? PAD_HOLD_CEIL_SEC : PAD_ONESHOT_SEC;
       const d = chordPitchesAt(index);
       d.leftHandPitches.forEach((p, i) => {
         synthNote(p.midi, t + i * 0.006, dur, 0.30, g);
@@ -544,17 +550,34 @@
         synthNote(p.midi, t + 0.008 + i * 0.007, dur, 0.16, g);
       });
 
-      // One-shot voices self-release after their ring: disconnect and free the
-      // slot, but only if this exact voice is still current (a retrigger or a
-      // forced cut already handled it otherwise). Keeps padVoices from growing.
-      if (state.padMode !== 'hold') {
-        setTimeout(() => {
-          if (audioEngine.padVoices[index] === g) {
-            delete audioEngine.padVoices[index];
-            try { g.disconnect(); } catch (e) {}
-          }
-        }, (PAD_ONESHOT_SEC + 0.5) * 1000);
+      // One-shot voices self-release after their ring (see padRingCleanup).
+      // The tail ends on the AUDIO clock: if ensureAudioContext's resume() was
+      // slow (first-tap autoplay unlock, Bluetooth route), the notes land later
+      // than this wall-clock timer, so cleanup re-checks before disconnecting.
+      if (!g.padHold) {
+        const doneAt = t + PAD_ONESHOT_SEC + 0.4; // audio-clock time the tail is over
+        setTimeout(() => padRingCleanup(index, g, doneAt), (PAD_ONESHOT_SEC + 0.5) * 1000);
       }
+    }
+
+    /**
+     * Free a one-shot voice once its ring is over: disconnect and release the
+     * padVoices slot, but only if this exact voice is still current (a
+     * retrigger or a forced cut already handled it otherwise). `doneAt` is on
+     * the audio clock — if the context resumed slowly the tail ends later than
+     * the wall-clock timer that got us here, so re-arm for the remainder
+     * instead of clipping a still-sounding tail.
+     */
+    function padRingCleanup(index, g, doneAt) {
+      if (audioEngine.padVoices[index] !== g) return;
+      const ctx = audioEngine.ctx;
+      const remaining = ctx ? doneAt - ctx.currentTime : 0;
+      if (remaining > 0.05) {
+        setTimeout(() => padRingCleanup(index, g, doneAt), remaining * 1000);
+        return;
+      }
+      delete audioEngine.padVoices[index];
+      try { g.disconnect(); } catch (e) {}
     }
 
     /** Damp every sounding pad (used when leaving the Pads tab / on stop). */
