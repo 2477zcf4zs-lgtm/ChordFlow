@@ -142,9 +142,9 @@
 
         html += `
           <div class="chord-cell" data-index="${index}">
-            <button class="chord-box" type="button" data-index="${index}" aria-label="Chord ${index + 1}, ${symbol}. Activate to view its voicing.">
+            <button class="chord-box" type="button" data-index="${index}" aria-label="Chord ${index + 1}, ${escapeHtml(symbol)}. Activate to view its voicing.">
               <div class="chord-numeral">${escapeHtml(chord.degree)}${marker}</div>
-              <div class="chord-symbol">${symbol}</div>
+              <div class="chord-symbol">${escapeHtml(symbol)}</div>
               <div class="beat-indicator">${dots}</div>
             </button>
             <div class="sub-badge-container">${badge}</div>
@@ -175,9 +175,9 @@
         const symbol = formatChordSymbol(chord.root, chord.quality);
         const marker = chord.substituted ? '<span class="sub-marker" title="Substituted">sub</span>' : '';
         return `<button class="pad" type="button" data-index="${index}"
-                  aria-label="Play chord ${index + 1}, ${chord.root} ${chord.quality}">
+                  aria-label="Play chord ${index + 1}, ${escapeHtml(chord.root)} ${escapeHtml(chord.quality)}">
             <span class="pad-numeral">${escapeHtml(chord.degree)}${marker}</span>
-            <span class="pad-symbol">${symbol}</span>
+            <span class="pad-symbol">${escapeHtml(symbol)}</span>
           </button>`;
       }).join('');
       updatePadPlaybackState();
