@@ -37,9 +37,9 @@ Three user-facing problems, in priority order:
 - Snippet auditions **inherit the current groove/swing/tempo** settings.
 - **No style-named presets** for flavor — a single Off / Subtle / Bold dial.
 - Include: **transient undo chip**, **borrowed-chord tint**, **pad haptics**.
-- Excluded from this spec (future work / back burner, owner-confirmed):
-  loop-region selection, tap tempo, and a **user guide** (in-app or doc —
-  scope undecided; park it until asked).
+- Excluded from this spec (future work / back burner): loop-region selection,
+  tap tempo, and a user guide. These now live in `chordflow-backlog.md`, the
+  consolidated to-do / cleanup list — check there for parked items.
 
 ### Architecture facts you will need (verified against current code)
 
