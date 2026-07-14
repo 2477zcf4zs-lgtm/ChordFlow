@@ -348,17 +348,27 @@ async function main() {
     check(st().flavor === 'subtle' && flavorBtn.classList.contains('active') &&
       flavorBtn.querySelector('.btn-label').textContent === 'Flavor: Subtle',
       'flavor chip cycles to Subtle (label + active state)');
+    // Levels must read without the label (mobile hides .btn-label):
+    // subtle = outline + one dot, bold = filled (flavor-bold) + two dots.
+    check(flavorBtn.querySelector('.flavor-dots').textContent === '•' &&
+      !flavorBtn.classList.contains('flavor-bold'),
+      'Subtle shows one dot, outline style');
     check(trayChips()[1].dataset.key.startsWith('flavor_'),
       'with flavor on, borrowed colors surface right after Original');
     flavorBtn.click(); // -> bold
     check(st().flavor === 'bold', 'flavor chip cycles to Bold');
+    check(flavorBtn.querySelector('.flavor-dots').textContent === '••' &&
+      flavorBtn.classList.contains('flavor-bold'),
+      'Bold shows two dots + the filled flavor-bold style (distinct from Subtle)');
     // Generation at Bold schedules cleanly (statistics live in the unit suite)
     window.generateRandomProgression();
     check(st().progression.length >= 2 && st().sourceNumerals.length === st().progression.length,
       'generation with flavor Bold produces a coherent progression');
     flavorBtn.click(); // -> off
-    check(st().flavor === 'off' && !flavorBtn.classList.contains('active'),
-      'flavor chip cycles back to Off');
+    check(st().flavor === 'off' && !flavorBtn.classList.contains('active') &&
+      !flavorBtn.classList.contains('flavor-bold') &&
+      flavorBtn.querySelector('.flavor-dots').textContent === '',
+      'flavor chip cycles back to Off (no dots, no level styling)');
     // Borrowed tint: drive the numeral pipeline directly for determinism
     st().sourceNumerals = ['Imaj7', 'iv7', 'bVII7', 'Imaj7'];
     st().substitutions = [];
