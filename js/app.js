@@ -321,7 +321,13 @@
         const lbl = elements.flavorBtn.querySelector('.btn-label');
         if (lbl) lbl.textContent = `Flavor: ${pretty}`;
         elements.flavorBtn.setAttribute('aria-label', `Flavor for new progressions: ${state.flavor}`);
+        // Levels must read without the label (mobile hides .btn-label):
+        // Subtle = the standard gold outline + one dot; Bold = filled gold
+        // (flavor-bold) + two dots.
         elements.flavorBtn.classList.toggle('active', state.flavor !== 'off');
+        elements.flavorBtn.classList.toggle('flavor-bold', state.flavor === 'bold');
+        const dots = elements.flavorBtn.querySelector('.flavor-dots');
+        if (dots) dots.textContent = state.flavor === 'bold' ? '••' : (state.flavor === 'subtle' ? '•' : '');
         if (state.showVoicing) renderVoicing(); // tray reorders with the dial
         elements.flavorBtn.blur();
       });

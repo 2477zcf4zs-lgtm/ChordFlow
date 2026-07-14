@@ -1350,6 +1350,31 @@
       outline-offset: 2px;
     }
 
+    /* Flavor dial levels, readable without the (mobile-hidden) label:
+       Subtle = the standard .active gold outline + one dot;
+       Bold = filled gold + two dots. */
+    .flavor-dots {
+      font-size: 0.7rem;
+      letter-spacing: 1px;
+      line-height: 1;
+      color: currentColor;
+    }
+
+    .flavor-dots:empty {
+      display: none;
+    }
+
+    #flavorBtn.flavor-bold {
+      background: var(--accent-gold);
+      border-color: var(--accent-gold);
+      color: #141418;
+    }
+
+    #flavorBtn.flavor-bold:hover {
+      background: var(--accent-gold-dim);
+      border-color: var(--accent-gold-dim);
+    }
+
     /* Transient undo chip: floats just above the transport bar */
     .undo-chip-wrap {
       position: fixed;
