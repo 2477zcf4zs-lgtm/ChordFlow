@@ -599,8 +599,17 @@ async function main() {
     check(tipEl.hidden === true, 'tip line hidden for a quality without a tip');
 
     // --- Phase 3: tab bar (exclusive panels) ---
-    const tabBar = document.querySelector('.tab-bar');
-    check(tabBar && tabBar.getAttribute('role') === 'tablist', 'tab bar present with role=tablist');
+    // The tablist role lives on the inner tab set; the CF brand + status dot
+    // ride the same bar but stay outside the tablist (ARIA: tabs only).
+    const tabBar = document.querySelector('.tab-bar .tab-set');
+    check(tabBar && tabBar.getAttribute('role') === 'tablist', 'tab set carries role=tablist');
+    check(document.querySelector('.tab-bar .logo-mini') !== null &&
+      document.querySelector('.tab-bar #statusDot') !== null &&
+      document.querySelector('.app-header') === null,
+      'CF monogram + status dot ride the tab bar; the old header row is gone');
+    check(document.querySelector('.progression-info #currentMeasure') !== null &&
+      document.querySelector('.progress-labels') === null,
+      'strip counters moved inline with the progression name (labels row gone)');
     check(document.querySelectorAll('.tab-btn').length === 5, 'five tab buttons (pads + voicing + dictionary + library + settings)');
     const libToggle = document.getElementById('libraryToggle');
     const dictToggle = document.getElementById('dictToggle');
