@@ -299,6 +299,15 @@
      * the same grid slot the old key's would have, with nothing doubled.
      */
     function handleLoopSeam() {
+      // Trial subs count their passes here — schedule time, BEFORE the wrap
+      // beat and before any 12-keys rebuild, so the revert (or the surviving
+      // trial's re-derivation in a new key) lands exactly on the seam. Two
+      // passes, then back to what was there — unless the user kept it
+      // (commitSubTrial clears trialSub).
+      if (state.trialSub) {
+        state.trialSub.passesLeft -= 1;
+        if (state.trialSub.passesLeft <= 0) revertSubTrial();
+      }
       if (state.tempoRamp > 0) setTempo(state.tempo + state.tempoRamp);
       if (!state.autoTranspose || state.autoTranspose === 'off') return;
       const pc = NOTE_TO_SEMITONE[state.key];
@@ -413,6 +422,8 @@
 
     function stopPlayback() {
       state.isPlaying = false;
+      // A trial only makes sense against a running loop: stopping ends it.
+      if (state.trialSub) revertSubTrial();
       // Invalidate any in-flight startPlayback still awaiting resume().
       audioEngine.session += 1;
       updateStatus();

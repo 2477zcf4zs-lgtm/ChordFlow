@@ -321,16 +321,26 @@
       const subs = getChordSubstitutions(base.root, base.quality);
       const armedKey = (state.armedSub && state.armedSub.index === chordIndex)
         ? state.armedSub.key : null;
+      const trial = (state.trialSub && state.trialSub.index === chordIndex)
+        ? state.trialSub : null;
 
       const chip = (key, symbol, desc, current) => {
         const armed = armedKey === key;
-        const cls = 'sub-chip' + (current ? ' sub-chip--current' : '') + (armed ? ' sub-chip--armed' : '');
-        const hint = armed ? 'Tap again to apply' : 'Tap to hear it in context';
+        const trialing = !!(trial && trial.type === key && key !== 'original');
+        const cls = 'sub-chip' + (current ? ' sub-chip--current' : '')
+          + (armed ? ' sub-chip--armed' : '') + (trialing ? ' sub-chip--trialing' : '');
+        const hint = trialing
+          ? `Trying — ${trial.passesLeft} pass${trial.passesLeft === 1 ? '' : 'es'} left. Tap to keep.`
+          : (armed ? 'Tap again to apply' : (state.isPlaying
+            ? 'Tap to try it in the loop (two passes)'
+            : 'Tap to hear it in context'));
+        const passes = trialing ? '●'.repeat(Math.max(0, trial.passesLeft)) : '';
         return `<button type="button" class="${cls}" data-chord-index="${chordIndex}"
             data-key="${escapeHtml(key)}" title="${escapeHtml(hint)}"
-            aria-label="${escapeHtml(desc)}: tap to hear, tap again to apply">
+            aria-label="${escapeHtml(desc)}: ${escapeHtml(hint)}">
             <span class="sub-chip-symbol">${escapeHtml(symbol)}</span>
             <span class="sub-chip-desc">${escapeHtml(desc)}</span>
+            <span class="sub-chip-passes" aria-hidden="true">${passes}</span>
             <span class="sub-chip-check" aria-hidden="true">✓</span>
           </button>`;
       };
@@ -340,6 +350,17 @@
         html += chip(sub.type, sub.symbol, sub.description, applied === sub.type);
       });
       subsEl.innerHTML = html;
+      updateAbButton();
+    }
+
+    /** A/B is meaningful only with subs applied and no trial in flight. */
+    function updateAbButton() {
+      const btn = document.getElementById('abCompareBtn');
+      if (!btn) return;
+      const hasSubs = state.substitutions.some(t => !!t);
+      btn.disabled = !hasSubs || !!state.trialSub;
+      btn.setAttribute('aria-pressed', String(state.compareOriginal));
+      btn.classList.toggle('active', state.compareOriginal);
     }
 
     /** Restore the un-substituted chord. Cheap and playback-safe: no rebuild. */
@@ -358,19 +379,27 @@
 
     /**
      * Sub tray chip tap (delegated from app.js). Hear-first model:
-     * first tap auditions the candidate in context and ARMS the chip;
-     * a second tap on the armed chip commits (apply / revert-to-original).
-     * Auditions are gated off during playback (trials arrive in Phase 2).
+     * STOPPED — first tap auditions the candidate in context and ARMS the
+     * chip; a second tap on the armed chip commits (apply / revert).
+     * PLAYING — a sub chip tap starts a two-pass TRIAL in the running loop
+     * (tapping the trialing chip again keeps it); the Original chip cancels
+     * an active trial immediately, or arms-then-reverts a permanent sub.
      */
     function subTrayTap(chordIndex, key) {
       const applied = state.substitutions[chordIndex] || null;
       const base = state.subBase[chordIndex] || state.progression[chordIndex];
       const isArmed = state.armedSub &&
         state.armedSub.index === chordIndex && state.armedSub.key === key;
+      const trial = state.trialSub;
 
       if (key === 'original') {
+        if (state.isPlaying && trial && trial.index === chordIndex) {
+          revertSubTrial(); // cancel the trial on the spot — no confirm needed
+          return;
+        }
         if (isArmed && applied) {
           // Confirm tap: revert, with an undo escape hatch.
+          exitCompareOriginal();
           const snap = snapshotSubState(chordIndex);
           state.armedSub = null;
           revertSubstitution(chordIndex);
@@ -387,7 +416,18 @@
 
       const sub = getChordSubstitutions(base.root, base.quality).find(s => s.type === key);
       if (!sub) return;
+
+      if (state.isPlaying) {
+        if (trial && trial.index === chordIndex && trial.type === key) {
+          commitSubTrial(); // keep it
+        } else {
+          beginSubTrial(chordIndex, sub);
+        }
+        return;
+      }
+
       if (isArmed) {
+        exitCompareOriginal();
         const snap = snapshotSubState(chordIndex);
         state.armedSub = null;
         applySubstitution(chordIndex, sub);
@@ -398,6 +438,96 @@
       state.armedSub = { index: chordIndex, key };
       if (!state.isPlaying) auditionSnippet(chordIndex, sub);
       renderVoicing();
+    }
+
+    // ============================================
+    // TRIAL SUBS (playback): the sub takes the slot for two loop passes,
+    // then auto-reverts at the seam (handleLoopSeam decrements) unless kept.
+    // The trial LIVES in state.substitutions — that's what lets a 12-keys
+    // transpose re-derive it in the new key for free — with prevType
+    // remembering what the slot held before (null, or a permanent sub's
+    // type, re-derived key-safely on restore). Invariant 15.
+    // ============================================
+
+    function beginSubTrial(chordIndex, sub) {
+      if (state.trialSub) revertSubTrial(); // one trial at a time
+      exitCompareOriginal();                // comparing ends when the state changes
+      const prevType = state.substitutions[chordIndex] || null;
+      state.trialSub = { index: chordIndex, type: sub.type, prevType, passesLeft: 2 };
+      state.armedSub = null;
+      applySubstitution(chordIndex, sub); // recompute + re-render (shows trialing chip)
+    }
+
+    /** End the trial and put back what the slot held before it. */
+    function revertSubTrial() {
+      const t = state.trialSub;
+      if (!t) return;
+      state.trialSub = null;
+      if (t.index >= state.progression.length) return; // progression shrank under it
+      restoreTrialPrev(t);
+    }
+
+    /** Keep the trialed sub: it's already applied, just stop counting. */
+    function commitSubTrial() {
+      const t = state.trialSub;
+      if (!t) return;
+      state.trialSub = null;
+      const kept = state.progression[t.index];
+      showUndoChip(`Kept ${formatChordSymbol(kept.root, kept.quality)}`,
+        () => restoreTrialPrev(t));
+      renderVoicing();
+    }
+
+    /**
+     * Restore a trial's pre-trial state BY TYPE, not by chord snapshot: the
+     * key may have changed mid-trial (12-keys), so a previous permanent sub
+     * is re-derived from the current base, same as the rebuild path does.
+     */
+    function restoreTrialPrev(t) {
+      if (t.prevType) {
+        const base = state.subBase[t.index] || state.progression[t.index];
+        const match = getChordSubstitutions(base.root, base.quality).find(s => s.type === t.prevType);
+        if (match) { applySubstitution(t.index, match); return; }
+      }
+      revertSubstitution(t.index);
+    }
+
+    // ============================================
+    // A/B COMPARE: hear the whole progression with and without its subs.
+    // Per-index swaps via subBase — NEVER a rebuild, which would reset the
+    // playback position (invariant 16). substitutions/subBase stay intact
+    // while comparing; only progression[] flips between base and derived sub.
+    // ============================================
+
+    function toggleCompareOriginal() {
+      if (state.trialSub) return; // disabled during a trial (one experiment at a time)
+      const on = !state.compareOriginal;
+      state.substitutions.forEach((type, i) => {
+        if (!type || !state.subBase[i]) return;
+        if (on) {
+          state.progression[i] = { ...state.subBase[i] };
+        } else {
+          const base = state.subBase[i];
+          const match = getChordSubstitutions(base.root, base.quality).find(s => s.type === type);
+          if (match) {
+            state.progression[i] = {
+              root: match.root,
+              quality: match.quality,
+              degree: base.degree,
+              substituted: true
+            };
+          }
+        }
+      });
+      state.compareOriginal = on;
+      recomputeProgressionVoicings();
+      renderChordStructure();
+      renderVoicing();
+    }
+
+    /** Any real state change (apply/revert/trial) ends a compare first. */
+    function exitCompareOriginal() {
+      if (state.compareOriginal) toggleCompareOriginal();
     }
 
     /** Exact per-index restore point for the undo chip. */

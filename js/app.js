@@ -27,6 +27,7 @@
       rangeSelect: document.getElementById('rangeSelect'),
       voicingSubs: document.getElementById('voicingSubs'),
       undoChip: document.getElementById('undoChip'),
+      abCompareBtn: document.getElementById('abCompareBtn'),
       swingBtn: document.getElementById('swingBtn'),
       autoTransposeSelect: document.getElementById('autoTransposeSelect'),
       tempoRampSelect: document.getElementById('tempoRampSelect'),
@@ -304,6 +305,10 @@
 
       // Transient undo chip (single instance, see showUndoChip).
       elements.undoChip.addEventListener('click', undoChipActivate);
+
+      // A/B compare: whole-progression with/without subs (invariant 16:
+      // per-index swaps, never a rebuild — playback position is untouched).
+      elements.abCompareBtn.addEventListener('click', toggleCompareOriginal);
 
       // At the moment the tab hides, only ~120ms is buffered and the throttled
       // scheduler interval may not fire for up to ~1s → an audible gap. Force
