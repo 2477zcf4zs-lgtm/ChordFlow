@@ -97,8 +97,9 @@
             <div class="piano-keys" id="pianoKeyboard"></div>
             <div class="piano-legend"><span class="legend-lh">Left hand</span><span class="legend-rh">Right hand</span></div>
           </div>
-          <!-- Sub tray lives BELOW the piano in a single scrollable row, so a
-               chord with many substitutions can never push the piano around. -->
+          <!-- Sub tray lives BELOW the piano and wraps so every sub shows at
+               once; the piano flexes above it, so many chips can never push
+               the panel's content off-screen. -->
           <div class="voicing-subs" id="voicingSubs"></div>
           <div class="voicing-description" id="voicingDescription">Click any chord to see its voicing</div>
           <div class="click-hint">Tap a chord in the strip below to select it • Tap again for a different voicing</div>

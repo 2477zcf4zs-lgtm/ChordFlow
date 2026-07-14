@@ -1264,15 +1264,20 @@
       color: var(--text-primary);
     }
 
+    /* The tray wraps so every sub is visible at once. Safe now that the
+       panel fills a FIXED height with the piano flexing: extra chip rows
+       borrow a little piano height instead of pushing it off-screen. The
+       max-height (~2 rows, which fits the worst real case) is a deep
+       fallback, not the normal state. */
     .voicing-subs {
       display: flex;
       gap: 8px;
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
+      flex-wrap: wrap;
+      overflow-y: auto;
+      max-height: 88px;
+      min-height: 40px;
       padding: 4px 2px;
       margin-top: 12px;
-      min-height: 40px;
       scrollbar-width: thin;
     }
 
