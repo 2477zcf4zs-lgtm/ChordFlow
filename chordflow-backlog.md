@@ -27,6 +27,27 @@ started then deliberately shelved.
   bassist mode, range, flavor, the sub tray, trials/A-B, and the QoL batch.
   Worth sectioning into named sub-routines (it already uses `// ---` comment
   banners as de-facto sections) so a failure points at a feature area.
+- [ ] **Re-evaluate the desktop browser UI — it got left behind and feels
+  clunky.** The layout has a single `@media (min-width: 900px)` breakpoint
+  (`css/styles.css` ~line 1771) that drops the entire mobile UI into a
+  two-column grid: chord strip + transport on the left, and the whole tabbed
+  panel area crammed into a fixed **480px** right column. Everything tuned for
+  the phone lately (CF monogram + status in the tab bar, icon-friendly
+  transport, taller piano, wrapping sub tray) was designed for that narrow
+  column and just inherited by desktop with no reconsideration. Concrete rough
+  edges to address:
+  - **One breakpoint, no large-desktop tuning** — a 1440px+ monitor looks the
+    same as a 900px one; the 480px panel cap wastes most of a wide screen.
+  - **Mobile tab model on a big screen** — desktop shows one panel at a time
+    like the phone, when it has room to show two at once (e.g. voicing +
+    library, or the piano alongside the dictionary).
+  - **Branding vanished** — removing the mobile header left only the tiny CF
+    monogram in the tab bar; desktop has the room for a proper title/identity.
+  - **Component sizing** — piano, chord boxes, and the sub tray are sized for
+    the narrow column, not for desktop's available width/height.
+  - Update `scripts/layout_check.js` (probes 390×844 and 1280×800) to assert
+    whatever the new desktop intent is. Likely warrants its own spec rather than
+    a quick patch — it's a layout rethink, not a tweak.
 - [ ] *(owner: add your own UI rough-edges here as you hit them.)*
 
 ## B. Voicing content gaps
