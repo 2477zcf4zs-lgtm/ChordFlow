@@ -1,10 +1,20 @@
 # ChordFlow — Project Spec (v2 development plan)
 
+> **STATUS: COMPLETED.** All five phases below shipped (PRs #1–#2 closed out
+> phases 4–5; phases 1–3 landed before the PR workflow). This document is kept
+> as the architectural reference and history — the **Invariants** section
+> (including the additions at the end) is still binding for new work, but the
+> phase checklists are done. For what shipped *after* this spec, see
+> "Post-spec development" at the bottom. The current developer-facing overview
+> lives in `README.md`.
+
 This spec is written for a fresh session with no prior context. Read all of "Project Overview" and "Invariants" before executing any phase. Execute **one phase per session**: complete its acceptance checklist, run the tests, commit, then stop. Do not start the next phase in the same session.
 
 ---
 
 ## Project overview
+
+*(As written at planning time — see the status note above and `README.md` for the current state.)*
 
 ChordFlow is a chord-progression practice tool for a jazz/keys player. It generates or loads progressions (roman-numeral source of truth), realizes them as two-hand keyboard voicings, and plays them with a Web Audio synth + metronome. The current implementation is a single ~4,200-line HTML file — being renamed **`index.html`** — now living in a Git repository with two Node test files.
 
@@ -49,7 +59,7 @@ Both must exit 0 at the end of every phase. Update the tests when a phase intent
 
 ---
 
-## Phase 1 — Repo split, tooling, deploy (no behavior change)
+## Phase 1 — Repo split, tooling, deploy (no behavior change) ✅ shipped
 
 Goal: break the single file into maintainable pieces without changing any behavior, and stand up CI + hosting.
 
@@ -76,7 +86,7 @@ Goal: break the single file into maintainable pieces without changing any behavi
 
 **Acceptance:** app works served locally and from Pages identically to before; both tests pass locally and in CI; loop counter survives pause/resume. Commit. Stop.
 
-## Phase 2 — Quick wins: step transport + dictionary tips
+## Phase 2 — Quick wins: step transport + dictionary tips ✅ shipped
 
 1. **Prev/Next chord buttons** in the transport bar (◀ ▶, between/beside Play and Stop, real buttons with aria-labels "Previous chord"/"Next chord"). Behavior:
    - When **not playing**: `selectChord((selectedIdx ± 1 + n) % n)` with wraparound, where `selectedIdx` defaults to `currentChordIndex` if no manual selection. The voicing panel already follows selection.
@@ -87,7 +97,7 @@ Goal: break the single file into maintainable pieces without changing any behavi
 
 **Acceptance:** stepping works stopped and during playback with correct audio resync; audition sounds when stopped; tips render, each verified against the formula tables; both tests pass (add smoke checks for the new buttons: step changes `selectedChordIndex`, step during mocked playback changes `currentChordIndex` without errors). Commit. Stop.
 
-## Phase 3 — Mobile-first compact UI
+## Phase 3 — Mobile-first compact UI ✅ shipped
 
 Goal: no vertical scrolling to reach vital controls on a ~390×844 viewport. Favor mobile; desktop remains fully functional.
 
@@ -102,7 +112,7 @@ Constraints: preserve every invariant (delegation, structure/state split, button
 
 **Acceptance:** on a 390 px viewport (test via jsdom is insufficient here — include a manual checklist in the PR/commit message), transport + chord strip + one open panel fit without page scroll; all smoke checks updated for the new DOM and passing; keyboard/focus order sensible. Commit. Stop.
 
-## Phase 4 — Generation upgrades: variable length + secondary dominants
+## Phase 4 — Generation upgrades: variable length + secondary dominants ✅ shipped (PR #1)
 
 1. **Variable progression length.** A "Bars" control (Settings sheet), integer 2–8, default 4; `state.bars`. One chord per bar (beats/chord = bar length as today). Generation builds `bars` chords using a light phrase model instead of fixed pools:
    - Last chord: cadential — tonic, or dominant-function for a turnaround feel (weighted).
@@ -120,7 +130,7 @@ Constraints: preserve every invariant (delegation, structure/state split, button
 
 **Acceptance:** bars control works 2–8 including during playback stop/start; secondary dominants appear, always resolve, sound right at every tier; all tests (including new statistical ones) pass. Commit. Stop.
 
-## Phase 5 — Library: as-written loading + personal saved progressions
+## Phase 5 — Library: as-written loading + personal saved progressions ✅ shipped (PR #2)
 
 1. **As-written library loads.**
    - Add `originalKey` (and `mode` where it differs) to every `PROGRESSION_LIBRARY` entry. Use well-documented standard keys where known (e.g., Autumn Leaves → G minor / B♭ major reading, So What → D dorian ~ treat as D minor, Blue Bossa → C minor, Giant Steps → B major, etc.). Where the "original key" is genuinely contested or unknown, choose the most common lead-sheet key and mark it `// KEY: best guess — Anthony to review`. Do not invent certainty.
@@ -145,3 +155,67 @@ Constraints: preserve every invariant (delegation, structure/state split, button
 - Never weaken a test to pass it; update tests only to reflect intended behavior changes, keeping equivalent coverage.
 - Commit at the end of the phase with a message naming the phase. If the session is running long, commit a working intermediate state with tests green rather than leaving the tree broken.
 - Anything marked "Anthony to review/veto" ships behind a code comment flag, listed in the commit message.
+
+---
+
+## Post-spec development (shipped after phase 5)
+
+Everything below landed after this spec's phases completed, in PR order:
+
+- **PR #3 — Minimalist redesign + comping grooves + practice modes.** All-sans
+  typography pass; comping patterns (block / charleston / bossa / half-note
+  pulse, `grooveOnsets` in `js/audio.js`) with optional swung eighths; practice
+  modes read at each loop seam: 12-keys (transpose per loop by fourths or half
+  steps), tempo ramp (+BPM per loop), and flashcard mode (hide chord symbols).
+- **PR #4 — 12-keys seam fix + comping articulation.** Loop-seam handling moved
+  to schedule time (`handleLoopSeam` before the wrap beat is scheduled) so the
+  old key can't bleed into the new loop; per-hit articulation (`gate`/`v`) on
+  groove onsets.
+- **PR #5 — Piano-style synth envelope.** Hammer attack, two-stage decay,
+  pitch-scaled singing tail, damper at key-up (`synthNote`).
+- **PR #6 — Tap-to-play pads.** A performance surface with one pad per chord,
+  one-shot and press-and-hold triggering, polyphonic per pointer, on dedicated
+  `padVoices` gains connected to `master` (never `sessionGain`).
+- **PRs #7–#8 — Hardening.** XSS: all model-derived strings rendered via
+  `innerHTML` go through `escapeHtml` (chord degree *and* symbol, plus
+  attribute interpolations) — the attack vector is imported saved-progression
+  data. Pad voice lifecycle: per-voice mode capture (`g.padHold`),
+  audio-clock-aware ring cleanup (`padRingCleanup`).
+- **PR #9 — Bassist mode.** A Left Hand setting realized at the single
+  realization choke point (`getChordNotesAtIndex` → `realizeVoicing`):
+  **Roots** (written LH, default) / **Shells** (root in C2–B2 + guide tones
+  from C3 via `guideToneIntervals`) / **Two-hand rootless** ("evans": the
+  quality's jazz-tier rootless shapes in the tenor range, chosen per chord by
+  a dedicated LH DP pass, `computeLeftHandVoicings`) / **Rootless** (LH
+  silent). Plus a **backing bass** toggle: a sustained stand-in root during
+  playback when the LH plays no roots.
+- **PR #10 — 3-octave mode.** A Range setting (`full` / `reface`) that
+  constrains every realized note to one 37-key C-to-C window (C2–C5, Yamaha
+  Reface). Enforced in candidate generation: `buildVoicingCandidates`
+  hard-drops out-of-window candidates (least-violating fallback so a DP layer
+  never empties; extra −24 shift offered under a window), and
+  `bestShiftForVoicing` is window-aware for manual cycling and default
+  placement. `getChordNotesAtIndex`'s trailing params were folded into an
+  options object: `(root, quality, complexity, index, shift,
+  { leftHandMode, lhIndex, range })`.
+
+### Invariants added since (10–14, as binding as 1–9)
+
+10. **The realization choke point:** every consumer of realized pitches —
+    `scheduleBeat`, `auditionChord`, `padPress` (audio) and `renderVoicing` /
+    `renderPianoKeyboard` (render) — goes through `chordPitchesAt` /
+    `getChordNotesAtIndex`. New realization-changing features (LH modes, range
+    windows) inject there, never per consumer.
+11. **Recompute asymmetry:** Left Hand mode changes need **no** voicing
+    recompute (the RH and its optimizer are untouched); Range changes **must**
+    call `recomputeProgressionVoicings()` (the window changes what the
+    optimizer picks). Any new setting must be classified as one or the other.
+12. **Escape on render:** any model-derived string interpolated into
+    `innerHTML` goes through `escapeHtml` — saved-progression import means
+    `degree`, `root`, `quality`, entry names and keys are all untrusted.
+13. **Pads never touch `sessionGain`:** pad voices live in
+    `audioEngine.padVoices` on `master`; a voice captures its trigger mode at
+    press time (`padHold`) rather than reading `state.padMode` later.
+14. **Mock-clock ordering in tests:** zero `ctx.currentTime` *before*
+    `startPlayback` — rewinding it afterwards leaves `nextBeatTime` in the
+    future and silently stalls the lookahead scheduler.
