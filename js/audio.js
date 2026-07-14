@@ -174,6 +174,41 @@
       return out;
     }
 
+    /**
+     * Schedule one chord's span — LH sustained, backing bass when the LH mode
+     * plays no roots, RH comping the groove — into `dest` starting at `time`.
+     * Shared by scheduleBeat (playback, dest = sessionGain) and
+     * auditionSnippet (tray previews, dest = auditionGain) so an audition is
+     * always an honest preview of playback (invariant 17).
+     */
+    function scheduleChordSpan(chord, d, time, secPerBeat, beats, dest) {
+      // LH bass holds the whole chord span regardless of groove
+      const span = beats * secPerBeat * 0.92;
+      // Slight roll (a few ms per note) so the attack sounds played, not stamped
+      d.leftHandPitches.forEach((p, i) => {
+        synthNote(p.midi, time + i * 0.006, span, 0.30, dest);
+      });
+      // Backing bass: in rootless/evans modes the LH plays no root, so an
+      // optional sustained root stands in for the bassist when practicing
+      // without a track. Other modes already carry their root in the LH.
+      if (state.bassBacking && (state.leftHand === 'rootless' || state.leftHand === 'evans')) {
+        const bass = realizeHand(chord.root, ['R'], LH_BASE)[0];
+        synthNote(bass.midi, time, span, 0.30, dest);
+      }
+      // RH comps the groove pattern (a single held hit for 'block').
+      // gate articulates each hit's ring, v carries the pattern's accents;
+      // the piano envelope's damper does the actual cutting.
+      const hits = grooveOnsets(state.groove, beats, state.swing);
+      hits.forEach((hit) => {
+        const t0 = time + hit.t * secPerBeat;
+        const dur = Math.max(0.09, hit.d * secPerBeat * hit.gate);
+        const vel = 0.16 * hit.v;
+        d.rightHandPitches.forEach((p, i) => {
+          synthNote(p.midi, t0 + 0.008 + i * 0.007, dur, vel, dest);
+        });
+      });
+    }
+
     /** Schedule everything that happens on one beat. */
     function scheduleBeat(globalBeat, time) {
       const { progression, beatsPerChord } = state;
@@ -186,31 +221,7 @@
       if (beatInChord === 0) {
         const secPerBeat = 60 / state.tempo;
         const d = chordPitchesAt(chordIndex);
-        // LH bass holds the whole chord span regardless of groove
-        const span = beatsPerChord * secPerBeat * 0.92;
-        // Slight roll (a few ms per note) so the attack sounds played, not stamped
-        d.leftHandPitches.forEach((p, i) => {
-          synthNote(p.midi, time + i * 0.006, span, 0.30, audioEngine.sessionGain);
-        });
-        // Backing bass: in rootless/evans modes the LH plays no root, so an
-        // optional sustained root stands in for the bassist when practicing
-        // without a track. Other modes already carry their root in the LH.
-        if (state.bassBacking && (state.leftHand === 'rootless' || state.leftHand === 'evans')) {
-          const bass = realizeHand(progression[chordIndex].root, ['R'], LH_BASE)[0];
-          synthNote(bass.midi, time, span, 0.30, audioEngine.sessionGain);
-        }
-        // RH comps the groove pattern (a single held hit for 'block').
-        // gate articulates each hit's ring, v carries the pattern's accents;
-        // the piano envelope's damper does the actual cutting.
-        const hits = grooveOnsets(state.groove, beatsPerChord, state.swing);
-        hits.forEach((hit) => {
-          const t0 = time + hit.t * secPerBeat;
-          const dur = Math.max(0.09, hit.d * secPerBeat * hit.gate);
-          const vel = 0.16 * hit.v;
-          d.rightHandPitches.forEach((p, i) => {
-            synthNote(p.midi, t0 + 0.008 + i * 0.007, dur, vel, audioEngine.sessionGain);
-          });
-        });
+        scheduleChordSpan(progression[chordIndex], d, time, secPerBeat, beatsPerChord, audioEngine.sessionGain);
       }
 
       if (state.metronomeOn) {
@@ -587,6 +598,70 @@
       }
       delete audioEngine.padVoices[index];
       try { g.disconnect(); } catch (e) {}
+    }
+
+    /**
+     * Sub-tray preview: play a three-chord snippet — previous chord, the
+     * selected chord (or `candidate` in its place), next chord — with the
+     * CURRENT groove/swing/tempo and real optimizer voicings, so the audition
+     * answers "how does this sub sit in context", not "what does this chord
+     * sound like alone". `candidate` is {root, quality} or null for the
+     * un-substituted base chord. Routed through auditionGain (replaced per
+     * call, so retriggering chip after chip cuts the previous snippet);
+     * never touches sessionGain.
+     */
+    function auditionSnippet(chordIndex, candidate) {
+      const n = state.progression.length;
+      if (!n) return;
+      if (!ensureAudioContext()) return;
+      const ctx = audioEngine.ctx;
+
+      if (audioEngine.auditionGain) {
+        const old = audioEngine.auditionGain;
+        const t0 = ctx.currentTime;
+        try {
+          old.gain.setValueAtTime(old.gain.value, t0);
+          old.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
+        } catch (e) { /* mock nodes */ }
+        setTimeout(() => { try { old.disconnect(); } catch (e) {} }, 120);
+        audioEngine.auditionGain = null;
+      }
+
+      const g = ctx.createGain();
+      g.gain.value = 1;
+      g.connect(audioEngine.master);
+      audioEngine.auditionGain = g;
+
+      // Window [prev, center, next] with wraparound (like loop playback);
+      // 2-chord progressions preview [prev, center], 1-chord just the chord.
+      let idxs;
+      if (n === 1) idxs = [chordIndex];
+      else if (n === 2) idxs = [(chordIndex + 1) % n, chordIndex];
+      else idxs = [(chordIndex + n - 1) % n, chordIndex, (chordIndex + 1) % n];
+      const center = idxs.length - (n > 2 ? 2 : 1);
+
+      const base = state.subBase[chordIndex] || state.progression[chordIndex];
+      const slice = idxs.map(i => ({ ...state.progression[i] }));
+      slice[center] = candidate
+        ? { root: candidate.root, quality: candidate.quality, degree: base.degree }
+        : { ...base };
+
+      // Real voicings for the slice: the same optimizers playback uses, so
+      // the preview's voice leading is what applying would actually produce.
+      const range = activeRangeWindow();
+      const { indices, shifts } = computeProgressionVoicings(slice, state.complexity, range);
+      const lhIdx = computeLeftHandVoicings(slice).indices;
+
+      const secPerBeat = 60 / state.tempo;
+      // Inherit the groove, but cap the per-chord span so an 8-beats/chord
+      // setting doesn't turn a preview into a 12-second commitment.
+      const beats = Math.min(state.beatsPerChord, 4);
+      const start = ctx.currentTime + 0.02;
+      slice.forEach((chord, i) => {
+        const d = getChordNotesAtIndex(chord.root, chord.quality, state.complexity, indices[i], shifts[i],
+          { leftHandMode: state.leftHand, lhIndex: lhIdx[i] || 0, range });
+        scheduleChordSpan(chord, d, start + i * beats * secPerBeat, secPerBeat, beats, g);
+      });
     }
 
     /** Damp every sounding pad (used when leaving the Pads tab / on stop). */

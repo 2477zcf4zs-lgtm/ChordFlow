@@ -1217,6 +1217,112 @@
       flex-wrap: wrap;
     }
 
+    /* Sub tray chips: tap = hear in context (arms), tap again = apply.
+       The ✓ only shows on the armed chip. */
+    .sub-chip {
+      appearance: none;
+      -webkit-appearance: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border-subtle);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .sub-chip-symbol {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text-primary);
+    }
+
+    .sub-chip-desc {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+    }
+
+    .sub-chip-check {
+      display: none;
+      font-size: 0.75rem;
+      color: var(--accent-gold);
+    }
+
+    .sub-chip:hover {
+      border-color: var(--accent-coral);
+      background: rgba(212, 91, 91, 0.08);
+    }
+
+    .sub-chip:focus-visible {
+      outline: 2px solid var(--accent-gold);
+      outline-offset: 2px;
+    }
+
+    /* What the slot currently holds (Original, or the applied sub) */
+    .sub-chip--current {
+      border-color: rgba(212, 91, 91, 0.4);
+      background: rgba(212, 91, 91, 0.1);
+    }
+
+    .sub-chip--current .sub-chip-symbol {
+      color: var(--accent-coral);
+    }
+
+    /* Armed: one more tap commits */
+    .sub-chip--armed {
+      border-color: var(--accent-gold);
+      background: rgba(212, 168, 91, 0.1);
+    }
+
+    .sub-chip--armed .sub-chip-check {
+      display: inline;
+    }
+
+    /* Transient undo chip: floats just above the transport bar */
+    .undo-chip-wrap {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+      display: flex;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 250;
+    }
+
+    .undo-chip {
+      pointer-events: auto;
+      appearance: none;
+      -webkit-appearance: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      padding: 8px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+      animation: undoIn 0.2s ease;
+    }
+
+    .undo-chip:focus-visible {
+      outline: 2px solid var(--accent-gold);
+      outline-offset: 2px;
+    }
+
+    @keyframes undoIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .undo-chip { animation: none; }
+    }
+
     .voicing-sub-btn {
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.75rem;
@@ -1396,36 +1502,6 @@
     .tempo-popover input[type="range"] {
       width: 100%;
       margin-top: 12px;
-    }
-
-    /* ============================================
-       SUBSTITUTION MENU — popover on wide viewports,
-       bottom sheet on narrow ones (see showSubstitutionMenu)
-       ============================================ */
-    .sub-menu {
-      background: var(--bg-elevated);
-      border: 1px solid var(--border-subtle);
-      border-radius: 12px;
-      padding: 8px;
-      z-index: 300;
-      min-width: 160px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-    }
-
-    .sub-menu--sheet {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      border-radius: 16px 16px 0 0;
-      border-left: none;
-      border-right: none;
-      border-bottom: none;
-      padding: 12px 16px;
-      padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-      max-height: 50dvh;
-      overflow-y: auto;
-      animation: slideUp 0.25s ease;
     }
 
     /* ============================================

@@ -25,6 +25,8 @@
       leftHandSelect: document.getElementById('leftHandSelect'),
       bassBackingBtn: document.getElementById('bassBackingBtn'),
       rangeSelect: document.getElementById('rangeSelect'),
+      voicingSubs: document.getElementById('voicingSubs'),
+      undoChip: document.getElementById('undoChip'),
       swingBtn: document.getElementById('swingBtn'),
       autoTransposeSelect: document.getElementById('autoTransposeSelect'),
       tempoRampSelect: document.getElementById('tempoRampSelect'),
@@ -277,8 +279,14 @@
       elements.chordContainer.addEventListener('click', (e) => {
         const badge = e.target.closest('.sub-badge');
         if (badge) {
+          // The badge is a shortcut to the chord's sub tray: selecting the
+          // chord opens the voicing panel, which renders the tray. If the
+          // chord is already selected, just surface the panel — re-selecting
+          // would cycle its voicing, which a badge tap shouldn't do.
           e.stopPropagation();
-          showSubstitutionMenu(parseInt(badge.dataset.chordIndex), badge);
+          const idx = parseInt(badge.dataset.chordIndex);
+          if (state.selectedChordIndex === idx) toggleVoicingPanel(true);
+          else selectChord(idx);
           return;
         }
         const box = e.target.closest('.chord-box');
@@ -286,6 +294,16 @@
           selectChord(parseInt(box.dataset.index));
         }
       });
+
+      // Sub tray: one delegated listener; chips are rebuilt per render.
+      elements.voicingSubs.addEventListener('click', (e) => {
+        const chip = e.target.closest('.sub-chip');
+        if (!chip) return;
+        subTrayTap(parseInt(chip.dataset.chordIndex), chip.dataset.key);
+      });
+
+      // Transient undo chip (single instance, see showUndoChip).
+      elements.undoChip.addEventListener('click', undoChipActivate);
 
       // At the moment the tab hides, only ~120ms is buffered and the throttled
       // scheduler interval may not fire for up to ~1s → an audible gap. Force

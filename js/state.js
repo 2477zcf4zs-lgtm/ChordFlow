@@ -17,6 +17,8 @@
       progression: [],
       sourceNumerals: [],   // roman numerals the progression was built from (for transpose)
       substitutions: [],    // per-index applied substitution type, e.g. 'tritone' (for re-derivation)
+      subBase: [],          // per-index pre-substitution chord (restore point for revert/undo)
+      armedSub: null,       // sub tray: chip awaiting its confirm tap ({index, key} | null)
       progressionName: '',
       progressionStyle: '',
       asWritten: false,   // library tune shown in its original key/qualities (5.1)
@@ -92,12 +94,17 @@
       // Re-apply substitutions by re-deriving them from each new base chord, so
       // a tritone sub of E7 becomes the tritone sub of the transposed chord. If
       // a stored substitution no longer applies (e.g. the quality changed with
-      // complexity), it's silently dropped back to the base chord.
+      // complexity), it's silently dropped back to the base chord. The fresh
+      // base is snapshotted into subBase so revert/undo/audition can reach the
+      // un-substituted chord without another rebuild (invariant 15).
+      state.subBase = [];
+      state.armedSub = null; // rebuilt progression invalidates any armed chip
       state.substitutions.forEach((subType, i) => {
         if (!subType || i >= state.progression.length) return;
         const base = state.progression[i];
         const match = getChordSubstitutions(base.root, base.quality).find(o => o.type === subType);
         if (match) {
+          state.subBase[i] = base;
           state.progression[i] = {
             root: match.root,
             quality: match.quality,
