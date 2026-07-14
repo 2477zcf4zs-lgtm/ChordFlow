@@ -19,6 +19,17 @@ started then deliberately shelved.
   `.sub-chip` tray the rest of the app now uses. Either restyle them as
   `.sub-chip`s or (nicer) let them audition on tap like the main tray. Removes a
   visual inconsistency and the last consumer of `.voicing-sub-btn` CSS.
+- [ ] **Settings menu cleanup — regroup + non-default indicator.** The Settings
+  panel is a long single scroll with two faint section titles and no sense of
+  where you are. Split it into **Song / Sound / Practice** segmented groups
+  (each fits a phone without scrolling; the active chip is the "where am I"
+  cue), and add a dot on the Settings tab when any setting is off its default.
+  Already specced as `chordflow-spec-v3.md` **Phase 4 §4.1 + §4.3** — this entry
+  just tracks the *cleanup* half here with the other QoL work; the more
+  feature-flavored bits of Phase 4 (the LH cycle chip on the voicing panel,
+  §4.2, and pad haptics, §4.4) stay noted under the paused Phase 4 entry in
+  section C. Build the whole phase together or pull the settings-IA part
+  forward as cleanup — either way, work from the spec.
 - [ ] **Consolidate the invariants.** Binding invariants are currently split
   across `chordflow-spec-v2.md` (1–14) and `chordflow-spec-v3.md` (15–17). A
   single canonical `INVARIANTS` section (or its own file) would be easier to
@@ -95,10 +106,13 @@ started then deliberately shelved.
 
 Consolidated here from the note that was inside `chordflow-spec-v3.md`.
 
-- [paused] **Spec v3 Phase 4** — settings IA (Song/Sound/Practice segmented
-  groups), the LH cycle chip on the voicing panel, the non-default settings dot,
-  and pad haptics. Fully specced in `chordflow-spec-v3.md`; execution was paused
-  after Phase 3 to do the QoL batch. Resume from the spec when ready.
+- [paused] **Spec v3 Phase 4.** Fully specced in `chordflow-spec-v3.md`;
+  execution was paused after Phase 3 to do the QoL batch. Its **settings-IA
+  cleanup half (§4.1 regroup + §4.3 non-default dot) is tracked in section A**
+  with the other QoL work — see that entry. The remaining, more
+  feature-flavored bits stay here: the **LH cycle chip on the voicing panel**
+  (§4.2) and **pad haptics** (§4.4). Resume from the spec when ready, whole or
+  in parts.
 - [ ] **Loop-region selection** — drag / two-tap on the chord strip to loop just
   bars 3–4. The scheduler is span-generic, so this is mostly index math + strip
   UI.
