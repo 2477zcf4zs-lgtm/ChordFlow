@@ -578,15 +578,26 @@
     .transport-bar {
       flex: none;
       display: flex;
-      justify-content: center;
+      justify-content: flex-start;
       align-items: center;
       gap: 6px;
       flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
       padding: 8px 10px;
       padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
       background: var(--bg-secondary);
       border-top: 1px solid var(--border-subtle);
     }
+
+    /* Center the controls when they fit; when they don't, this (unlike
+       justify-content:center, which clips BOTH ends unreachably under
+       overflow) keeps the bar scrollable from its left edge. */
+    .transport-bar > :first-child { margin-left: auto; }
+    .transport-bar > :last-child { margin-right: auto; }
+
+    .transport-bar::-webkit-scrollbar { display: none; }
 
     .btn {
       font-family: 'DM Sans', sans-serif;
@@ -1719,12 +1730,14 @@
     /* ============================================
        RESPONSIVE
        ============================================ */
-    /* Narrow phones: icon-only transport to fit six controls */
+    /* Narrow phones: icon-only transport to fit eight controls
+       (Top/Prev/Play/Stop/Next/Tempo/New/Flavor at ~38px each). */
     @media (max-width: 560px) {
-      .btn { padding: 10px 12px; }
+      .btn { padding: 10px 9px; }
       .transport-bar .btn-label { display: none; }
+      .tempo-btn-unit { display: none; } /* the number is the label */
       .btn svg { width: 20px; height: 20px; }
-      .transport-bar { justify-content: space-around; gap: 4px; }
+      .transport-bar { gap: 2px; }
       /* Keyboard shortcuts are irrelevant on touch devices */
       .shortcuts-hint { display: none; }
       .resources-footer-links { gap: 12px; }
