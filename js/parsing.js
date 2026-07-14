@@ -107,15 +107,37 @@
       ]
     };
     
+    // Flavor substitutions (spec v3 phase 3): borrowed / mediant colors in the
+    // Stevie-Wonder vein, offered alongside the functional rules on every
+    // matching chord. Types are unique so the substitutions-by-type
+    // re-derivation machinery (transpose, trials) works unchanged.
+    const FLAVOR_SUBS = {
+      dom7: [
+        { type: 'flavor_minor_v', desc: 'Minor v (borrowed)', interval: 0, quality: 'min7', flavor: true },
+        { type: 'flavor_backdoor', desc: 'Backdoor ♭VII7', interval: 3, quality: 'dom7', flavor: true }
+      ],
+      maj7: [
+        { type: 'flavor_parallel_minor', desc: 'Parallel minor', interval: 0, quality: 'min7', flavor: true },
+        { type: 'flavor_mediant_biii', desc: '♭III mediant', interval: 3, quality: 'maj7', flavor: true },
+        { type: 'flavor_mediant_bvi', desc: '♭VI mediant', interval: 8, quality: 'maj7', flavor: true }
+      ],
+      maj: [
+        { type: 'flavor_parallel_minor', desc: 'Parallel minor', interval: 0, quality: 'min7', flavor: true },
+        { type: 'flavor_mediant_biii', desc: '♭III mediant', interval: 3, quality: 'maj7', flavor: true },
+        { type: 'flavor_mediant_bvi', desc: '♭VI mediant', interval: 8, quality: 'maj7', flavor: true }
+      ]
+    };
+
     /**
-     * Get chord substitutions for a given chord
+     * Get chord substitutions for a given chord (functional rules + flavor
+     * colors; flavor entries carry `flavor: true` so the tray can reorder).
      * @param {string} root - Root note of the chord
      * @param {string} quality - Chord quality
      * @returns {Array} Array of substitution objects with root, quality, and description
      */
     function getChordSubstitutions(root, quality) {
-      const rules = SUBSTITUTION_RULES[quality];
-      if (!rules || !root) return [];
+      const rules = (SUBSTITUTION_RULES[quality] || []).concat(FLAVOR_SUBS[quality] || []);
+      if (!rules.length || !root) return [];
       
       const subs = [];
       const rootSemitone = NOTE_TO_SEMITONE[root];
@@ -132,7 +154,7 @@
       // fixed mod-12 table, so e.g. the tritone sub of E7 came out as A#7 — and
       // that root then spelled its own third as C double-sharp. spellInterval
       // gives the correct letter name (Bb7) every time.
-      const SUB_INTERVAL_NAME = { 0: null, 3: 'b3', 4: '3', 5: '4', 6: 'b5', 9: '6', 10: 'b7', 11: '7' };
+      const SUB_INTERVAL_NAME = { 0: null, 3: 'b3', 4: '3', 5: '4', 6: 'b5', 8: 'b6', 9: '6', 10: 'b7', 11: '7' };
 
       for (const rule of rules) {
         const intervalName = SUB_INTERVAL_NAME[rule.interval];
@@ -151,11 +173,30 @@
           root: newRoot,
           quality: rule.quality,
           description: rule.desc,
-          symbol: formatChordSymbol(newRoot, rule.quality)
+          symbol: formatChordSymbol(newRoot, rule.quality),
+          flavor: !!rule.flavor
         });
       }
       
       return subs;
+    }
+
+    /**
+     * True when a numeral is outside its home mode — the flavor vocabulary:
+     * flat-prefixed romans (bIII/bVI/bVII/bII...), borrowed iv/v in major
+     * (their lowercase is diatonic in minor), and chromatic passing dims
+     * (#i°7 etc., chromatic in either mode). Secondary dominants (V7/x) have
+     * their own concept and are never "borrowed".
+     */
+    function isBorrowedNumeral(numeral, mode) {
+      if (typeof numeral !== 'string' || numeral.includes('/')) return false;
+      if (numeral.charAt(0) === '#') return true; // chromatic passing dim
+      if (mode === 'major') {
+        if (/^b[IViv]/.test(numeral)) return true; // bIII, bVI, bVII, bII...
+        if (/^iv(?!i)/.test(numeral)) return true; // borrowed iv (vi/vii excluded below)
+        if (/^v(?!i)/.test(numeral)) return true;  // minor v — 'vi'/'vii' don't match
+      }
+      return false;
     }
 
     function parseRomanNumeral(numeral, key, mode, complexity, density = 1.0) {

@@ -28,6 +28,7 @@
       voicingSubs: document.getElementById('voicingSubs'),
       undoChip: document.getElementById('undoChip'),
       abCompareBtn: document.getElementById('abCompareBtn'),
+      flavorBtn: document.getElementById('flavorBtn'),
       swingBtn: document.getElementById('swingBtn'),
       autoTransposeSelect: document.getElementById('autoTransposeSelect'),
       tempoRampSelect: document.getElementById('tempoRampSelect'),
@@ -309,6 +310,21 @@
       // A/B compare: whole-progression with/without subs (invariant 16:
       // per-index swaps, never a rebuild — playback position is untouched).
       elements.abCompareBtn.addEventListener('click', toggleCompareOriginal);
+
+      // Flavor dial: a creative input to GENERATION (applies on the next
+      // New), not a setting — so it lives beside the generate button. It
+      // also reorders the sub tray so the borrowed colors surface first.
+      elements.flavorBtn.addEventListener('click', () => {
+        const order = ['off', 'subtle', 'bold'];
+        state.flavor = order[(order.indexOf(state.flavor) + 1) % order.length];
+        const pretty = state.flavor.charAt(0).toUpperCase() + state.flavor.slice(1);
+        const lbl = elements.flavorBtn.querySelector('.btn-label');
+        if (lbl) lbl.textContent = `Flavor: ${pretty}`;
+        elements.flavorBtn.setAttribute('aria-label', `Flavor for new progressions: ${state.flavor}`);
+        elements.flavorBtn.classList.toggle('active', state.flavor !== 'off');
+        if (state.showVoicing) renderVoicing(); // tray reorders with the dial
+        elements.flavorBtn.blur();
+      });
 
       // At the moment the tab hides, only ~120ms is buffered and the throttled
       // scheduler interval may not fire for up to ~1s → an audible gap. Force
