@@ -23,6 +23,7 @@
       barsSelect: document.getElementById('barsSelect'),
       grooveSelect: document.getElementById('grooveSelect'),
       leftHandSelect: document.getElementById('leftHandSelect'),
+      bassBackingBtn: document.getElementById('bassBackingBtn'),
       swingBtn: document.getElementById('swingBtn'),
       autoTransposeSelect: document.getElementById('autoTransposeSelect'),
       tempoRampSelect: document.getElementById('tempoRampSelect'),
@@ -177,6 +178,15 @@
       elements.leftHandSelect.addEventListener('change', (e) => {
         state.leftHand = e.target.value;
         renderVoicing();
+      });
+      // Backing bass: read live by scheduleBeat; only audible when the LH
+      // plays no roots (rootless/evans), a no-op otherwise.
+      elements.bassBackingBtn.addEventListener('click', () => {
+        state.bassBacking = !state.bassBacking;
+        const lbl = elements.bassBackingBtn.querySelector('.btn-label');
+        if (lbl) lbl.textContent = state.bassBacking ? 'Bass: On' : 'Bass: Off';
+        elements.bassBackingBtn.classList.toggle('active', state.bassBacking);
+        elements.bassBackingBtn.blur();
       });
       elements.swingBtn.addEventListener('click', () => {
         state.swing = !state.swing;

@@ -539,6 +539,50 @@ async function main() {
     check(st().leftHand === 'roots' && lhNotesEl.textContent === rootsLhText,
       'roots mode restores the original LH');
 
+    // --- Two-hand rootless (evans) + backing bass ---
+    lhSelect.value = 'evans';
+    lhSelect.dispatchEvent(new window.Event('change'));
+    check(st().leftHand === 'evans' && Array.isArray(st().lhVoicingIndices),
+      'two-hand rootless selectable; LH shape indices computed');
+    check(/\d/.test(lhNotesEl.textContent) && lhNotesEl.textContent !== rootsLhText,
+      'evans shows a tenor-range LH voicing');
+    check(rhNotesEl.textContent === rootsRhText, 'evans leaves the RH unchanged');
+    const evansSvg = document.querySelector('#pianoKeyboard svg');
+    check(!!evansSvg && (evansSvg.innerHTML.match(/var\(--accent-coral\)/g) || []).length >= 2,
+      'piano highlights the evans LH voicing');
+
+    // Backing bass: spy on synthNote midis. Rootless without the bass toggle
+    // schedules nothing below C3; with it, the stand-in root lands in C2-B2.
+    window.eval('var __synthReal = synthNote; var __schedMidis = []; synthNote = function(m,t,d,v,g){ __schedMidis.push(m); return __synthReal(m,t,d,v,g); };');
+    lhSelect.value = 'rootless';
+    lhSelect.dispatchEvent(new window.Event('change'));
+    const bassBtn = document.getElementById('bassBackingBtn');
+    check(!!bassBtn && st().bassBacking === false, 'backing bass starts off');
+    // Zero the mock clock BEFORE starting: startPlayback anchors nextBeatTime
+    // to the current clock, so rewinding afterwards would stall the scheduler.
+    engine().ctx.currentTime = 0;
+    await window.startPlayback();
+    for (let i = 0; i < 20; i++) { engine().ctx.currentTime += 0.05; window.schedulerTick(); }
+    const lowWithoutBass = window.eval('__schedMidis').filter(m => m < 48).length;
+    check(lowWithoutBass === 0, 'rootless playback schedules nothing in the bass register');
+    bassBtn.click();
+    check(st().bassBacking === true && bassBtn.querySelector('.btn-label').textContent === 'Bass: On',
+      'backing bass toggles on');
+    window.eval('__schedMidis.length = 0;');
+    for (let i = 0; i < 40; i++) { engine().ctx.currentTime += 0.05; window.schedulerTick(); }
+    const allSched = window.eval('__schedMidis');
+    const bassNotes = allSched.filter(m => m >= 36 && m < 48);
+    check(bassNotes.length > 0 && errors.length === 0,
+      'backing bass sustains a C2-B2 root under rootless playback' +
+      (bassNotes.length ? '' : ` [scheduled ${allSched.length} notes, none low; errors: ${errors.join('; ') || 'none'}]`));
+    window.stopAndReset();
+    window.eval('synthNote = __synthReal;');
+    bassBtn.click(); // bass off
+    lhSelect.value = 'roots';
+    lhSelect.dispatchEvent(new window.Event('change'));
+    check(st().bassBacking === false && st().leftHand === 'roots',
+      'bass + left hand restored to defaults');
+
     // --- Flashcard mode: hide chord symbols ---
     const hideBtn = document.getElementById('hideSymbolsBtn');
     hideBtn.click();

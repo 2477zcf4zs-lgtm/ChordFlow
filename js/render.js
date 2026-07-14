@@ -462,7 +462,8 @@
       let chordData;
       if (state.voicingIndices && state.voicingIndices[chordIndex] !== undefined) {
         const shift = state.voicingShifts ? state.voicingShifts[chordIndex] : undefined;
-        chordData = getChordNotesAtIndex(chord.root, chord.quality, state.complexity, state.voicingIndices[chordIndex], shift, state.leftHand);
+        const lhIndex = (state.lhVoicingIndices && state.lhVoicingIndices[chordIndex]) || 0;
+        chordData = getChordNotesAtIndex(chord.root, chord.quality, state.complexity, state.voicingIndices[chordIndex], shift, state.leftHand, lhIndex);
       } else {
         chordData = getChordNotes(chord.root, chord.quality, state.complexity, state.leftHand);
         if (state.voicingIndices) {
@@ -510,9 +511,12 @@
       
       // The teaching moment for bassist mode: name what the LH is doing when
       // it departs from the written voicing.
-      const lhNote = state.leftHand === 'rootless'
-        ? ' • Rootless: play the bass yourself or over a track'
-        : (state.leftHand === 'shells' ? ' • LH shells: root + guide tones (3 & 7)' : '');
+      const LH_MODE_NOTES = {
+        shells: ' • LH shells: root + guide tones (3 & 7)',
+        evans: ' • Two-hand rootless: LH color voicing — the bass stays with the bassist',
+        rootless: ' • Rootless: play the bass yourself or over a track'
+      };
+      const lhNote = LH_MODE_NOTES[state.leftHand] || '';
       elements.voicingDescription.textContent = `${chordData.name} • ${chordData.voicingName}${lhNote}`;
     }
 

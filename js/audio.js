@@ -127,7 +127,8 @@
       const vIndex = (state.voicingIndices && state.voicingIndices[index]) || 0;
       const shift = (state.voicingShifts && state.voicingShifts[index] !== undefined)
         ? state.voicingShifts[index] : undefined;
-      return getChordNotesAtIndex(chord.root, chord.quality, state.complexity, vIndex, shift, state.leftHand);
+      const lhIndex = (state.lhVoicingIndices && state.lhVoicingIndices[index]) || 0;
+      return getChordNotesAtIndex(chord.root, chord.quality, state.complexity, vIndex, shift, state.leftHand, lhIndex);
     }
 
     // ============================================
@@ -190,6 +191,13 @@
         d.leftHandPitches.forEach((p, i) => {
           synthNote(p.midi, time + i * 0.006, span, 0.30, audioEngine.sessionGain);
         });
+        // Backing bass: in rootless/evans modes the LH plays no root, so an
+        // optional sustained root stands in for the bassist when practicing
+        // without a track. Other modes already carry their root in the LH.
+        if (state.bassBacking && (state.leftHand === 'rootless' || state.leftHand === 'evans')) {
+          const bass = realizeHand(progression[chordIndex].root, ['R'], LH_BASE)[0];
+          synthNote(bass.midi, time, span, 0.30, audioEngine.sessionGain);
+        }
         // RH comps the groove pattern (a single held hit for 'block').
         // gate articulates each hit's ring, v carries the pattern's accents;
         // the piano envelope's damper does the actual cutting.

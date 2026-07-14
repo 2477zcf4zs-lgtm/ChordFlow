@@ -471,6 +471,91 @@
       return root.concat(upper); // ascending: root ≤ B2 < C3 ≤ guide tones
     }
 
+    // Two-hand rootless (Evans texture): the LH plays its own rootless color
+    // voicing in the tenor range below the RH. Shapes are the quality's
+    // jazz-tier rootless forms (Type A/B); choosing between them per chord is
+    // what LH voice-leading is, so a small DP pass mirrors the RH optimizer.
+    const LH_ROOTLESS_BASE = 48;   // C3: LH rootless voicings live in the tenor range
+    const LH_TARGET_CENTER = 53;   // F3: ideal center of gravity for the LH
+    const LH_SOFT_LOW = 45;        // A2: below this the color turns to mud
+    const LH_SOFT_HIGH = 64;       // E4: above this the LH crowds the RH
+
+    /**
+     * Candidate LH shapes for two-hand rootless: the quality's jazz-tier
+     * rootless right-hand forms. Qualities without a jazz tier (triads, sus)
+     * fall back to their guide tones sans root — the honest rootless color
+     * a duo pianist would play.
+     */
+    function lhRootlessShapesFor(quality) {
+      const vd = KEYBOARD_VOICINGS[quality];
+      const jazz = vd && vd.voicings
+        ? vd.voicings.filter(v => v.tiers && v.tiers.indexOf('jazz') !== -1)
+        : [];
+      if (jazz.length) return jazz.map(v => v.right);
+      return [guideToneIntervals(quality).slice(1)];
+    }
+
+    /** Register penalty for an LH rootless voicing (mirrors registerPenalty). */
+    function lhRegisterPenalty(midis) {
+      if (!midis.length) return 0;
+      let p = 0;
+      for (const m of midis) {
+        if (m < LH_SOFT_LOW) p += (LH_SOFT_LOW - m) * 1.5;
+        if (m > LH_SOFT_HIGH) p += (m - LH_SOFT_HIGH) * 1.5;
+      }
+      const mean = midis.reduce((a, b) => a + b, 0) / midis.length;
+      p += Math.abs(mean - LH_TARGET_CENTER) * 0.2;
+      return p;
+    }
+
+    /**
+     * Choose an LH rootless shape for every chord at once (two-hand rootless
+     * mode), minimizing LH voice movement + register cost — the same DP as
+     * computeProgressionVoicings, over the LH shape sets. No octave shifts:
+     * realizeHand already pins each shape inside the tenor octave, and the
+     * A/B choice is the classic source of smooth rootless voice leading.
+     * Returns { indices: [...] }.
+     */
+    function computeLeftHandVoicings(progression) {
+      const indices = [];
+      if (!progression || !progression.length) return { indices };
+
+      const layers = progression.map(chord =>
+        lhRootlessShapesFor(chord.quality).map((ivs, vIndex) => {
+          const midis = realizeHand(chord.root, ivs, LH_ROOTLESS_BASE).map(n => n.midi);
+          return { vIndex, midis, localCost: lhRegisterPenalty(midis) };
+        }));
+
+      let costs = layers[0].map(c => c.localCost);
+      const back = [layers[0].map(() => -1)];
+      for (let i = 1; i < layers.length; i++) {
+        const nextCosts = [];
+        const pointers = [];
+        for (let j = 0; j < layers[i].length; j++) {
+          let best = Infinity;
+          let bestK = 0;
+          for (let k = 0; k < layers[i - 1].length; k++) {
+            const c = costs[k] + voiceMovementCost(layers[i - 1][k].midis, layers[i][j].midis);
+            if (c < best) { best = c; bestK = k; }
+          }
+          nextCosts.push(best + layers[i][j].localCost);
+          pointers.push(bestK);
+        }
+        costs = nextCosts;
+        back.push(pointers);
+      }
+
+      let j = 0;
+      for (let k = 1; k < costs.length; k++) {
+        if (costs[k] < costs[j]) j = k;
+      }
+      for (let i = layers.length - 1; i >= 0; i--) {
+        indices[i] = layers[i][j].vIndex;
+        j = back[i][j];
+      }
+      return { indices };
+    }
+
     /**
      * Realize a full voicing. octaveShift (in semitones, multiples of 12)
      * moves the right hand up/down; the left hand stays anchored low.
@@ -478,13 +563,19 @@
      * voice-leading optimizer, which only reads voicing.right) is untouched:
      *   'roots'    — the template's written LH (default, original behavior)
      *   'shells'   — root + guide tones (3rd & 7th) for the quality
+     *   'evans'    — a second rootless voicing in the tenor range; lhIndex
+     *                picks the shape (DP-chosen via computeLeftHandVoicings)
      *   'rootless' — nothing; a bassist or backing track owns the low end
      */
-    function realizeVoicing(rootNote, voicing, octaveShift = 0, leftHandMode = 'roots', quality = null) {
+    function realizeVoicing(rootNote, voicing, octaveShift = 0, leftHandMode = 'roots', quality = null, lhIndex = 0) {
       let left;
       if (leftHandMode === 'rootless') left = [];
       else if (leftHandMode === 'shells') left = realizeShellHand(rootNote, quality);
-      else left = realizeHand(rootNote, voicing.left, LH_BASE);
+      else if (leftHandMode === 'evans') {
+        const shapes = lhRootlessShapesFor(quality);
+        const safe = ((lhIndex || 0) % shapes.length + shapes.length) % shapes.length;
+        left = realizeHand(rootNote, shapes[safe], LH_ROOTLESS_BASE);
+      } else left = realizeHand(rootNote, voicing.left, LH_BASE);
       return {
         left,
         right: realizeHand(rootNote, voicing.right, RH_BASE + octaveShift)
@@ -656,6 +747,10 @@
       const result = computeProgressionVoicings(state.progression, state.complexity);
       state.voicingIndices = result.indices;
       state.voicingShifts = result.shifts;
+      // LH shapes for two-hand rootless: cheap (few shapes, no shifts), so
+      // always kept in step with the progression rather than invalidated
+      // lazily when the LH mode changes.
+      state.lhVoicingIndices = computeLeftHandVoicings(state.progression).indices;
     }
 
     /**
@@ -677,7 +772,7 @@
      * Get a specific voicing by index, realized in register.
      * Pure function: no hidden state, safe to call from any UI path.
      */
-    function getChordNotesAtIndex(rootNote, quality, complexity, index, octaveShift, leftHandMode = 'roots') {
+    function getChordNotesAtIndex(rootNote, quality, complexity, index, octaveShift, leftHandMode = 'roots', lhIndex = 0) {
       let chordInfo;
       for (const level of ['simple', 'seventh', 'extended', 'altered']) {
         if (CHORD_TYPES[level][quality]) {
@@ -697,7 +792,7 @@
         shift = bestShiftForVoicing(rootNote, voicing, null);
       }
 
-      const realized = realizeVoicing(rootNote, voicing, shift, leftHandMode, quality);
+      const realized = realizeVoicing(rootNote, voicing, shift, leftHandMode, quality, lhIndex);
 
       return {
         leftHand: realized.left.map(n => n.name),
