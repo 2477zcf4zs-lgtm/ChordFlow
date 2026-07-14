@@ -58,33 +58,26 @@
       margin: 0 auto;
     }
 
-    .app-header {
+    /* Compact brand: the CF monogram + status dot ride the tab bar (the old
+       full-width header row is gone). */
+    .brand-mini {
       flex: none;
       display: flex;
-      align-items: baseline;
-      gap: 14px;
-      padding: 10px 16px 8px;
-      border-bottom: 1px solid var(--border-subtle);
+      align-items: center;
+      gap: 8px;
+      padding: 0 6px 0 4px;
     }
 
-    .logo {
+    .logo-mini {
       font-family: 'DM Sans', sans-serif;
-      font-size: 1.35rem;
+      font-size: 1.05rem;
       font-weight: 700;
       letter-spacing: -0.02em;
       color: var(--text-primary);
     }
 
-    .logo span {
+    .logo-mini span {
       color: var(--accent-gold);
-    }
-
-    .tagline {
-      font-size: 0.7rem;
-      color: var(--text-secondary);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      display: none; /* shown on wider viewports */
     }
 
     .app-main {
@@ -97,8 +90,16 @@
     .tab-bar {
       flex: none;
       display: flex;
-      gap: 4px;
+      align-items: stretch;
+      gap: 6px;
       padding: 8px 12px 0;
+    }
+
+    .tab-set {
+      display: flex;
+      flex: 1;
+      min-width: 0;
+      gap: 4px;
     }
 
     .tab-btn {
@@ -125,6 +126,7 @@
        (aria-label keeps each tab named for assistive tech). */
     @media (max-width: 600px) {
       .tab-bar { gap: 2px; }
+      .status-text { display: none; } /* the dot carries the state */
       .tab-btn .tab-label { display: none; }
       .tab-btn { padding: 10px 4px; }
       .tab-btn svg { width: 18px; height: 18px; }
@@ -164,7 +166,7 @@
       flex: none;
       background: var(--bg-card);
       border-top: 1px solid var(--border-soft);
-      padding: 8px 12px 4px;
+      padding: 5px 12px 3px;
       position: relative;
     }
 
@@ -173,8 +175,18 @@
       justify-content: space-between;
       align-items: center;
       gap: 10px;
-      margin-bottom: 6px;
+      margin-bottom: 3px;
       min-width: 0;
+    }
+
+    .strip-counters {
+      flex: none;
+      display: flex;
+      gap: 10px;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
     }
 
     .progression-name {
@@ -223,8 +235,8 @@
       scroll-snap-type: x proximity;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: thin;
-      padding: 6px 2px 8px;
-      min-height: 132px;
+      padding: 4px 2px 6px;
+      min-height: 108px;
     }
 
     .chord-container::-webkit-scrollbar {
@@ -261,7 +273,7 @@
       background: var(--bg-elevated);
       border: 1px solid var(--border-soft);
       border-radius: var(--radius-md);
-      padding: 12px 18px;
+      padding: 9px 16px;
       text-align: center;
       transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
@@ -684,7 +696,7 @@
 
     /* Progress bar */
     .progress-container {
-      margin-top: 6px;
+      margin-top: 3px;
     }
 
     .progress-bar {
@@ -701,14 +713,6 @@
       border-radius: 2px;
     }
 
-    .progress-labels {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 4px;
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      font-family: 'JetBrains Mono', monospace;
-    }
 
     /* My Progressions (5.2) */
     .btn-small {
@@ -897,13 +901,12 @@
     .status-bar {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-left: auto; /* pushed to the right edge of the app header */
+      gap: 6px;
     }
 
     .status-dot {
-      width: 10px;
-      height: 10px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       background: var(--text-muted);
     }
@@ -972,8 +975,8 @@
 
     /* Substitution badge */
     .sub-badge-container {
-      margin-top: 12px;
-      min-height: 24px;
+      margin-top: 5px;
+      min-height: 22px;
     }
 
     .sub-badge {
@@ -1753,17 +1756,15 @@
       .app {
         display: grid;
         grid-template-columns: minmax(0, 1fr) 480px;
-        grid-template-rows: auto minmax(0, 1fr) auto;
+        grid-template-rows: minmax(0, 1fr) auto;
         grid-template-areas:
-          "header header"
-          "stage  side"
-          "bar    side";
+          "stage side"
+          "bar   side";
         column-gap: 20px;
         padding: 0 20px;
       }
 
-      .app-header { grid-area: header; }
-      .app-main { grid-area: side; padding-bottom: 16px; }
+      .app-main { grid-area: side; padding-bottom: 16px; padding-top: 4px; }
       .strip-zone { grid-area: stage; align-self: center; background: transparent; border-top: none; padding: 0 8px; }
       .strip-zone::before { display: none; }
       .transport-bar {
@@ -1772,11 +1773,9 @@
         border-top: 1px solid var(--border-subtle);
       }
 
-      .tagline { display: block; }
-      .logo { font-size: 1.7rem; }
-      .chord-box { padding: 20px 28px; min-width: 128px; }
+      .chord-box { padding: 16px 26px; min-width: 128px; }
       .chord-symbol { font-size: 2.2rem; }
-      .chord-container { min-height: 170px; gap: 18px; }
+      .chord-container { min-height: 150px; gap: 18px; }
       .progression-name { font-size: 1.15rem; }
       .tempo-popover {
         left: auto;

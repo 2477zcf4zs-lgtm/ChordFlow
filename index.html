@@ -9,17 +9,18 @@
 </head>
 <body>
   <div class="app">
-    <header class="app-header">
-      <h1 class="logo">Chord<span>Flow</span></h1>
-      <p class="tagline">Jazz • Soul • R&B Progression Practice</p>
-      <div class="status-bar" role="status" aria-live="polite">
-        <div class="status-dot" id="statusDot"></div>
-        <span class="status-text" id="statusText">Ready</span>
-      </div>
-    </header>
-
     <div class="app-main">
-      <div class="tab-bar" role="tablist" aria-label="Panels">
+      <!-- The old full-width header (wordmark + tagline + status) spent a row
+           on branding; the CF monogram and the status dot ride the tab bar. -->
+      <div class="tab-bar">
+        <div class="brand-mini">
+          <span class="logo-mini" title="ChordFlow" aria-label="ChordFlow">C<span>F</span></span>
+          <div class="status-bar" role="status" aria-live="polite">
+            <div class="status-dot" id="statusDot"></div>
+            <span class="status-text" id="statusText">Ready</span>
+          </div>
+        </div>
+        <div class="tab-set" role="tablist" aria-label="Panels">
         <button class="tab-btn" id="padsToggle" role="tab" aria-label="Pads" aria-selected="false" aria-controls="padsPanel">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="8" height="8" rx="1.5"></rect>
@@ -58,6 +59,7 @@
           </svg>
           <span class="tab-label">Settings</span>
         </button>
+        </div>
       </div>
 
       <div class="panel-area">
@@ -383,6 +385,7 @@
         <span class="progression-name" id="progressionName">Select a progression or generate random</span>
         <span class="as-written-chip" id="asWrittenChip" hidden title="Shown in the tune's original key with its written qualities">as written</span>
         <span class="progression-style" id="progressionStyle">—</span>
+        <span class="strip-counters"><span id="currentMeasure">1/1</span><span id="loopCount">Loop 1</span></span>
       </div>
 
       <div class="chord-container" id="chordContainer">
@@ -394,10 +397,6 @@
       <div class="progress-container">
         <div class="progress-bar">
           <div class="progress-fill" id="progressFill" style="width: 0%"></div>
-        </div>
-        <div class="progress-labels">
-          <span id="currentMeasure">Measure 1</span>
-          <span id="loopCount">Loop: 1</span>
         </div>
       </div>
     </div>

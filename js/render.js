@@ -602,8 +602,8 @@
       const { currentChordIndex, progression, loopCount } = state;
       const progress = ((currentChordIndex + 1) / progression.length) * 100;
       elements.progressFill.style.width = `${progress}%`;
-      elements.currentMeasure.textContent = `Measure ${currentChordIndex + 1} of ${progression.length}`;
-      elements.loopCount.textContent = `Loop: ${loopCount}`;
+      elements.currentMeasure.textContent = `${currentChordIndex + 1}/${progression.length}`;
+      elements.loopCount.textContent = `Loop ${loopCount}`;
     }
 
     function updateStatus() {
