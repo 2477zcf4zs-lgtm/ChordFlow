@@ -623,7 +623,10 @@
       const container = document.getElementById('pianoKeyboard');
       if (!container) return;
 
-      const WK_W = 20, WK_H = 96, BK_W = 12, BK_H = 60;
+      // Taller keys than the classic 20x96: the voicing panel now gives the
+      // piano the leftover vertical space, and the wide aspect ratio meant
+      // width always limited the scale — height has to come from the keys.
+      const WK_W = 20, WK_H = 132, BK_W = 12, BK_H = 82;
       const WHITE_PCS = { 0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6 };
       const BLACK_LEFT_WHITE = { 1: 0, 3: 1, 6: 3, 8: 4, 10: 5 };
 

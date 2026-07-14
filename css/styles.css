@@ -461,8 +461,13 @@
       display: none;
     }
 
+    /* The panel fills the panel-area's height instead of pooling its content
+       at the top: the piano block absorbs the spare vertical space (and
+       centers in it), so nothing sits empty above the chord strip. */
     .voicing-panel.visible {
-      display: block;
+      display: flex;
+      flex-direction: column;
+      min-height: calc(100% - 4px);
       animation: slideUp 0.3s ease;
     }
 
@@ -1635,6 +1640,11 @@
       background: var(--bg-primary);
       border: 1px solid var(--border-softer);
       border-radius: var(--radius-sm);
+      flex: 1;                 /* soak up the panel's spare height */
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center; /* piano rides centered in the space */
     }
     .piano-keys {
       overflow: hidden;
@@ -1716,9 +1726,10 @@
        PIANO + HANDS — scale to container width
        ============================================ */
     .piano-container {
-      max-width: 620px;
+      max-width: 760px;
       margin-left: auto;
       margin-right: auto;
+      width: 100%;
     }
 
     .voicing-notes {
