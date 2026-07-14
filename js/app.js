@@ -24,6 +24,7 @@
       grooveSelect: document.getElementById('grooveSelect'),
       leftHandSelect: document.getElementById('leftHandSelect'),
       bassBackingBtn: document.getElementById('bassBackingBtn'),
+      rangeSelect: document.getElementById('rangeSelect'),
       swingBtn: document.getElementById('swingBtn'),
       autoTransposeSelect: document.getElementById('autoTransposeSelect'),
       tempoRampSelect: document.getElementById('tempoRampSelect'),
@@ -177,6 +178,14 @@
       // voicing panel just needs a re-render to show the new LH.
       elements.leftHandSelect.addEventListener('change', (e) => {
         state.leftHand = e.target.value;
+        renderVoicing();
+      });
+      // Range (3-octave mode): unlike the Left Hand modes, the window changes
+      // which RH voicings/shifts the optimizer picks, so it must recompute.
+      // Audio reads the new indices live on the next scheduled chord.
+      elements.rangeSelect.addEventListener('change', (e) => {
+        state.range = e.target.value;
+        recomputeProgressionVoicings();
         renderVoicing();
       });
       // Backing bass: read live by scheduleBeat; only audible when the LH

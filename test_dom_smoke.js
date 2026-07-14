@@ -583,6 +583,45 @@ async function main() {
     check(st().bassBacking === false && st().leftHand === 'roots',
       'bass + left hand restored to defaults');
 
+    // --- 3-octave mode (Reface window C2-C5) ---
+    const rangeSelect = document.getElementById('rangeSelect');
+    check(!!rangeSelect && document.getElementById('settingsPanel').contains(rangeSelect),
+      'range select lives in settings');
+    const whiteKeys = () => (document.querySelector('#pianoKeyboard svg').innerHTML.match(/height="96"/g) || []).length;
+    window.renderVoicing();
+    check(whiteKeys() === 29, 'full mode renders the C2-C6 piano (29 white keys)');
+    rangeSelect.value = 'reface';
+    rangeSelect.dispatchEvent(new window.Event('change')); // listener recomputes + re-renders
+    check(st().range === 'reface', 'range select drives state');
+    check(whiteKeys() === 22, 'reface mode renders exactly the 37-key C2-C5 window (22 white keys)');
+    check(document.getElementById('voicingDescription').textContent.indexOf('3-octave window') !== -1,
+      'voicing description names the 3-octave window');
+    // Every chord's recomputed voicing fits the window, in every LH mode
+    const refaceWin = { low: 36, high: 72 };
+    const fitsWindow = () => st().progression.every((c, i) =>
+      ['roots', 'shells', 'evans', 'rootless'].every(mode => {
+        const d = window.getChordNotesAtIndex(c.root, c.quality, st().complexity,
+          st().voicingIndices[i], st().voicingShifts[i],
+          { leftHandMode: mode, lhIndex: (st().lhVoicingIndices || [])[i] || 0, range: refaceWin });
+        return d.leftHandPitches.concat(d.rightHandPitches)
+          .every(p => p.midi >= refaceWin.low && p.midi <= refaceWin.high);
+      }));
+    check(fitsWindow(), 'recomputed voicings fit C2-C5 in all LH modes');
+    // Manual voicing cycling must not escape the window
+    window.selectChord(1);
+    window.selectChord(1); // second select cycles the voicing + re-anchors its shift
+    check(fitsWindow(), 'manually cycled voicing stays inside the window');
+    // Playback schedules cleanly under the window
+    engine().ctx.currentTime = 0;
+    await window.startPlayback();
+    for (let i = 0; i < 20; i++) { engine().ctx.currentTime += 0.05; window.schedulerTick(); }
+    check(st().isPlaying === true && errors.length === 0, 'reface-mode playback schedules without errors');
+    window.stopAndReset();
+    rangeSelect.value = 'full';
+    rangeSelect.dispatchEvent(new window.Event('change'));
+    window.renderVoicing();
+    check(st().range === 'full' && whiteKeys() === 29, 'full range restores the C2-C6 piano');
+
     // --- Flashcard mode: hide chord symbols ---
     const hideBtn = document.getElementById('hideSymbolsBtn');
     hideBtn.click();
