@@ -253,6 +253,85 @@ async function main() {
       window.loadProgression(0);
     }
 
+    // --- Trial subs during playback + A/B compare (spec v3 phase 2) ---
+    window.loadProgression(0); // Dm7 G7 Cmaj7 in C, 12-beat loop
+    window.setTempo(120);      // deterministic seam timing: 12 beats = 6s
+    const tray2 = document.getElementById('voicingSubs');
+    const abBtn = document.getElementById('abCompareBtn');
+    const drive = (secs) => {
+      for (let i = 0; i < Math.ceil(secs / 0.05); i++) { engine().ctx.currentTime += 0.05; window.schedulerTick(); }
+    };
+    engine().ctx.currentTime = 0; // BEFORE startPlayback (invariant 14)
+    await window.startPlayback();
+    window.selectChord(1);     // G7 — startPlayback clears selection, so select after
+    check(abBtn.disabled === true, 'A/B disabled with no subs applied');
+    // A sub chip tap while playing starts a two-pass trial
+    tray2.querySelector('.sub-chip[data-key="tritone"]').click();
+    check(st().progression[1].root === 'Db' && !!st().trialSub && st().trialSub.passesLeft === 2,
+      'chip tap during playback starts a two-pass trial');
+    check(tray2.querySelector('.sub-chip--trialing') !== null, 'trialing chip is marked with its pass count');
+    check(abBtn.disabled === true, 'A/B stays disabled during a trial');
+    drive(6.2); // first seam
+    check(!!st().trialSub && st().trialSub.passesLeft === 1 && st().progression[1].root === 'Db',
+      'first seam decrements the trial (one pass left)');
+    drive(6.2); // second seam
+    check(st().trialSub === null && st().progression[1].root === 'G' && !st().substitutions[1],
+      'trial auto-reverts after two passes');
+    // Trial + keep: tapping the trialing chip commits it
+    tray2.querySelector('.sub-chip[data-key="tritone"]').click();
+    tray2.querySelector('.sub-chip--trialing').click();
+    check(st().trialSub === null && st().substitutions[1] === 'tritone' && st().progression[1].root === 'Db',
+      'tapping the trialing chip keeps the sub');
+    check(document.getElementById('undoChip').hidden === false, 'keeping shows the undo chip');
+    window.hideUndoChip();
+    drive(6.2);
+    check(st().substitutions[1] === 'tritone' && st().progression[1].root === 'Db',
+      'kept sub survives later seams');
+    // A/B during playback: per-index swap, never a rebuild. Plant non-zero
+    // playback position first — a rebuild would zero both counters.
+    st().currentChordIndex = 2;
+    st().loopCount = 3;
+    window.renderVoicing();
+    check(abBtn.disabled === false, 'A/B enabled once a sub is applied');
+    abBtn.click();
+    check(st().progression[1].root === 'G' && st().compareOriginal === true &&
+      st().currentChordIndex === 2 && st().loopCount === 3,
+      'A/B shows the original without touching the playback position');
+    abBtn.click();
+    check(st().progression[1].root === 'Db' && st().compareOriginal === false,
+      'A/B toggles back to the subbed version');
+    // Original's armed revert flow still works during playback
+    tray2.querySelector('.sub-chip[data-key="original"]').click();
+    tray2.querySelector('.sub-chip--armed[data-key="original"]').click();
+    check(!st().substitutions[1] && st().progression[1].root === 'G',
+      'Original armed revert works during playback');
+    window.hideUndoChip();
+    // Stopping reverts an active trial
+    tray2.querySelector('.sub-chip[data-key="tritone"]').click();
+    check(st().trialSub !== null, 'fresh trial started for the stop test');
+    window.stopAndReset();
+    check(st().trialSub === null && st().progression[1].root === 'G',
+      'stopping playback reverts an active trial');
+    // A trial survives a 12-keys seam, re-derived in the new key
+    const autoT2 = document.getElementById('autoTransposeSelect');
+    autoT2.value = 'fourths';
+    autoT2.dispatchEvent(new window.Event('change'));
+    engine().ctx.currentTime = 0;
+    await window.startPlayback();
+    window.selectChord(1); // select after start (startPlayback clears selection)
+    document.getElementById('voicingSubs').querySelector('.sub-chip[data-key="tritone"]').click();
+    drive(6.2); // seam: trial decrements, then the key transposes C -> F
+    check(st().key === 'F' && !!st().trialSub && st().trialSub.passesLeft === 1,
+      'trial survives the 12-keys seam (key now F, one pass left)');
+    check(st().progression[1].root === 'Gb' && st().progression[1].substituted === true,
+      'trialed sub re-derived in the new key (C7 -> Gb7)');
+    window.stopAndReset();
+    check(!st().substitutions[1] && st().progression[1].root === 'C',
+      'post-transpose revert restores the new-key base chord (C7)');
+    autoT2.value = 'off';
+    autoT2.dispatchEvent(new window.Event('change'));
+    window.loadProgression(0); // back to C, clean slate
+
     // Complexity tiers via dropdown
     const complexitySelect = document.getElementById('complexitySelect');
     const setTier = (val) => { complexitySelect.value = val; complexitySelect.dispatchEvent(new window.Event('change')); };

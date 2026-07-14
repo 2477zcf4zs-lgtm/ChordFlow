@@ -19,6 +19,8 @@
       substitutions: [],    // per-index applied substitution type, e.g. 'tritone' (for re-derivation)
       subBase: [],          // per-index pre-substitution chord (restore point for revert/undo)
       armedSub: null,       // sub tray: chip awaiting its confirm tap ({index, key} | null)
+      trialSub: null,       // playback trial: {index, type, prevType, passesLeft} | null
+      compareOriginal: false, // A/B: true = progression shows base chords, subs shelved
       progressionName: '',
       progressionStyle: '',
       asWritten: false,   // library tune shown in its original key/qualities (5.1)
@@ -99,6 +101,11 @@
       // un-substituted chord without another rebuild (invariant 15).
       state.subBase = [];
       state.armedSub = null; // rebuilt progression invalidates any armed chip
+      // A rebuild re-applies the stored subs below (the "B" state), so an
+      // active A/B compare must end here or the flag would lie about what's
+      // sounding. Trials deliberately SURVIVE rebuilds: a key change or
+      // 12-keys seam re-derives the trialed sub via the same re-apply block.
+      state.compareOriginal = false;
       state.substitutions.forEach((subType, i) => {
         if (!subType || i >= state.progression.length) return;
         const base = state.progression[i];
@@ -229,6 +236,7 @@
       state.density = Math.random() < 0.7 ? 1.0 : 0.45;
       state.sourceNumerals = buildRandomNumerals(mode, state.bars, state.density);
       state.substitutions = [];
+      state.trialSub = null; // new progression: drop any trial without restore
       state.asWritten = false;
       state.progressionName = 'Random Progression';
       state.progressionStyle = mode === 'major' ? 'Major' : 'Minor';
@@ -259,6 +267,7 @@
 
       state.sourceNumerals = prog.chords.slice();
       state.substitutions = [];
+      state.trialSub = null; // new progression: drop any trial without restore
       state.density = Math.random() < 0.7 ? 1.0 : 0.45;
       state.progressionName = prog.name;
       state.progressionStyle = prog.style;
@@ -347,6 +356,7 @@
       state.bars = entry.bars || state.bars;
       state.sourceNumerals = entry.sourceNumerals.slice();
       state.substitutions = (entry.substitutions || []).slice();
+      state.trialSub = null; // new progression: drop any trial without restore
       state.asWritten = false;
       state.progressionName = entry.name;
       state.progressionStyle = 'Saved';

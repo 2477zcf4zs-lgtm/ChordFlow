@@ -1281,6 +1281,59 @@
       display: inline;
     }
 
+    /* Trialing in the running loop: dots count remaining passes, tap keeps */
+    .sub-chip--trialing {
+      border-color: var(--accent-gold);
+      background: rgba(212, 168, 91, 0.14);
+    }
+
+    .sub-chip-passes {
+      display: none;
+      font-size: 0.6rem;
+      letter-spacing: 2px;
+      color: var(--accent-gold);
+    }
+
+    .sub-chip--trialing .sub-chip-passes {
+      display: inline;
+    }
+
+    /* A/B compare toggle (voicing panel header) */
+    .ab-compare-btn {
+      appearance: none;
+      -webkit-appearance: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      padding: 5px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border-subtle);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .ab-compare-btn:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+
+    .ab-compare-btn:not(:disabled):hover {
+      border-color: var(--accent-coral);
+      color: var(--text-primary);
+    }
+
+    .ab-compare-btn.active {
+      border-color: var(--accent-coral);
+      background: rgba(212, 91, 91, 0.12);
+      color: var(--accent-coral);
+    }
+
+    .ab-compare-btn:focus-visible {
+      outline: 2px solid var(--accent-gold);
+      outline-offset: 2px;
+    }
+
     /* Transient undo chip: floats just above the transport bar */
     .undo-chip-wrap {
       position: fixed;
