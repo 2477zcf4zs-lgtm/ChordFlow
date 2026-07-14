@@ -988,6 +988,22 @@
       display: none;
     }
 
+    /* Borrowed chords (flavor vocabulary: iv7, v7, bVII7, mediants, passing
+       dims) get a warm tint on the numeral + an amber edge — visibly distinct
+       from the coral sub marker and the playing highlight. */
+    .chord-cell.borrowed .chord-numeral,
+    .pad.borrowed .pad-numeral {
+      color: var(--accent-gold);
+    }
+
+    .chord-cell.borrowed .chord-box {
+      border-left: 2px solid var(--accent-gold);
+    }
+
+    .pad.borrowed {
+      border-left: 2px solid var(--accent-gold);
+    }
+
     .chord-box:focus-visible,
     .sub-badge:focus-visible {
       outline: 2px solid var(--accent-gold);

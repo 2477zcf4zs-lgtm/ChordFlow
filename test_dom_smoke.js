@@ -332,6 +332,49 @@ async function main() {
     autoT2.dispatchEvent(new window.Event('change'));
     window.loadProgression(0); // back to C, clean slate
 
+    // --- Flavor dial + borrowed tint + tray flavor subs (spec v3 phase 3) ---
+    const flavorBtn = document.getElementById('flavorBtn');
+    check(!!flavorBtn && flavorBtn.closest('.transport-bar') !== null &&
+      st().flavor === 'off', 'flavor chip lives beside the generate control, default off');
+    // Tray ordering follows the dial
+    window.selectChord(1); // G7 tray open
+    const trayChips = () => Array.from(document.querySelectorAll('#voicingSubs .sub-chip'));
+    check(trayChips().some(c => c.dataset.key === 'flavor_minor_v') &&
+      trayChips().some(c => c.dataset.key === 'flavor_backdoor'),
+      'tray offers the flavor subs (minor v, backdoor) even at Off');
+    check(!trayChips()[1].dataset.key.startsWith('flavor_'),
+      'at Off, functional subs keep the front row');
+    flavorBtn.click(); // -> subtle
+    check(st().flavor === 'subtle' && flavorBtn.classList.contains('active') &&
+      flavorBtn.querySelector('.btn-label').textContent === 'Flavor: Subtle',
+      'flavor chip cycles to Subtle (label + active state)');
+    check(trayChips()[1].dataset.key.startsWith('flavor_'),
+      'with flavor on, borrowed colors surface right after Original');
+    flavorBtn.click(); // -> bold
+    check(st().flavor === 'bold', 'flavor chip cycles to Bold');
+    // Generation at Bold schedules cleanly (statistics live in the unit suite)
+    window.generateRandomProgression();
+    check(st().progression.length >= 2 && st().sourceNumerals.length === st().progression.length,
+      'generation with flavor Bold produces a coherent progression');
+    flavorBtn.click(); // -> off
+    check(st().flavor === 'off' && !flavorBtn.classList.contains('active'),
+      'flavor chip cycles back to Off');
+    // Borrowed tint: drive the numeral pipeline directly for determinism
+    st().sourceNumerals = ['Imaj7', 'iv7', 'bVII7', 'Imaj7'];
+    st().substitutions = [];
+    window.buildProgressionFromSource();
+    check(st().progression[1].root === 'F' && st().progression[1].quality === 'min7' &&
+      st().progression[2].root === 'Bb' && st().progression[2].quality === 'dom7',
+      'flavor numerals parse pinned through the build pipeline (Fm7, Bb7 in C)');
+    check(document.querySelectorAll('.chord-cell.borrowed').length === 2 &&
+      document.querySelectorAll('.pad.borrowed').length === 2,
+      'borrowed chords are tinted in the strip and the pads (2 each)');
+    check(st().progression[0].borrowed === undefined && st().progression[1].borrowed === true,
+      'borrowed flag set from source numerals only where deserved');
+    window.loadProgression(0); // clean slate
+    check(document.querySelectorAll('.chord-cell.borrowed').length === 0,
+      'diatonic progressions carry no borrowed tint');
+
     // Complexity tiers via dropdown
     const complexitySelect = document.getElementById('complexitySelect');
     const setTier = (val) => { complexitySelect.value = val; complexitySelect.dispatchEvent(new window.Event('change')); };

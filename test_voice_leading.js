@@ -13,7 +13,7 @@ function loadTheoryCore() {
   // touches live inside functions this suite never calls.
   const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/audio.js', 'js/state.js'];
   const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
-  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates };');
+  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions };');
   return fn();
 }
 const T = loadTheoryCore();
@@ -720,6 +720,97 @@ console.log('\nTest 13: 3-octave mode (reface window C2-C5)');
   const impossible = { low: 60, high: 63 };
   const cands = T.buildVoicingCandidates({ root: 'C', quality: 'maj7' }, 'seventh', impossible);
   check(cands.length > 0, 'impossible window falls back to least-violating candidates (DP layer never empties)');
+}
+
+console.log('\nTest 14: flavor pass (borrowed vocabulary) + flavor subs + borrowed detection');
+{
+  // Identity: off level and minor mode change nothing
+  const plain = ['I', 'IV', 'V', 'I'];
+  check(JSON.stringify(T.flavorizeNumerals(plain, 'major', 'off')) === JSON.stringify(plain),
+    "flavor 'off' is an identity pass");
+  check(JSON.stringify(T.flavorizeNumerals(plain, 'minor', 'bold')) === JSON.stringify(plain),
+    'minor mode is a deliberate no-op');
+
+  // Every vocabulary numeral parses PINNED in C major (roots and qualities)
+  const pinned = [
+    ['iv7', 'F', 'min7'], ['v7', 'G', 'min7'], ['bVII7', 'Bb', 'dom7'],
+    ['bIIImaj7', 'Eb', 'maj7'], ['bVImaj7', 'Ab', 'maj7'], ['#i°7', 'C#', 'dim7']
+  ];
+  for (const [num, root, quality] of pinned) {
+    const c = T.parseRomanNumeral(num, 'C', 'major', 'seventh');
+    check(c.root === root && c.quality === quality,
+      `${num} parses pinned to ${root} ${quality} (got ${c.root} ${c.quality})`);
+  }
+
+  // Statistical sweep: 500 8-bar generations per level
+  const RUNS = 500;
+  const isBorrowedList = nums => nums.map(s => T.isBorrowedNumeral(s, 'major'));
+  const stats = (level) => {
+    let withFlavor = 0;
+    for (let r = 0; r < RUNS; r++) {
+      const nums = T.buildRandomNumerals('major', 8, 1.0, level);
+      const b = isBorrowedList(nums);
+      const n = nums.length;
+      if (b.some(x => x)) withFlavor++;
+      // Constraint audit on every run:
+      for (let i = 0; i < n; i++) {
+        if (nums[i] === 'bVII7' && !(/^I(?![IViv])/.test(String(nums[i + 1] || ''))))
+          check(false, `${level}: bVII7 not followed by tonic in ${nums.join(' ')}`);
+        if (b[i] && b[i + 1] && !(nums[i] === 'iv7' && nums[i + 1] === 'bVII7'))
+          check(false, `${level}: adjacent flavor conversions in ${nums.join(' ')}`);
+        if (i === n - 1 && b[i] && nums[i] !== 'bVImaj7')
+          check(false, `${level}: final slot flavored as ${nums[i]}`);
+        if (level === 'subtle' && ['bIIImaj7', 'bVImaj7', '#i°7'].includes(nums[i]) && i < n - 1)
+          check(false, `${level}: bold-only vocabulary (${nums[i]}) at subtle`);
+      }
+      // Chromatic budget: flavor events (backdoor pair = 1) + secondaries
+      const backdoors = nums.filter((s, i) => s === 'iv7' && nums[i + 1] === 'bVII7').length;
+      const events = b.filter(x => x).length - backdoors;
+      const secondaries = nums.filter(s => String(s).includes('/')).length;
+      const cap = (level === 'bold' ? 2 : 1) * 2; // 8 bars = two 4-bar spans
+      if (events + secondaries > cap)
+        check(false, `${level}: chromatic budget blown (${events}+${secondaries} > ${cap}) in ${nums.join(' ')}`);
+    }
+    return withFlavor / RUNS;
+  };
+  const offRate = stats('off');
+  const subtleRate = stats('subtle');
+  const boldRate = stats('bold');
+  check(offRate === 0, `off generates no borrowed chords (${offRate})`);
+  check(subtleRate > 0.05 && subtleRate < 0.95,
+    `subtle presence in loose bounds (${(subtleRate * 100).toFixed(0)}% of 8-bar runs)`);
+  check(boldRate > 0.2 && boldRate > subtleRate,
+    `bold is bolder than subtle (${(boldRate * 100).toFixed(0)}% vs ${(subtleRate * 100).toFixed(0)}%)`);
+
+  // Flavor subs offered with correctly spelled roots
+  const g7 = T.getChordSubstitutions('G', 'dom7');
+  const minorV = g7.find(s => s.type === 'flavor_minor_v');
+  const backdoor = g7.find(s => s.type === 'flavor_backdoor');
+  check(!!minorV && minorV.root === 'G' && minorV.quality === 'min7' && minorV.flavor === true,
+    'G7 offers the borrowed minor v (Gm7)');
+  check(!!backdoor && backdoor.root === 'Bb' && backdoor.quality === 'dom7',
+    'G7 offers the backdoor Bb7');
+  const cmaj7 = T.getChordSubstitutions('C', 'maj7');
+  const bvi = cmaj7.find(s => s.type === 'flavor_mediant_bvi');
+  const biii = cmaj7.find(s => s.type === 'flavor_mediant_biii');
+  check(!!bvi && bvi.root === 'Ab', `Cmaj7 bVI mediant spelled Ab, not G# (got ${bvi && bvi.root})`);
+  check(!!biii && biii.root === 'Eb', `Cmaj7 bIII mediant spelled Eb (got ${biii && biii.root})`);
+  check(g7.some(s => !s.flavor) && cmaj7.some(s => !s.flavor),
+    'functional subs still offered alongside flavor');
+
+  // isBorrowedNumeral truth table
+  const bt = [
+    ['iv7', 'major', true], ['iv7', 'minor', false],
+    ['v7', 'major', true], ['v7', 'minor', false],
+    ['vi', 'major', false], ['vii°', 'major', false],
+    ['bVII7', 'major', true], ['bVII7', 'minor', false],
+    ['bVImaj7', 'major', true], ['#i°7', 'major', true], ['#i°7', 'minor', true],
+    ['I', 'major', false], ['ii7', 'major', false], ['V7/ii', 'major', false]
+  ];
+  for (const [num, mode, want] of bt) {
+    check(T.isBorrowedNumeral(num, mode) === want,
+      `isBorrowedNumeral(${num}, ${mode}) === ${want}`);
+  }
 }
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));

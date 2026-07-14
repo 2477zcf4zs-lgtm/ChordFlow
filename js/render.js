@@ -141,7 +141,7 @@
         const marker = chord.substituted ? '<span class="sub-marker" title="Substituted">sub</span>' : '';
 
         html += `
-          <div class="chord-cell" data-index="${index}">
+          <div class="chord-cell${chord.borrowed ? ' borrowed' : ''}" data-index="${index}">
             <button class="chord-box" type="button" data-index="${index}" aria-label="Chord ${index + 1}, ${escapeHtml(symbol)}. Activate to view its voicing.">
               <div class="chord-numeral">${escapeHtml(chord.degree)}${marker}</div>
               <div class="chord-symbol">${escapeHtml(symbol)}</div>
@@ -174,7 +174,7 @@
       grid.innerHTML = progression.map((chord, index) => {
         const symbol = formatChordSymbol(chord.root, chord.quality);
         const marker = chord.substituted ? '<span class="sub-marker" title="Substituted">sub</span>' : '';
-        return `<button class="pad" type="button" data-index="${index}"
+        return `<button class="pad${chord.borrowed ? ' borrowed' : ''}" type="button" data-index="${index}"
                   aria-label="Play chord ${index + 1}, ${escapeHtml(chord.root)} ${escapeHtml(chord.quality)}">
             <span class="pad-numeral">${escapeHtml(chord.degree)}${marker}</span>
             <span class="pad-symbol">${escapeHtml(symbol)}</span>
@@ -318,7 +318,12 @@
       if (!subsEl) return;
       const applied = state.substitutions[chordIndex] || null;
       const base = state.subBase[chordIndex] || state.progression[chordIndex];
-      const subs = getChordSubstitutions(base.root, base.quality);
+      let subs = getChordSubstitutions(base.root, base.quality);
+      // With the flavor dial on, the borrowed/mediant colors surface right
+      // after Original; at Off the functional subs keep the front row.
+      if (state.flavor !== 'off') {
+        subs = subs.slice().sort((a, b) => (b.flavor ? 1 : 0) - (a.flavor ? 1 : 0));
+      }
       const armedKey = (state.armedSub && state.armedSub.index === chordIndex)
         ? state.armedSub.key : null;
       const trial = (state.trialSub && state.trialSub.index === chordIndex)

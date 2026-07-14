@@ -38,6 +38,7 @@
       bassBacking: false, // rootless playback: sustain a stand-in bass root
       lhVoicingIndices: [], // per-chord LH shape (two-hand rootless), DP-chosen
       range: 'full',      // keyboard window: 'full' | 'reface' (3 octaves, C2-C5)
+      flavor: 'off',      // generation color: off|subtle|bold (borrowed/mediant vocabulary)
       density: 1.0,       // per-progression sparsity character (2.4); rolled on new/load
       voicingIndices: [], // Track which voicing is selected for each chord
       voicingShifts: [], // Octave placement (in semitones) for each chord's right hand
@@ -90,6 +91,16 @@
           // (halving density doubles downScale), biasing toward simpler colour.
           state.progression[i] = parseRomanNumeral(
             state.sourceNumerals[i], key, mode, complexity, density * 0.5);
+        }
+      }
+
+      // Borrowed-chord tint: chords whose SOURCE numeral sits outside the home
+      // mode (iv7, v7, bVII7, mediants, passing dims) get a flag the renderers
+      // turn into a class — teaches the color while you play. Substituted
+      // chords below intentionally lose it (the sub marker takes over).
+      for (let i = 0; i < n; i++) {
+        if (isBorrowedNumeral(state.sourceNumerals[i], mode)) {
+          state.progression[i].borrowed = true;
         }
       }
 
@@ -180,7 +191,86 @@
      * - phrase-interior only (never the opening chord, never the final chord)
      * - at most one per 4 bars; two allowed in 7-8 bar progressions
      */
-    function buildRandomNumerals(mode, bars, density) {
+    // FLAVOR WEIGHTS: tuned by ear — owner to veto/adjust. Per-slot conversion
+    // probabilities for the flavor pass; 'subtle' sticks to modal interchange
+    // and the backdoor, 'bold' unlocks mediants, passing dims and the
+    // deceptive ending.
+    const FLAVOR_RULES = {
+      subtle: { iv: 0.12, minorV: 0.08, minorVCadential: 0, backdoor: 0.10, mediant: 0, passingDim: 0, deceptive: 0 },
+      bold: { iv: 0.25, minorV: 0.18, minorVCadential: 0.10, backdoor: 0.22, mediant: 0.10, passingDim: 0.08, deceptive: 0.05 }
+    };
+
+    /**
+     * Flavor pass (spec v3 phase 3): convert some numerals to the borrowed /
+     * mediant vocabulary — iv7, v7, the iv7→bVII7 backdoor into a final I,
+     * bIIImaj7/bVImaj7 mediants, #i°7 passing dims, and a deceptive bVImaj7
+     * ending. Pure. Every output carries an explicit suffix so the parser
+     * PINS the quality (pools and function guardrails untouched, invariant 7).
+     * Major-key idiom set: minor mode is a deliberate no-op for now (the
+     * interchange table above borrows FROM minor; a minor-mode set is future
+     * work). Constraints: flavor events share a chromatic budget with the
+     * secondary dominants already in `numerals` (1 per 4 bars subtle, 2
+     * bold), no two conversions on adjacent slots (the backdoor pair is one
+     * event), and the final slot only ever becomes the deceptive bVImaj7.
+     */
+    function flavorizeNumerals(numerals, mode, level) {
+      const P = FLAVOR_RULES[level];
+      if (!P || mode !== 'major') return numerals.slice();
+      const out = numerals.slice();
+      const n = out.length;
+      const flavored = new Array(n).fill(false);
+      const secondaries = out.filter(s => String(s).includes('/')).length;
+      let budget = (level === 'bold' ? 2 : 1) * Math.ceil(n / 4) - secondaries;
+
+      const isTonic = s => /^I(?![IViv])/.test(String(s));
+      const isIV = s => /^IV(?![Ii])/.test(String(s));
+      const isV = s => /^V(?![Ii])/.test(String(s)) && !String(s).includes('/');
+      const isSupertonic = s => /^ii(?!i)/.test(String(s));
+      const clearAround = i => !flavored[i] &&
+        !(i > 0 && flavored[i - 1]) && !(i < n - 1 && flavored[i + 1]);
+      const roll = p => p > 0 && Math.random() < p;
+
+      // Cadence first: the deceptive ending and the backdoor compete for the
+      // final area, so they're decided before the interior rules run.
+      if (budget > 0 && isTonic(out[n - 1]) && roll(P.deceptive)) {
+        out[n - 1] = 'bVImaj7';
+        flavored[n - 1] = true;
+        budget--;
+      } else if (budget > 0 && n >= 3 && isTonic(out[n - 1]) &&
+        !String(out[n - 2]).includes('/') && !String(out[n - 3]).includes('/') &&
+        roll(P.backdoor)) {
+        // The two chords before the final tonic become the backdoor pair.
+        // One event, deliberately adjacent.
+        out[n - 3] = 'iv7';
+        out[n - 2] = 'bVII7';
+        flavored[n - 3] = true;
+        flavored[n - 2] = true;
+        budget--;
+      }
+
+      // Interior conversions (never the first-slot statement of the key).
+      for (let i = 1; i < n - 1 && budget > 0; i++) {
+        if (!clearAround(i) || String(out[i]).includes('/')) continue;
+        if (isIV(out[i]) && roll(P.iv)) {
+          out[i] = 'iv7';
+        } else if (isV(out[i])) {
+          const cadential = isTonic(out[(i + 1) % n]);
+          if (!roll(cadential ? P.minorVCadential : P.minorV)) continue;
+          out[i] = 'v7';
+        } else if (isTonic(out[i]) && isSupertonic(out[i + 1]) && roll(P.passingDim)) {
+          out[i] = '#i°7'; // I -> #i°7 -> ii, the gospel walk-up
+        } else if (isTonic(out[i]) && roll(P.mediant)) {
+          out[i] = Math.random() < 0.5 ? 'bIIImaj7' : 'bVImaj7';
+        } else {
+          continue;
+        }
+        flavored[i] = true;
+        budget--;
+      }
+      return out;
+    }
+
+    function buildRandomNumerals(mode, bars, density, flavor = 'off') {
       const pools = PHRASE_POOLS[mode] || PHRASE_POOLS.major;
       const n = Math.max(2, Math.min(8, Math.floor(bars) || 4));
       const numerals = new Array(n);
@@ -223,7 +313,9 @@
         }
       }
 
-      return numerals;
+      // Flavor pass runs last so it sees (and budgets against) the
+      // secondary dominants above.
+      return flavorizeNumerals(numerals, mode, flavor);
     }
 
     function generateRandomProgression() {
@@ -234,7 +326,7 @@
       // Rolled before the numerals so the secondary-dominant probability can
       // scale with it.
       state.density = Math.random() < 0.7 ? 1.0 : 0.45;
-      state.sourceNumerals = buildRandomNumerals(mode, state.bars, state.density);
+      state.sourceNumerals = buildRandomNumerals(mode, state.bars, state.density, state.flavor);
       state.substitutions = [];
       state.trialSub = null; // new progression: drop any trial without restore
       state.asWritten = false;
