@@ -1566,78 +1566,6 @@
     }
 
     /* Reference links */
-    .dict-references {
-      border-top: 1px solid var(--border-subtle);
-      padding-top: 16px;
-      margin-top: 20px;
-    }
-
-    .reference-links {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 10px;
-    }
-
-    .ref-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.8rem;
-      color: var(--accent-blue);
-      text-decoration: none;
-      padding: 6px 12px;
-      background: rgba(91, 143, 212, 0.1);
-      border: 1px solid rgba(91, 143, 212, 0.2);
-      border-radius: 6px;
-      transition: all 0.2s;
-    }
-
-    .ref-link:hover {
-      background: rgba(91, 143, 212, 0.2);
-      border-color: var(--accent-blue);
-    }
-
-    .ref-link svg {
-      flex-shrink: 0;
-    }
-
-    /* Footer resources */
-    .resources-footer {
-      margin-top: 24px;
-      padding: 20px;
-      background: var(--bg-card);
-      border: 1px solid var(--border-softer);
-      border-radius: var(--radius-md);
-      text-align: center;
-    }
-
-    .resources-footer-title {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 12px;
-    }
-
-    .resources-footer-links {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-
-    .resources-footer-links a {
-      font-size: 0.8rem;
-      color: var(--text-secondary);
-      text-decoration: none;
-      transition: color 0.2s;
-    }
-
-    .resources-footer-links a:hover {
-      color: var(--accent-gold);
-    }
-
     /* Piano keyboard visualization */
     .piano-container {
       margin: 16px 0 4px;
@@ -1759,7 +1687,6 @@
       .transport-bar { gap: 2px; }
       /* Keyboard shortcuts are irrelevant on touch devices */
       .shortcuts-hint { display: none; }
-      .resources-footer-links { gap: 12px; }
       .voicing-hands { flex-direction: row; }
       .hand-divider { margin: 0 4px; }
       .voicing-notes { font-size: 1rem; }
