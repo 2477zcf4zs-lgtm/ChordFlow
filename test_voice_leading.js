@@ -605,6 +605,12 @@ console.log('\nTest 11: left-hand modes (bassist mode)');
     "default leftHandMode is 'roots' (existing calls unchanged)");
   check(implicit.leftHandPitches.length > 0 && implicit.leftHandPitches[0].midi >= T.LH_BASE,
     'roots mode still anchors the written LH at LH_BASE');
+
+  // bassonly: the app is your bassist — root only, nothing else
+  const bassonly = T.getChordNotesAtIndex('C', 'min7', 'seventh', 0, 0, { leftHandMode: 'bassonly' });
+  check(bassonly.rightHandPitches.length === 0 && bassonly.leftHandPitches.length === 1 &&
+    bassonly.leftHandPitches[0].midi % 12 === 0 && bassonly.leftHandPitches[0].midi >= T.LH_BASE,
+    'bassonly realizes only the root in the bass zone');
 }
 
 console.log('\nTest 12: two-hand rootless (evans) LH shapes + DP voice leading');

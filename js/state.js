@@ -371,7 +371,7 @@
       updateAsWrittenChip();
 
       // Close library panel
-      showTab(null);
+      showTab('voicing'); // land on the piano view (the app's home view)
     }
 
 
@@ -462,7 +462,7 @@
 
       buildProgressionFromSource();
       updateAsWrittenChip();
-      showTab(null);
+      showTab('voicing'); // land on the piano view (the app's home view)
       return true;
     }
 

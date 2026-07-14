@@ -586,6 +586,8 @@
      *   'evans'    — a second rootless voicing in the tenor range; lhIndex
      *                picks the shape (DP-chosen via computeLeftHandVoicings)
      *   'rootless' — nothing; a bassist or backing track owns the low end
+     *   'bassonly' — ONLY the root sounds (the app is your bassist); the
+     *                voicing itself is yours to comp on a real instrument
      */
     function realizeVoicing(rootNote, voicing, octaveShift = 0, leftHandMode = 'roots', quality = null, lhIndex = 0) {
       let left;
@@ -595,10 +597,11 @@
         const shapes = lhRootlessShapesFor(quality);
         const safe = ((lhIndex || 0) % shapes.length + shapes.length) % shapes.length;
         left = realizeHand(rootNote, shapes[safe], LH_ROOTLESS_BASE);
-      } else left = realizeHand(rootNote, voicing.left, LH_BASE);
+      } else if (leftHandMode === 'bassonly') left = realizeHand(rootNote, ['R'], LH_BASE);
+      else left = realizeHand(rootNote, voicing.left, LH_BASE);
       return {
         left,
-        right: realizeHand(rootNote, voicing.right, RH_BASE + octaveShift)
+        right: leftHandMode === 'bassonly' ? [] : realizeHand(rootNote, voicing.right, RH_BASE + octaveShift)
       };
     }
 

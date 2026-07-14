@@ -385,6 +385,93 @@ async function main() {
     check(document.querySelectorAll('.chord-cell.borrowed').length === 0,
       'diatonic progressions carry no borrowed tint');
 
+    // --- Quality-of-life batch ---
+    // Loads land on the piano view (no more empty space above the strip)
+    check(st().activeTab === 'voicing', 'loading a progression lands on the piano view');
+    // Sub tray sits BELOW the piano: chips can never push the piano around
+    {
+      const panelHtml = document.getElementById('voicingPanel').innerHTML;
+      check(panelHtml.indexOf('id="pianoKeyboard"') < panelHtml.indexOf('id="voicingSubs"'),
+        'sub tray renders below the piano (stable piano position)');
+    }
+    // Cycling a voicing auditions it (stopped)
+    engine().auditionGain = null;
+    window.selectChord(1); // select
+    window.selectChord(1); // cycle -> hear it
+    check(engine().auditionGain !== null, 'cycling a voicing auditions the new voicing');
+    // Transport Top: stopped = quiet rewind
+    st().currentChordIndex = 2;
+    document.getElementById('toStartBtn').click();
+    check(st().currentChordIndex === 0 && st().selectedChordIndex === null,
+      'Top rewinds the position when stopped');
+    // Play starts the loop at the selected chord; Top jumps back while playing
+    window.selectChord(2);
+    engine().ctx.currentTime = 0;
+    await window.startPlayback();
+    check(st().currentChordIndex === 2 &&
+      engine().beatCounter >= 2 * st().beatsPerChord && engine().beatCounter <= 2 * st().beatsPerChord + 2,
+      'playback begins the loop at the selected chord');
+    document.getElementById('toStartBtn').click();
+    check(st().isPlaying === true && st().currentChordIndex === 0 && engine().beatCounter === 0,
+      'Top jumps the running loop back to bar 1 without stopping');
+    window.stopAndReset();
+    // Pads mode hides the (duplicate) chord strip
+    document.getElementById('padsToggle').click();
+    check(document.body.classList.contains('pads-open') && st().activeTab === 'pads',
+      'pads mode marks the body so the strip hides');
+    document.getElementById('padsToggle').click();
+    check(!document.body.classList.contains('pads-open'), 'leaving pads restores the strip');
+    // A/B reads as a two-sided switch: the lit side is what's sounding
+    window.selectChord(1);
+    window.applySubstitution(1, window.getChordSubstitutions('G', 'dom7').find(s => s.type === 'tritone'));
+    window.renderVoicing();
+    check(document.getElementById('abSideB').classList.contains('on') &&
+      !document.getElementById('abSideA').classList.contains('on'),
+      "A/B lights the B side when subs are sounding");
+    document.getElementById('abCompareBtn').click();
+    check(document.getElementById('abSideA').classList.contains('on') &&
+      document.getElementById('abCompareBtn').title.indexOf('Hearing A') === 0,
+      "comparing lights the A side and the title says what's sounding");
+    document.getElementById('abCompareBtn').click();
+    window.revertSubstitution(1);
+    window.hideUndoChip();
+    // Chord dictionary: tap a listed voicing to hear it
+    engine().auditionGain = null;
+    {
+      const dictItem = document.querySelector('.dict-voicing-item');
+      check(!!dictItem && dictItem.tagName === 'BUTTON', 'dictionary voicings are playable buttons');
+      dictItem.click();
+      check(engine().auditionGain !== null, 'tapping a dictionary voicing auditions it');
+    }
+    // My Progressions: collapsed by default, header toggle expands
+    const savedBody = document.getElementById('savedBody');
+    check(savedBody.hidden === true, 'My Progressions starts collapsed (library stays navigable)');
+    document.getElementById('savedToggle').click();
+    check(savedBody.hidden === false &&
+      document.getElementById('savedToggle').getAttribute('aria-expanded') === 'true',
+      'header toggle expands the saved section');
+    document.getElementById('savedToggle').click();
+    check(savedBody.hidden === true, 'header toggle collapses it again');
+    // Roots-only mode: the app is your bassist
+    const lhSelect2 = document.getElementById('leftHandSelect');
+    lhSelect2.value = 'bassonly';
+    lhSelect2.dispatchEvent(new window.Event('change'));
+    window.selectChord(0);
+    check(/\d/.test(document.getElementById('leftHandNotes').textContent) &&
+      document.getElementById('rightHandNotes').textContent.indexOf('you comp') !== -1,
+      'roots-only shows the bass note + a "you comp" hint');
+    window.eval('var __boReal = synthNote; var __boMidis = []; synthNote = function(m,t,d,v,g){ __boMidis.push(m); return __boReal(m,t,d,v,g); };');
+    engine().ctx.currentTime = 0;
+    await window.startPlayback();
+    for (let i = 0; i < 20; i++) { engine().ctx.currentTime += 0.05; window.schedulerTick(); }
+    check(window.eval('__boMidis').length > 0 && window.eval('__boMidis').every(m => m < 48),
+      'roots-only playback schedules nothing but bass-register roots');
+    window.stopAndReset();
+    window.eval('synthNote = __boReal;');
+    lhSelect2.value = 'roots';
+    lhSelect2.dispatchEvent(new window.Event('change'));
+    window.loadProgression(0);
+
     // Complexity tiers via dropdown
     const complexitySelect = document.getElementById('complexitySelect');
     const setTier = (val) => { complexitySelect.value = val; complexitySelect.dispatchEvent(new window.Event('change')); };
@@ -719,12 +806,15 @@ async function main() {
 
     lhSelect.value = 'rootless';
     lhSelect.dispatchEvent(new window.Event('change'));
-    check(lhNotesEl.textContent.indexOf('bass / backing track') !== -1,
-      'rootless LH shows the bassist hint instead of notes');
+    // Rootless display: YOU comp the voicing with your left hand while the
+    // right plays melody — so the voicing shows (and tints) as the LH.
+    check(/\d/.test(lhNotesEl.textContent) &&
+      rhNotesEl.textContent.indexOf('melody / solo') !== -1,
+      'rootless shows the comping voicing as the LEFT hand, melody hint on the right');
     const rootlessSvg = document.querySelector('#pianoKeyboard svg');
-    check(!!rootlessSvg && (rootlessSvg.innerHTML.match(/var\(--accent-coral\)/g) || []).length === 0 &&
-      (rootlessSvg.innerHTML.match(/var\(--accent-blue\)/g) || []).length >= 3,
-      'piano renders RH-only highlights in rootless mode');
+    check(!!rootlessSvg && (rootlessSvg.innerHTML.match(/var\(--accent-coral\)/g) || []).length >= 3 &&
+      (rootlessSvg.innerHTML.match(/var\(--accent-blue\)/g) || []).length === 0,
+      'piano highlights the rootless voicing in the LH color');
 
     // Playback, audition and pads all flow through chordPitchesAt and must
     // schedule cleanly with an empty LH.
