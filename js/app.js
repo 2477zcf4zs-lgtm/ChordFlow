@@ -22,6 +22,8 @@
       keySelect: document.getElementById('keySelect'),
       barsSelect: document.getElementById('barsSelect'),
       grooveSelect: document.getElementById('grooveSelect'),
+      leftHandSelect: document.getElementById('leftHandSelect'),
+      bassBackingBtn: document.getElementById('bassBackingBtn'),
       swingBtn: document.getElementById('swingBtn'),
       autoTransposeSelect: document.getElementById('autoTransposeSelect'),
       tempoRampSelect: document.getElementById('tempoRampSelect'),
@@ -168,6 +170,23 @@
       // so no rebuild is needed — they take effect from the next chord.
       elements.grooveSelect.addEventListener('change', (e) => {
         state.groove = e.target.value;
+      });
+      // Left hand (bassist mode): only the LH realization changes — RH shapes
+      // and the voice-leading optimizer are untouched, so no rebuild. Audio
+      // reads it live via chordPitchesAt on the next chord/pad/audition; the
+      // voicing panel just needs a re-render to show the new LH.
+      elements.leftHandSelect.addEventListener('change', (e) => {
+        state.leftHand = e.target.value;
+        renderVoicing();
+      });
+      // Backing bass: read live by scheduleBeat; only audible when the LH
+      // plays no roots (rootless/evans), a no-op otherwise.
+      elements.bassBackingBtn.addEventListener('click', () => {
+        state.bassBacking = !state.bassBacking;
+        const lbl = elements.bassBackingBtn.querySelector('.btn-label');
+        if (lbl) lbl.textContent = state.bassBacking ? 'Bass: On' : 'Bass: Off';
+        elements.bassBackingBtn.classList.toggle('active', state.bassBacking);
+        elements.bassBackingBtn.blur();
       });
       elements.swingBtn.addEventListener('click', () => {
         state.swing = !state.swing;

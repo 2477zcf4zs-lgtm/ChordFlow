@@ -462,9 +462,10 @@
       let chordData;
       if (state.voicingIndices && state.voicingIndices[chordIndex] !== undefined) {
         const shift = state.voicingShifts ? state.voicingShifts[chordIndex] : undefined;
-        chordData = getChordNotesAtIndex(chord.root, chord.quality, state.complexity, state.voicingIndices[chordIndex], shift);
+        const lhIndex = (state.lhVoicingIndices && state.lhVoicingIndices[chordIndex]) || 0;
+        chordData = getChordNotesAtIndex(chord.root, chord.quality, state.complexity, state.voicingIndices[chordIndex], shift, state.leftHand, lhIndex);
       } else {
-        chordData = getChordNotes(chord.root, chord.quality, state.complexity);
+        chordData = getChordNotes(chord.root, chord.quality, state.complexity, state.leftHand);
         if (state.voicingIndices) {
           state.voicingIndices[chordIndex] = chordData.voicingIndex || 0;
           if (state.voicingShifts) state.voicingShifts[chordIndex] = chordData.octaveShift || 0;
@@ -473,9 +474,12 @@
       
       // Show realized pitches low-to-high with octave numbers (C4 = middle C)
       const formatPitch = (p) => formatNoteDisplay(p.name) + p.octave;
-      const leftNotes = chordData.leftHandPitches.map(formatPitch).join('  ');
+      // Rootless: the LH is intentionally silent — say who owns the low end.
+      const leftNotes = chordData.leftHandPitches.length
+        ? chordData.leftHandPitches.map(formatPitch).join('  ')
+        : '— (bass / backing track)';
       const rightNotes = chordData.rightHandPitches.map(formatPitch).join('  ');
-      
+
       leftHandEl.textContent = leftNotes;
       rightHandEl.textContent = rightNotes;
       
@@ -505,7 +509,15 @@
         subsEl.innerHTML = '';
       }
       
-      elements.voicingDescription.textContent = `${chordData.name} • ${chordData.voicingName}`;
+      // The teaching moment for bassist mode: name what the LH is doing when
+      // it departs from the written voicing.
+      const LH_MODE_NOTES = {
+        shells: ' • LH shells: root + guide tones (3 & 7)',
+        evans: ' • Two-hand rootless: LH color voicing — the bass stays with the bassist',
+        rootless: ' • Rootless: play the bass yourself or over a track'
+      };
+      const lhNote = LH_MODE_NOTES[state.leftHand] || '';
+      elements.voicingDescription.textContent = `${chordData.name} • ${chordData.voicingName}${lhNote}`;
     }
 
     // ============================================

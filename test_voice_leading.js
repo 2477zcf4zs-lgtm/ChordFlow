@@ -13,7 +13,7 @@ function loadTheoryCore() {
   // touches live inside functions this suite never calls.
   const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/audio.js', 'js/state.js'];
   const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
-  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets };');
+  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, lhRootlessShapesFor, computeLeftHandVoicings };');
   return fn();
 }
 const T = loadTheoryCore();
@@ -562,6 +562,92 @@ console.log('\nTest 10: comping groove onsets');
     }
   }
   if (!bad) console.log('  all groove onsets in-span with positive durations, gates and velocities');
+}
+
+console.log('\nTest 11: left-hand modes (bassist mode)');
+{
+  // guideToneIntervals names the 3rd/7th by function, per quality
+  const gt = (q) => T.guideToneIntervals(q).join(',');
+  check(gt('min7') === 'R,b3,b7', `min7 guide tones (got ${gt('min7')})`);
+  check(gt('maj7') === 'R,3,7', `maj7 guide tones (got ${gt('maj7')})`);
+  check(gt('dom7') === 'R,3,b7', `dom7 guide tones (got ${gt('dom7')})`);
+  check(gt('m7b5') === 'R,b3,b7', `m7b5 guide tones (got ${gt('m7b5')})`);
+  check(gt('dim7') === 'R,b3,bb7', `dim7 gets bb7, not a 6th (got ${gt('dim7')})`);
+  check(gt('6') === 'R,3,6' && gt('m6') === 'R,b3,6', '6th chords shell with their 6');
+  check(gt('dom7sus4') === 'R,4,b7', `sus dominants shell with the 4 (got ${gt('dom7sus4')})`);
+  check(gt('maj') === 'R,3,5', `plain triad falls back to R-3-5 (got ${gt('maj')})`);
+  check(gt('dom7alt') === 'R,3,b7', `altered dominants keep 3/b7 (got ${gt('dom7alt')})`);
+
+  // Shells: LH = root in the C2 zone + guide tones an octave up, correct pitch classes
+  const pc = (p) => p.midi % 12;
+  const shells = T.getChordNotesAtIndex('C', 'min7', 'seventh', 0, 0, 'shells');
+  check(shells.leftHandPitches.map(pc).join(',') === '0,3,10',
+    'Cm7 shells LH pitch classes = root, b3, b7');
+  check(shells.leftHandPitches[0].midi < T.SHELL_TONE_BASE &&
+    shells.leftHandPitches.slice(1).every(p => p.midi >= T.SHELL_TONE_BASE),
+    'shell root stays in the bass zone; guide tones sit at/above C3');
+  const asc = shells.leftHandPitches.map(p => p.midi);
+  check(asc.every((m, i) => i === 0 || m > asc[i - 1]), 'shell LH pitches are ascending');
+
+  // Rootless: LH silent, RH identical to roots mode (optimizer input unchanged)
+  const roots = T.getChordNotesAtIndex('C', 'min7', 'seventh', 0, 0);
+  const rootless = T.getChordNotesAtIndex('C', 'min7', 'seventh', 0, 0, 'rootless');
+  check(rootless.leftHandPitches.length === 0, 'rootless LH is empty');
+  check(rootless.rightHandPitches.map(p => p.midi).join(',') === roots.rightHandPitches.map(p => p.midi).join(','),
+    'rootless leaves the RH voicing untouched');
+  check(shells.rightHandPitches.map(p => p.midi).join(',') === roots.rightHandPitches.map(p => p.midi).join(','),
+    'shells leave the RH voicing untouched');
+
+  // Default-mode regression: omitting the argument still realizes the written LH
+  const explicit = T.getChordNotesAtIndex('F', 'dom7', 'seventh', 0, 0, 'roots');
+  const implicit = T.getChordNotesAtIndex('F', 'dom7', 'seventh', 0, 0);
+  check(explicit.leftHandPitches.map(p => p.midi).join(',') === implicit.leftHandPitches.map(p => p.midi).join(','),
+    "default leftHandMode is 'roots' (existing calls unchanged)");
+  check(implicit.leftHandPitches.length > 0 && implicit.leftHandPitches[0].midi >= T.LH_BASE,
+    'roots mode still anchors the written LH at LH_BASE');
+}
+
+console.log('\nTest 12: two-hand rootless (evans) LH shapes + DP voice leading');
+{
+  // Shape sets: jazz-tier rootless forms; triads fall back to guide tones sans root
+  check(T.lhRootlessShapesFor('min7').length >= 2, 'min7 has A/B rootless shapes to choose from');
+  check(T.lhRootlessShapesFor('maj').length === 1 &&
+    T.lhRootlessShapesFor('maj')[0].join(',') === '3,5',
+    'triads fall back to guide tones sans root');
+  check(T.lhRootlessShapesFor('min7').every(s => s.indexOf('R') === -1),
+    'min7 LH shapes carry no bass root');
+
+  // Realization: evans LH sits in the tenor range, RH untouched
+  const evans = T.getChordNotesAtIndex('D', 'min7', 'seventh', 0, 0, 'evans', 0);
+  const roots = T.getChordNotesAtIndex('D', 'min7', 'seventh', 0, 0);
+  check(evans.leftHandPitches.length >= 2 &&
+    evans.leftHandPitches.every(p => p.midi >= T.LH_SOFT_LOW && p.midi < T.RH_BASE + 12),
+    'evans LH lives in the tenor range (A2 up, below the RH ceiling)');
+  check(evans.rightHandPitches.map(p => p.midi).join(',') === roots.rightHandPitches.map(p => p.midi).join(','),
+    'evans leaves the RH voicing untouched');
+
+  // DP pass: a ii-V-I's LH voice-leads — consecutive chords share common tones
+  const iiVI = [
+    { root: 'D', quality: 'min7' },
+    { root: 'G', quality: 'dom7' },
+    { root: 'C', quality: 'maj7' }
+  ];
+  const { indices } = T.computeLeftHandVoicings(iiVI);
+  check(indices.length === 3 && indices.every(i => Number.isInteger(i) && i >= 0),
+    'computeLeftHandVoicings picks a shape per chord');
+  const lhMidis = iiVI.map((c, i) =>
+    T.getChordNotesAtIndex(c.root, c.quality, 'seventh', 0, 0, 'evans', indices[i])
+      .leftHandPitches.map(p => p.midi));
+  for (let i = 1; i < lhMidis.length; i++) {
+    const common = lhMidis[i].filter(m => lhMidis[i - 1].indexOf(m) !== -1).length;
+    check(common >= 1,
+      `LH voice-leads chord ${i} -> ${i + 1} (${common} common tone(s))`);
+  }
+  check(T.voiceMovementCost(lhMidis[0], lhMidis[1]) <= 8,
+    'ii->V LH movement stays small (A/B alternation)');
+
+  // Empty progression: no crash, empty result
+  check(T.computeLeftHandVoicings([]).indices.length === 0, 'empty progression yields no LH indices');
 }
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));

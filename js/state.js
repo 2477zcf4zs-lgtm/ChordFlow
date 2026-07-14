@@ -30,6 +30,9 @@
       tempoRamp: 0,       // BPM added per completed loop (0 = off)
       hideSymbols: false, // flashcard mode: hide chord letter symbols
       padMode: 'oneshot', // tap-to-play trigger: 'oneshot' (rings out) | 'hold'
+      leftHand: 'roots',  // LH realization: roots|shells|rootless|evans (bassist mode)
+      bassBacking: false, // rootless playback: sustain a stand-in bass root
+      lhVoicingIndices: [], // per-chord LH shape (two-hand rootless), DP-chosen
       density: 1.0,       // per-progression sparsity character (2.4); rolled on new/load
       voicingIndices: [], // Track which voicing is selected for each chord
       voicingShifts: [], // Octave placement (in semitones) for each chord's right hand

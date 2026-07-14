@@ -284,6 +284,21 @@
               <span class="btn-label">Swing: Off</span>
             </button>
           </div>
+          <div class="control-row">
+            <label for="leftHandSelect">Left hand</label>
+            <select id="leftHandSelect" title="What the left hand plays: full roots, guide-tone shells, a second rootless voicing (Evans two-hand), or nothing (play over a bassist or backing track)">
+              <option value="roots" selected>Roots</option>
+              <option value="shells">Shells (3 &amp; 7)</option>
+              <option value="evans">Two-hand rootless</option>
+              <option value="rootless">Rootless (bassist mode)</option>
+            </select>
+          </div>
+          <div class="control-row">
+            <label>Backing bass</label>
+            <button class="btn btn-secondary" id="bassBackingBtn" title="Sustain a stand-in bass root during playback when the left hand plays no roots (Rootless / Two-hand) — practice bassist-mode voicings without an external track">
+              <span class="btn-label">Bass: Off</span>
+            </button>
+          </div>
 
           <div class="panel-title" style="margin-top: 20px;">Practice</div>
           <div class="control-row">
