@@ -895,7 +895,7 @@ async function main() {
     const rangeSelect = document.getElementById('rangeSelect');
     check(!!rangeSelect && document.getElementById('settingsPanel').contains(rangeSelect),
       'range select lives in settings');
-    const whiteKeys = () => (document.querySelector('#pianoKeyboard svg').innerHTML.match(/height="96"/g) || []).length;
+    const whiteKeys = () => (document.querySelector('#pianoKeyboard svg').innerHTML.match(/height="132"/g) || []).length; // 132 = WK_H (taller keys)
     window.renderVoicing();
     check(whiteKeys() === 29, 'full mode renders the C2-C6 piano (29 white keys)');
     rangeSelect.value = 'reface';
