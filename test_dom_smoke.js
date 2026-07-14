@@ -399,6 +399,10 @@ async function main() {
     window.selectChord(1); // select
     window.selectChord(1); // cycle -> hear it
     check(engine().auditionGain !== null, 'cycling a voicing auditions the new voicing');
+    // Top's glyph must be distinguishable from Prev's (regression: they shipped identical)
+    check(document.querySelector('#toStartBtn svg').innerHTML.trim() !==
+      document.querySelector('#prevChordBtn svg').innerHTML.trim(),
+      'Top and Prev have distinct icons');
     // Transport Top: stopped = quiet rewind
     st().currentChordIndex = 2;
     document.getElementById('toStartBtn').click();
