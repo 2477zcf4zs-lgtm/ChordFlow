@@ -127,7 +127,7 @@
       const vIndex = (state.voicingIndices && state.voicingIndices[index]) || 0;
       const shift = (state.voicingShifts && state.voicingShifts[index] !== undefined)
         ? state.voicingShifts[index] : undefined;
-      return getChordNotesAtIndex(chord.root, chord.quality, state.complexity, vIndex, shift);
+      return getChordNotesAtIndex(chord.root, chord.quality, state.complexity, vIndex, shift, state.leftHand);
     }
 
     // ============================================

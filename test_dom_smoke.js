@@ -495,6 +495,50 @@ async function main() {
     grooveSelect.value = 'block';
     grooveSelect.dispatchEvent(new window.Event('change'));
 
+    // --- Left-hand modes (bassist mode) ---
+    const lhSelect = document.getElementById('leftHandSelect');
+    check(!!lhSelect && document.getElementById('settingsPanel').contains(lhSelect),
+      'left-hand select lives in settings');
+    const lhNotesEl = document.getElementById('leftHandNotes');
+    const rhNotesEl = document.getElementById('rightHandNotes');
+    window.renderVoicing();
+    const rootsLhText = lhNotesEl.textContent;
+    const rootsRhText = rhNotesEl.textContent;
+
+    lhSelect.value = 'shells';
+    lhSelect.dispatchEvent(new window.Event('change')); // listener re-renders the panel
+    check(st().leftHand === 'shells', 'left-hand select drives state');
+    check(lhNotesEl.textContent !== rootsLhText && /\d/.test(lhNotesEl.textContent),
+      'shells re-realize the LH (guide tones shown with octaves)');
+    check(rhNotesEl.textContent === rootsRhText, 'RH voicing identical across LH modes');
+
+    lhSelect.value = 'rootless';
+    lhSelect.dispatchEvent(new window.Event('change'));
+    check(lhNotesEl.textContent.indexOf('bass / backing track') !== -1,
+      'rootless LH shows the bassist hint instead of notes');
+    const rootlessSvg = document.querySelector('#pianoKeyboard svg');
+    check(!!rootlessSvg && (rootlessSvg.innerHTML.match(/var\(--accent-coral\)/g) || []).length === 0 &&
+      (rootlessSvg.innerHTML.match(/var\(--accent-blue\)/g) || []).length >= 3,
+      'piano renders RH-only highlights in rootless mode');
+
+    // Playback, audition and pads all flow through chordPitchesAt and must
+    // schedule cleanly with an empty LH.
+    await window.startPlayback();
+    engine().ctx.currentTime = 0;
+    for (let i = 0; i < 40; i++) { engine().ctx.currentTime += 0.05; window.schedulerTick(); window.visualSync(); }
+    check(st().isPlaying === true && errors.length === 0, 'rootless playback schedules without errors');
+    window.stopAndReset();
+    window.auditionChord(0);
+    check(engine().auditionGain !== null, 'audition fires in rootless mode');
+    window.padPress(0);
+    check(engine().padVoices[0] != null, 'pads fire in rootless mode');
+    window.padReleaseAll();
+
+    lhSelect.value = 'roots';
+    lhSelect.dispatchEvent(new window.Event('change'));
+    check(st().leftHand === 'roots' && lhNotesEl.textContent === rootsLhText,
+      'roots mode restores the original LH');
+
     // --- Flashcard mode: hide chord symbols ---
     const hideBtn = document.getElementById('hideSymbolsBtn');
     hideBtn.click();

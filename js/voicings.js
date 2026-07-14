@@ -424,12 +424,69 @@
     }
 
     /**
+     * Guide tones for a chord quality: the root plus the 3rd and 7th (the
+     * tones that define the harmony). Reads the quality's semitone set from
+     * CHORD_TYPES and names each tone by its function:
+     *   - 3rd slot: 3 or b3; sus chords substitute their 4 (or 2).
+     *   - 7th slot: 7, b7, or bb7 (dim7's 9 semitones alongside a b5+b3);
+     *     6th chords get their 6; plain triads fall back to the 5th.
+     * Only degrees the chord actually contains are included, so a triad-only
+     * "strict" progression yields R-3(-5) rather than inventing a 7th.
+     */
+    function guideToneIntervals(quality) {
+      let chordInfo;
+      for (const level of ['simple', 'seventh', 'extended', 'altered']) {
+        if (CHORD_TYPES[level][quality]) {
+          chordInfo = CHORD_TYPES[level][quality];
+          break;
+        }
+      }
+      if (!chordInfo) chordInfo = CHORD_TYPES.simple.maj;
+      const has = (s) => chordInfo.intervals.includes(s);
+
+      const out = ['R'];
+      if (has(4)) out.push('3');
+      else if (has(3)) out.push('b3');
+      else if (has(5)) out.push('4');
+      else if (has(2)) out.push('2');
+
+      if (has(11)) out.push('7');
+      else if (has(10)) out.push('b7');
+      else if (has(9)) out.push(has(6) && has(3) ? 'bb7' : '6');
+      else if (has(7)) out.push('5');
+      return out;
+    }
+
+    /**
+     * Shell left hand: root anchored in the bass (C2–B2, like roots mode)
+     * with the guide tones stacked from SHELL_TONE_BASE — an octave up, in
+     * the classic Bud Powell register — so R-3-7 doesn't turn to mud at C2.
+     */
+    const SHELL_TONE_BASE = LH_BASE + 12; // C3: guide tones sit above the root zone
+
+    function realizeShellHand(rootNote, quality) {
+      const tones = guideToneIntervals(quality);
+      const root = realizeHand(rootNote, tones.slice(0, 1), LH_BASE);
+      const upper = realizeHand(rootNote, tones.slice(1), SHELL_TONE_BASE);
+      return root.concat(upper); // ascending: root ≤ B2 < C3 ≤ guide tones
+    }
+
+    /**
      * Realize a full voicing. octaveShift (in semitones, multiples of 12)
      * moves the right hand up/down; the left hand stays anchored low.
+     * leftHandMode swaps what the LH plays — the RH (and therefore the
+     * voice-leading optimizer, which only reads voicing.right) is untouched:
+     *   'roots'    — the template's written LH (default, original behavior)
+     *   'shells'   — root + guide tones (3rd & 7th) for the quality
+     *   'rootless' — nothing; a bassist or backing track owns the low end
      */
-    function realizeVoicing(rootNote, voicing, octaveShift = 0) {
+    function realizeVoicing(rootNote, voicing, octaveShift = 0, leftHandMode = 'roots', quality = null) {
+      let left;
+      if (leftHandMode === 'rootless') left = [];
+      else if (leftHandMode === 'shells') left = realizeShellHand(rootNote, quality);
+      else left = realizeHand(rootNote, voicing.left, LH_BASE);
       return {
-        left: realizeHand(rootNote, voicing.left, LH_BASE),
+        left,
         right: realizeHand(rootNote, voicing.right, RH_BASE + octaveShift)
       };
     }
@@ -620,7 +677,7 @@
      * Get a specific voicing by index, realized in register.
      * Pure function: no hidden state, safe to call from any UI path.
      */
-    function getChordNotesAtIndex(rootNote, quality, complexity, index, octaveShift) {
+    function getChordNotesAtIndex(rootNote, quality, complexity, index, octaveShift, leftHandMode = 'roots') {
       let chordInfo;
       for (const level of ['simple', 'seventh', 'extended', 'altered']) {
         if (CHORD_TYPES[level][quality]) {
@@ -640,7 +697,7 @@
         shift = bestShiftForVoicing(rootNote, voicing, null);
       }
 
-      const realized = realizeVoicing(rootNote, voicing, shift);
+      const realized = realizeVoicing(rootNote, voicing, shift, leftHandMode, quality);
 
       return {
         leftHand: realized.left.map(n => n.name),
@@ -657,8 +714,8 @@
     /**
      * Default voicing for a chord in isolation (voicing 0, best register).
      */
-    function getChordNotes(rootNote, quality, complexity) {
-      return getChordNotesAtIndex(rootNote, quality, complexity, 0, undefined);
+    function getChordNotes(rootNote, quality, complexity, leftHandMode = 'roots') {
+      return getChordNotesAtIndex(rootNote, quality, complexity, 0, undefined, leftHandMode);
     }
 
     function formatNoteDisplay(n) {

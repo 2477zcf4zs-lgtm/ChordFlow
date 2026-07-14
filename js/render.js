@@ -462,9 +462,9 @@
       let chordData;
       if (state.voicingIndices && state.voicingIndices[chordIndex] !== undefined) {
         const shift = state.voicingShifts ? state.voicingShifts[chordIndex] : undefined;
-        chordData = getChordNotesAtIndex(chord.root, chord.quality, state.complexity, state.voicingIndices[chordIndex], shift);
+        chordData = getChordNotesAtIndex(chord.root, chord.quality, state.complexity, state.voicingIndices[chordIndex], shift, state.leftHand);
       } else {
-        chordData = getChordNotes(chord.root, chord.quality, state.complexity);
+        chordData = getChordNotes(chord.root, chord.quality, state.complexity, state.leftHand);
         if (state.voicingIndices) {
           state.voicingIndices[chordIndex] = chordData.voicingIndex || 0;
           if (state.voicingShifts) state.voicingShifts[chordIndex] = chordData.octaveShift || 0;
@@ -473,9 +473,12 @@
       
       // Show realized pitches low-to-high with octave numbers (C4 = middle C)
       const formatPitch = (p) => formatNoteDisplay(p.name) + p.octave;
-      const leftNotes = chordData.leftHandPitches.map(formatPitch).join('  ');
+      // Rootless: the LH is intentionally silent — say who owns the low end.
+      const leftNotes = chordData.leftHandPitches.length
+        ? chordData.leftHandPitches.map(formatPitch).join('  ')
+        : '— (bass / backing track)';
       const rightNotes = chordData.rightHandPitches.map(formatPitch).join('  ');
-      
+
       leftHandEl.textContent = leftNotes;
       rightHandEl.textContent = rightNotes;
       
@@ -505,7 +508,12 @@
         subsEl.innerHTML = '';
       }
       
-      elements.voicingDescription.textContent = `${chordData.name} • ${chordData.voicingName}`;
+      // The teaching moment for bassist mode: name what the LH is doing when
+      // it departs from the written voicing.
+      const lhNote = state.leftHand === 'rootless'
+        ? ' • Rootless: play the bass yourself or over a track'
+        : (state.leftHand === 'shells' ? ' • LH shells: root + guide tones (3 & 7)' : '');
+      elements.voicingDescription.textContent = `${chordData.name} • ${chordData.voicingName}${lhNote}`;
     }
 
     // ============================================
