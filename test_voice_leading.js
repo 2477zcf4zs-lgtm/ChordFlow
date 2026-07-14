@@ -13,7 +13,7 @@ function loadTheoryCore() {
   // touches live inside functions this suite never calls.
   const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/audio.js', 'js/state.js'];
   const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
-  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, lhRootlessShapesFor, computeLeftHandVoicings };');
+  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates };');
   return fn();
 }
 const T = loadTheoryCore();
@@ -580,7 +580,7 @@ console.log('\nTest 11: left-hand modes (bassist mode)');
 
   // Shells: LH = root in the C2 zone + guide tones an octave up, correct pitch classes
   const pc = (p) => p.midi % 12;
-  const shells = T.getChordNotesAtIndex('C', 'min7', 'seventh', 0, 0, 'shells');
+  const shells = T.getChordNotesAtIndex('C', 'min7', 'seventh', 0, 0, { leftHandMode: 'shells' });
   check(shells.leftHandPitches.map(pc).join(',') === '0,3,10',
     'Cm7 shells LH pitch classes = root, b3, b7');
   check(shells.leftHandPitches[0].midi < T.SHELL_TONE_BASE &&
@@ -591,7 +591,7 @@ console.log('\nTest 11: left-hand modes (bassist mode)');
 
   // Rootless: LH silent, RH identical to roots mode (optimizer input unchanged)
   const roots = T.getChordNotesAtIndex('C', 'min7', 'seventh', 0, 0);
-  const rootless = T.getChordNotesAtIndex('C', 'min7', 'seventh', 0, 0, 'rootless');
+  const rootless = T.getChordNotesAtIndex('C', 'min7', 'seventh', 0, 0, { leftHandMode: 'rootless' });
   check(rootless.leftHandPitches.length === 0, 'rootless LH is empty');
   check(rootless.rightHandPitches.map(p => p.midi).join(',') === roots.rightHandPitches.map(p => p.midi).join(','),
     'rootless leaves the RH voicing untouched');
@@ -599,7 +599,7 @@ console.log('\nTest 11: left-hand modes (bassist mode)');
     'shells leave the RH voicing untouched');
 
   // Default-mode regression: omitting the argument still realizes the written LH
-  const explicit = T.getChordNotesAtIndex('F', 'dom7', 'seventh', 0, 0, 'roots');
+  const explicit = T.getChordNotesAtIndex('F', 'dom7', 'seventh', 0, 0, { leftHandMode: 'roots' });
   const implicit = T.getChordNotesAtIndex('F', 'dom7', 'seventh', 0, 0);
   check(explicit.leftHandPitches.map(p => p.midi).join(',') === implicit.leftHandPitches.map(p => p.midi).join(','),
     "default leftHandMode is 'roots' (existing calls unchanged)");
@@ -618,7 +618,7 @@ console.log('\nTest 12: two-hand rootless (evans) LH shapes + DP voice leading')
     'min7 LH shapes carry no bass root');
 
   // Realization: evans LH sits in the tenor range, RH untouched
-  const evans = T.getChordNotesAtIndex('D', 'min7', 'seventh', 0, 0, 'evans', 0);
+  const evans = T.getChordNotesAtIndex('D', 'min7', 'seventh', 0, 0, { leftHandMode: 'evans', lhIndex: 0 });
   const roots = T.getChordNotesAtIndex('D', 'min7', 'seventh', 0, 0);
   check(evans.leftHandPitches.length >= 2 &&
     evans.leftHandPitches.every(p => p.midi >= T.LH_SOFT_LOW && p.midi < T.RH_BASE + 12),
@@ -636,7 +636,7 @@ console.log('\nTest 12: two-hand rootless (evans) LH shapes + DP voice leading')
   check(indices.length === 3 && indices.every(i => Number.isInteger(i) && i >= 0),
     'computeLeftHandVoicings picks a shape per chord');
   const lhMidis = iiVI.map((c, i) =>
-    T.getChordNotesAtIndex(c.root, c.quality, 'seventh', 0, 0, 'evans', indices[i])
+    T.getChordNotesAtIndex(c.root, c.quality, 'seventh', 0, 0, { leftHandMode: 'evans', lhIndex: indices[i] })
       .leftHandPitches.map(p => p.midi));
   for (let i = 1; i < lhMidis.length; i++) {
     const common = lhMidis[i].filter(m => lhMidis[i - 1].indexOf(m) !== -1).length;
@@ -648,6 +648,78 @@ console.log('\nTest 12: two-hand rootless (evans) LH shapes + DP voice leading')
 
   // Empty progression: no crash, empty result
   check(T.computeLeftHandVoicings([]).indices.length === 0, 'empty progression yields no LH indices');
+}
+
+console.log('\nTest 13: 3-octave mode (reface window C2-C5)');
+{
+  const reface = T.RANGE_WINDOWS.reface;
+  check(reface && reface.low === 36 && reface.high === 72, 'reface window is C2-C5');
+
+  // Sweep: every quality family x all 12 roots x all four LH modes must
+  // realize entirely inside the window when the DP runs window-aware.
+  const ROOTS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+  const QUALITIES = ['maj7', 'min7', 'dom7', 'm7b5', 'dim7', 'maj9', 'min11', 'dom13',
+    'dom7alt', 'dom13s11', '6', 'm6', '69', 'sus4', 'maj', 'min', 'aug', 'dom7sus4'];
+  const MODES = ['roots', 'shells', 'evans', 'rootless'];
+  let outOfWindow = 0;
+  let checkedNotes = 0;
+  for (const root of ROOTS) {
+    // Chain the qualities into one progression so the DP has to voice-lead
+    // through all of them under the window constraint.
+    const chords = QUALITIES.map(quality => ({ root, quality }));
+    for (const complexity of ['seventh', 'extended']) {
+      const { indices, shifts } = T.computeProgressionVoicings(chords, complexity, reface);
+      chords.forEach((c, i) => {
+        for (const mode of MODES) {
+          const d = T.getChordNotesAtIndex(c.root, c.quality, complexity, indices[i], shifts[i],
+            { leftHandMode: mode, range: reface });
+          for (const p of d.leftHandPitches.concat(d.rightHandPitches)) {
+            checkedNotes++;
+            if (p.midi < reface.low || p.midi > reface.high) {
+              outOfWindow++;
+              check(false, `${root}${c.quality} [${complexity}/${mode}]: ${p.name}${p.octave} (midi ${p.midi}) escapes C2-C5`);
+            }
+          }
+        }
+      });
+    }
+  }
+  if (!outOfWindow) console.log(`  all ${checkedNotes} realized notes across ${ROOTS.length} roots x ${QUALITIES.length} qualities x 4 LH modes fit C2-C5`);
+
+  // Full-mode regression: range omitted and range null are byte-identical
+  const prog = [
+    { root: 'D', quality: 'min7' },
+    { root: 'G', quality: 'dom7' },
+    { root: 'C', quality: 'maj7' }
+  ];
+  const noArg = T.computeProgressionVoicings(prog, 'seventh');
+  const nullArg = T.computeProgressionVoicings(prog, 'seventh', null);
+  check(JSON.stringify(noArg) === JSON.stringify(nullArg),
+    'full mode (no range) is unchanged by the range plumbing');
+
+  // Windowed ii-V-I still voice-leads: worst single-voice move stays small
+  const w = T.computeProgressionVoicings(prog, 'seventh', reface);
+  const rhs = prog.map((c, i) =>
+    T.getChordNotesAtIndex(c.root, c.quality, 'seventh', w.indices[i], w.shifts[i], { range: reface })
+      .rightHandPitches.map(p => p.midi));
+  check(maxVoiceMove(rhs[0], rhs[1]) <= 2 && maxVoiceMove(rhs[1], rhs[2]) <= 2,
+    'windowed ii-V-I keeps worst voice move <= 2 semitones');
+
+  // bestShiftForVoicing respects the window (manual cycling path)
+  for (const root of ROOTS) {
+    const voicings = T.voicingsFor('maj7', 'seventh');
+    for (const v of voicings) {
+      const shift = T.bestShiftForVoicing(root, v, null, reface);
+      const midis = T.realizeHand(root, v.right, T.RH_BASE + shift).map(n => n.midi);
+      if (T.windowOverflow(midis, reface) > 0) check(false, `${root}maj7 manual shift escapes the window`);
+    }
+  }
+  console.log('  manual voicing cycling stays inside the window for all roots');
+
+  // Fallback: an impossible window still yields a non-empty, least-violating layer
+  const impossible = { low: 60, high: 63 };
+  const cands = T.buildVoicingCandidates({ root: 'C', quality: 'maj7' }, 'seventh', impossible);
+  check(cands.length > 0, 'impossible window falls back to least-violating candidates (DP layer never empties)');
 }
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));

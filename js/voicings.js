@@ -390,6 +390,26 @@
     const RH_SOFT_HIGH = 79;     // G5: soft upper bound for RH notes
     const LH_BASE = 36;          // C2: left-hand roots placed in C2–B2
 
+    // Keyboard range windows (3-octave mode): 'reface' constrains every
+    // realized note to one C-to-C 37-key span so voicings fit a Yamaha
+    // Reface or other mini keyboard (its octave slider makes the absolute
+    // anchor cosmetic — C2 matches LH_BASE). null = unconstrained.
+    const RANGE_WINDOWS = {
+      full: null,
+      reface: { low: 36, high: 72 } // C2–C5
+    };
+
+    /** Semitones by which a set of midis escapes a window (0 = fits). */
+    function windowOverflow(midis, range) {
+      if (!range) return 0;
+      let o = 0;
+      for (const m of midis) {
+        if (m < range.low) o += range.low - m;
+        if (m > range.high) o += m - range.high;
+      }
+      return o;
+    }
+
     const ACCIDENTAL_OFFSET = { '': 0, '#': 1, '##': 2, 'b': -1, 'bb': -2 };
 
     /**
@@ -667,13 +687,18 @@
      * voicings, so shells remain available for manual selection but aren't
      * the automatic default.
      */
-    function buildVoicingCandidates(chord, complexity) {
+    function buildVoicingCandidates(chord, complexity, range = null) {
       const cands = [];
+      const spill = []; // out-of-window candidates, kept only if nothing fits
       // extended/altered reuse the 'seventh' cost table so their native
       // (untagged → 0) voicings coexist with any reached-down seventh-family
       // voicings that quality mixing produces.
       const tierCosts = VOICING_TIER_COSTS[complexity]
         || ((complexity === 'extended' || complexity === 'altered') ? VOICING_TIER_COSTS['seventh'] : null);
+      // With a window, an extra -24 shift gives wide voicings on high roots
+      // a way to duck under the ceiling; without one it would just be a
+      // register-penalty loser, so it isn't offered.
+      const shifts = range ? [-24, -12, 0, 12] : [-12, 0, 12];
       voicingsFor(chord.quality, complexity).forEach((voicing, vIndex) => {
         // Untagged voicings are native to the selected tier (cost 0). The tier
         // cost now carries the "prefer fuller voicings" preference, so the raw
@@ -681,13 +706,24 @@
         const tierCost = (tierCosts && voicing.tiers)
           ? Math.min(...voicing.tiers.map(t => tierCosts[t] ?? Infinity))
           : 0;
-        for (const shift of [-12, 0, 12]) {
+        for (const shift of shifts) {
           const rhMidis = realizeHand(chord.root, voicing.right, RH_BASE + shift).map(n => n.midi);
           const sparsity = Math.max(0, 4 - rhMidis.length);
           const localCost = registerPenalty(rhMidis) + sparsity * 0.4 + tierCost;
+          const overflow = windowOverflow(rhMidis, range);
+          if (overflow > 0) {
+            spill.push({ overflow, cand: { vIndex, shift, rhMidis, localCost } });
+            continue;
+          }
           cands.push({ vIndex, shift, rhMidis, localCost });
         }
       });
+      // Hard window, safe DP: if no candidate fits at all, keep the least-
+      // violating one so the chord's layer never empties.
+      if (!cands.length && spill.length) {
+        spill.sort((a, b) => a.overflow - b.overflow);
+        cands.push(spill[0].cand);
+      }
       return cands;
     }
 
@@ -698,12 +734,12 @@
      * choice can't paint the progression into a corner.
      * Returns { indices: [...], shifts: [...] }.
      */
-    function computeProgressionVoicings(progression, complexity) {
+    function computeProgressionVoicings(progression, complexity, range = null) {
       const indices = [];
       const shifts = [];
       if (!progression || !progression.length) return { indices, shifts };
 
-      const layers = progression.map(chord => buildVoicingCandidates(chord, complexity));
+      const layers = progression.map(chord => buildVoicingCandidates(chord, complexity, range));
 
       // Forward pass
       let costs = layers[0].map(c => c.localCost);
@@ -743,8 +779,13 @@
     /**
      * Recompute and store optimal voicings for the current progression.
      */
+    /** The window for state.range ('full' → null = unconstrained). */
+    function activeRangeWindow() {
+      return RANGE_WINDOWS[state.range] || null;
+    }
+
     function recomputeProgressionVoicings() {
-      const result = computeProgressionVoicings(state.progression, state.complexity);
+      const result = computeProgressionVoicings(state.progression, state.complexity, activeRangeWindow());
       state.voicingIndices = result.indices;
       state.voicingShifts = result.shifts;
       // LH shapes for two-hand rootless: cheap (few shapes, no shifts), so
@@ -757,12 +798,15 @@
      * Best octave placement for a manually chosen voicing: closest fit in
      * register and, if given, smoothest connection from the previous chord.
      */
-    function bestShiftForVoicing(rootNote, voicing, prevRhMidis) {
+    function bestShiftForVoicing(rootNote, voicing, prevRhMidis, range = null) {
       let best = 0;
       let bestCost = Infinity;
-      for (const shift of [-12, 0, 12]) {
+      const shifts = range ? [-24, -12, 0, 12] : [-12, 0, 12];
+      for (const shift of shifts) {
         const rhMidis = realizeHand(rootNote, voicing.right, RH_BASE + shift).map(n => n.midi);
-        const c = registerPenalty(rhMidis) + voiceMovementCost(prevRhMidis, rhMidis);
+        // Out-of-window placements only win when nothing fits at all.
+        const c = registerPenalty(rhMidis) + voiceMovementCost(prevRhMidis, rhMidis)
+          + windowOverflow(rhMidis, range) * 1000;
         if (c < bestCost) { bestCost = c; best = shift; }
       }
       return best;
@@ -771,8 +815,14 @@
     /**
      * Get a specific voicing by index, realized in register.
      * Pure function: no hidden state, safe to call from any UI path.
+     * opts: { leftHandMode: 'roots'|'shells'|'evans'|'rootless',
+     *         lhIndex: evans LH shape index,
+     *         range: keyboard window ({low, high} midi) or null }
+     * The range only steers the DEFAULT octave placement (when octaveShift
+     * is not supplied) — a stored shift was already chosen window-aware.
      */
-    function getChordNotesAtIndex(rootNote, quality, complexity, index, octaveShift, leftHandMode = 'roots', lhIndex = 0) {
+    function getChordNotesAtIndex(rootNote, quality, complexity, index, octaveShift, opts = {}) {
+      const { leftHandMode = 'roots', lhIndex = 0, range = null } = opts;
       let chordInfo;
       for (const level of ['simple', 'seventh', 'extended', 'altered']) {
         if (CHORD_TYPES[level][quality]) {
@@ -789,7 +839,7 @@
       // If no placement was provided, pick the one that best fits the register
       let shift = octaveShift;
       if (shift === undefined || shift === null) {
-        shift = bestShiftForVoicing(rootNote, voicing, null);
+        shift = bestShiftForVoicing(rootNote, voicing, null, range);
       }
 
       const realized = realizeVoicing(rootNote, voicing, shift, leftHandMode, quality, lhIndex);
@@ -809,8 +859,8 @@
     /**
      * Default voicing for a chord in isolation (voicing 0, best register).
      */
-    function getChordNotes(rootNote, quality, complexity, leftHandMode = 'roots') {
-      return getChordNotesAtIndex(rootNote, quality, complexity, 0, undefined, leftHandMode);
+    function getChordNotes(rootNote, quality, complexity, opts = {}) {
+      return getChordNotesAtIndex(rootNote, quality, complexity, 0, undefined, opts);
     }
 
     function formatNoteDisplay(n) {

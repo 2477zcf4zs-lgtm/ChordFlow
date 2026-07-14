@@ -251,7 +251,7 @@
             const pShift = (state.voicingShifts && state.voicingShifts[index - 1]) || 0;
             prevRh = realizeHand(prevChord.root, pv.right, RH_BASE + pShift).map(n => n.midi);
           }
-          state.voicingShifts[index] = bestShiftForVoicing(chord.root, tierVoicings[nextIdx], prevRh);
+          state.voicingShifts[index] = bestShiftForVoicing(chord.root, tierVoicings[nextIdx], prevRh, activeRangeWindow());
         }
         renderVoicing();
       } else {
@@ -399,7 +399,10 @@
       (rightPitches || []).forEach(p => highlights.set(p.midi, { hand: 'R', name: p.name }));
 
       const LOW = 36; // C2
-      let high = 84;  // C6, extended upward in octaves if needed
+      // 3-octave mode draws exactly the 37-key C2–C5 window (what a Reface
+      // player has under their hands); full mode spans to C6. Either way the
+      // range still extends defensively if a highlight escapes it.
+      let high = state.range === 'reface' ? 72 : 84;
       for (const m of highlights.keys()) {
         while (m > high) high += 12;
       }
@@ -463,9 +466,11 @@
       if (state.voicingIndices && state.voicingIndices[chordIndex] !== undefined) {
         const shift = state.voicingShifts ? state.voicingShifts[chordIndex] : undefined;
         const lhIndex = (state.lhVoicingIndices && state.lhVoicingIndices[chordIndex]) || 0;
-        chordData = getChordNotesAtIndex(chord.root, chord.quality, state.complexity, state.voicingIndices[chordIndex], shift, state.leftHand, lhIndex);
+        chordData = getChordNotesAtIndex(chord.root, chord.quality, state.complexity, state.voicingIndices[chordIndex], shift,
+          { leftHandMode: state.leftHand, lhIndex, range: activeRangeWindow() });
       } else {
-        chordData = getChordNotes(chord.root, chord.quality, state.complexity, state.leftHand);
+        chordData = getChordNotes(chord.root, chord.quality, state.complexity,
+          { leftHandMode: state.leftHand, range: activeRangeWindow() });
         if (state.voicingIndices) {
           state.voicingIndices[chordIndex] = chordData.voicingIndex || 0;
           if (state.voicingShifts) state.voicingShifts[chordIndex] = chordData.octaveShift || 0;
@@ -517,7 +522,8 @@
         rootless: ' • Rootless: play the bass yourself or over a track'
       };
       const lhNote = LH_MODE_NOTES[state.leftHand] || '';
-      elements.voicingDescription.textContent = `${chordData.name} • ${chordData.voicingName}${lhNote}`;
+      const rangeNote = state.range === 'reface' ? ' • 3-octave window' : '';
+      elements.voicingDescription.textContent = `${chordData.name} • ${chordData.voicingName}${lhNote}${rangeNote}`;
     }
 
     // ============================================

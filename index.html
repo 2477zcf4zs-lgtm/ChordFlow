@@ -294,6 +294,13 @@
             </select>
           </div>
           <div class="control-row">
+            <label for="rangeSelect">Range</label>
+            <select id="rangeSelect" title="Constrain every voicing to one 3-octave C-to-C window (37 keys) so it fits a Yamaha Reface or other mini keyboard">
+              <option value="full" selected>Full keyboard</option>
+              <option value="reface">3 octaves (C2–C5)</option>
+            </select>
+          </div>
+          <div class="control-row">
             <label>Backing bass</label>
             <button class="btn btn-secondary" id="bassBackingBtn" title="Sustain a stand-in bass root during playback when the left hand plays no roots (Rootless / Two-hand) — practice bassist-mode voicings without an external track">
               <span class="btn-label">Bass: Off</span>
