@@ -180,6 +180,79 @@ async function main() {
       check(st().voicingIndices.length === st().progression.length, 'substitution keeps voicing arrays consistent');
     }
 
+    // --- Sub tray: hear-first substitutions (spec v3 phase 1) ---
+    window.loadProgression(0); // Dm7 G7 Cmaj7 in C
+    window.selectChord(1);     // G7: opens the voicing panel + tray
+    const tray = document.getElementById('voicingSubs');
+    {
+      const chips = tray.querySelectorAll('.sub-chip');
+      check(chips.length >= 2 && chips[0].dataset.key === 'original' &&
+        chips[0].classList.contains('sub-chip--current'),
+        'sub tray renders Original first (current) plus sub chips');
+    }
+    // First tap = in-context audition (3-chord snippet, groove inherited) + arm
+    const trayGroove = document.getElementById('grooveSelect');
+    trayGroove.value = 'charleston';
+    trayGroove.dispatchEvent(new window.Event('change'));
+    window.eval('var __audReal = synthNote; var __audCount = 0; synthNote = function(m,t,d,v,g){ __audCount++; return __audReal(m,t,d,v,g); };');
+    tray.querySelector('.sub-chip[data-key="tritone"]').click();
+    check(engine().auditionGain !== null, 'chip tap auditions through auditionGain (never sessionGain)');
+    // 3 chords x (LH + 2 charleston hits x >=2 RH notes) lands well above 9
+    check(window.eval('__audCount') > 9,
+      'audition schedules a 3-chord snippet with groove hits (' + window.eval('__audCount') + ' notes)');
+    window.eval('synthNote = __audReal;');
+    trayGroove.value = 'block';
+    trayGroove.dispatchEvent(new window.Event('change'));
+    {
+      const armed = tray.querySelector('.sub-chip--armed');
+      check(!!armed && armed.dataset.key === 'tritone', 'first tap arms the chip (check glyph state)');
+      // Second tap on the armed chip = apply
+      armed.click();
+    }
+    check(st().progression[1].root === 'Db' && st().progression[1].substituted === true &&
+      st().substitutions[1] === 'tritone' && !!st().subBase[1] && st().subBase[1].root === 'G',
+      'second tap applies the sub and snapshots the base chord');
+    // Undo chip: appears on apply, one click restores the exact prior state
+    const undoChip = document.getElementById('undoChip');
+    check(undoChip.hidden === false && undoChip.textContent.indexOf('Undo') !== -1,
+      'undo chip appears after applying');
+    undoChip.click();
+    check(st().progression[1].root === 'G' && !st().substitutions[1] && undoChip.hidden === true,
+      'undo restores the pre-apply state and hides the chip');
+    // Revert path: re-apply, then Original chip two-tap reverts
+    tray.querySelector('.sub-chip[data-key="tritone"]').click();
+    tray.querySelector('.sub-chip--armed').click();
+    check(st().substitutions[1] === 'tritone', 're-applied for the revert test');
+    tray.querySelector('.sub-chip[data-key="original"]').click();
+    {
+      const armedOrig = tray.querySelector('.sub-chip--armed[data-key="original"]');
+      check(!!armedOrig, 'Original arms when a sub is applied');
+      armedOrig.click();
+    }
+    check(st().progression[1].root === 'G' && !st().substitutions[1] && !st().subBase[1],
+      'Original second tap reverts to the base chord');
+    window.hideUndoChip(); // dismiss the revert's undo chip; auto-hide path shares this fn
+    check(undoChip.hidden === true, 'undo chip hide path clears the chip');
+    // XSS: tray text is model-derived and must be escaped
+    {
+      st().progression[0].root = '<img src=x onerror="window.__xss3=1">';
+      st().progression[0].quality = 'zz';
+      window.selectChord(0);
+      check(tray.innerHTML.indexOf('<img') === -1, 'tray escapes malicious chord text');
+      window.loadProgression(0); // restore clean state
+    }
+    // The sub badge is now a shortcut to the tray — no popover, ever
+    {
+      const badge = document.querySelector('.sub-badge');
+      check(!!badge, 'sub badge still renders');
+      badge.click();
+      check(st().activeTab === 'voicing' &&
+        st().selectedChordIndex === parseInt(badge.dataset.chordIndex) &&
+        document.querySelector('.sub-menu') === null,
+        'badge opens the voicing-panel tray, no popover');
+      window.loadProgression(0);
+    }
+
     // Complexity tiers via dropdown
     const complexitySelect = document.getElementById('complexitySelect');
     const setTier = (val) => { complexitySelect.value = val; complexitySelect.dispatchEvent(new window.Event('change')); };

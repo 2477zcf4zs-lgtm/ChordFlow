@@ -256,6 +256,7 @@
         renderVoicing();
       } else {
         state.selectedChordIndex = index;
+        state.armedSub = null; // new chord, stale arm
       }
       
       // Show voicing panel if not visible
@@ -269,78 +270,18 @@
       scrollActiveChordIntoView();
     }
     
-    function showSubstitutionMenu(chordIndex, badgeElement) {
-      const chord = state.progression[chordIndex];
-      const subs = getChordSubstitutions(chord.root, chord.quality);
-      
-      // Remove any existing menu
-      const existingMenu = document.querySelector('.sub-menu');
-      if (existingMenu) existingMenu.remove();
-      
-      // Create the menu: a positioned popover on wide viewports, a bottom
-      // sheet on narrow ones (an absolutely positioned popover would be
-      // clipped by the horizontally scrolling chord strip and is awkward to
-      // reach on a phone). Visual styles live in the stylesheet (.sub-menu).
-      const isSheet = typeof window.innerWidth === 'number' && window.innerWidth <= 640;
-      const menu = document.createElement('div');
-      menu.className = 'sub-menu' + (isSheet ? ' sub-menu--sheet' : '');
-      
-      let menuHtml = '<div style="font-size: 0.7rem; color: var(--text-muted); padding: 4px 8px; text-transform: uppercase; letter-spacing: 0.1em;">Substitute with:</div>';
-      
-      subs.forEach((sub, i) => {
-        menuHtml += `
-          <div class="sub-menu-item" data-sub-index="${i}" style="
-            padding: 8px 12px;
-            cursor: pointer;
-            border-radius: 6px;
-            transition: background 0.15s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-          ">
-            <span style="font-family: 'JetBrains Mono', monospace; color: var(--text-primary);">${sub.symbol}</span>
-            <span style="font-size: 0.7rem; color: var(--text-secondary);">${sub.description}</span>
-          </div>
-        `;
-      });
-      
-      menu.innerHTML = menuHtml;
-      
-      // Sheets pin themselves via CSS; popovers anchor to the badge. Both
-      // attach to <body> so the strip's overflow clipping can't cut them off.
-      if (!isSheet) {
-        const rect = badgeElement.getBoundingClientRect();
-        menu.style.position = 'fixed';
-        menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 180))}px`;
-        menu.style.top = `${rect.bottom + 8}px`;
-      }
-      document.body.appendChild(menu);
-      
-      // Add hover effects and click handlers
-      menu.querySelectorAll('.sub-menu-item').forEach((item, i) => {
-        item.addEventListener('mouseenter', () => {
-          item.style.background = 'rgba(212, 91, 91, 0.15)';
-        });
-        item.addEventListener('mouseleave', () => {
-          item.style.background = 'transparent';
-        });
-        item.addEventListener('click', () => {
-          applySubstitution(chordIndex, subs[i]);
-          menu.remove();
-        });
-      });
-      
-      // Close menu when clicking outside
-      const closeMenu = (e) => {
-        if (!menu.contains(e.target) && !badgeElement.contains(e.target)) {
-          menu.remove();
-          document.removeEventListener('click', closeMenu);
-        }
-      };
-      setTimeout(() => document.addEventListener('click', closeMenu), 0);
-    }
-    
+    // ============================================
+    // SUBSTITUTIONS — apply / revert / undo. The UI is the sub tray inside
+    // the voicing panel (renderSubTray + subTrayTap below); the old
+    // sub-badge popover is gone (the badge now just selects the chord).
+    // ============================================
+
     function applySubstitution(chordIndex, sub) {
+      // Snapshot the pre-substitution chord (once — re-subbing keeps the
+      // ORIGINAL base) so revert/undo/audition never need a rebuild.
+      if (!state.subBase[chordIndex]) {
+        state.subBase[chordIndex] = state.progression[chordIndex];
+      }
       // Replace the chord, keeping the original degree label clean and marking
       // the substitution with a structured flag (not a '*' baked into the
       // degree string, which stacked to '**' and broke any re-read of degree).
@@ -353,16 +294,157 @@
       // Remember which substitution rule was applied so it can be re-derived
       // (transposed) if the key or complexity changes.
       state.substitutions[chordIndex] = sub.type;
-      
+
       // The harmony changed: re-optimize voicings around the new chord
       recomputeProgressionVoicings();
-      
+
       renderChordStructure();
-      
+
       // Update voicing if this chord is selected
       if (state.selectedChordIndex === chordIndex || state.currentChordIndex === chordIndex) {
         renderVoicing();
       }
+    }
+
+    /**
+     * The sub tray: Original first, then every substitution for the BASE
+     * (un-substituted) chord, so the option list is stable no matter which
+     * sub is currently applied. States: 'current' (what the slot holds now),
+     * 'armed' (tapped once, ✓ shows, next tap commits). All model-derived
+     * text is escaped (invariant 12).
+     */
+    function renderSubTray(chordIndex) {
+      const subsEl = document.getElementById('voicingSubs');
+      if (!subsEl) return;
+      const applied = state.substitutions[chordIndex] || null;
+      const base = state.subBase[chordIndex] || state.progression[chordIndex];
+      const subs = getChordSubstitutions(base.root, base.quality);
+      const armedKey = (state.armedSub && state.armedSub.index === chordIndex)
+        ? state.armedSub.key : null;
+
+      const chip = (key, symbol, desc, current) => {
+        const armed = armedKey === key;
+        const cls = 'sub-chip' + (current ? ' sub-chip--current' : '') + (armed ? ' sub-chip--armed' : '');
+        const hint = armed ? 'Tap again to apply' : 'Tap to hear it in context';
+        return `<button type="button" class="${cls}" data-chord-index="${chordIndex}"
+            data-key="${escapeHtml(key)}" title="${escapeHtml(hint)}"
+            aria-label="${escapeHtml(desc)}: tap to hear, tap again to apply">
+            <span class="sub-chip-symbol">${escapeHtml(symbol)}</span>
+            <span class="sub-chip-desc">${escapeHtml(desc)}</span>
+            <span class="sub-chip-check" aria-hidden="true">✓</span>
+          </button>`;
+      };
+
+      let html = chip('original', formatChordSymbol(base.root, base.quality), 'Original', !applied);
+      subs.forEach((sub) => {
+        html += chip(sub.type, sub.symbol, sub.description, applied === sub.type);
+      });
+      subsEl.innerHTML = html;
+    }
+
+    /** Restore the un-substituted chord. Cheap and playback-safe: no rebuild. */
+    function revertSubstitution(chordIndex) {
+      const base = state.subBase[chordIndex];
+      if (!base) return;
+      state.progression[chordIndex] = { ...base };
+      state.substitutions[chordIndex] = null;
+      state.subBase[chordIndex] = null;
+      recomputeProgressionVoicings();
+      renderChordStructure();
+      if (state.selectedChordIndex === chordIndex || state.currentChordIndex === chordIndex) {
+        renderVoicing();
+      }
+    }
+
+    /**
+     * Sub tray chip tap (delegated from app.js). Hear-first model:
+     * first tap auditions the candidate in context and ARMS the chip;
+     * a second tap on the armed chip commits (apply / revert-to-original).
+     * Auditions are gated off during playback (trials arrive in Phase 2).
+     */
+    function subTrayTap(chordIndex, key) {
+      const applied = state.substitutions[chordIndex] || null;
+      const base = state.subBase[chordIndex] || state.progression[chordIndex];
+      const isArmed = state.armedSub &&
+        state.armedSub.index === chordIndex && state.armedSub.key === key;
+
+      if (key === 'original') {
+        if (isArmed && applied) {
+          // Confirm tap: revert, with an undo escape hatch.
+          const snap = snapshotSubState(chordIndex);
+          state.armedSub = null;
+          revertSubstitution(chordIndex);
+          showUndoChip(`Back to ${formatChordSymbol(base.root, base.quality)}`,
+            () => restoreSubState(chordIndex, snap));
+          return;
+        }
+        // Arm only when there's something to revert; audition either way.
+        state.armedSub = applied ? { index: chordIndex, key } : null;
+        if (!state.isPlaying) auditionSnippet(chordIndex, null);
+        renderVoicing();
+        return;
+      }
+
+      const sub = getChordSubstitutions(base.root, base.quality).find(s => s.type === key);
+      if (!sub) return;
+      if (isArmed) {
+        const snap = snapshotSubState(chordIndex);
+        state.armedSub = null;
+        applySubstitution(chordIndex, sub);
+        showUndoChip(`Substituted ${formatChordSymbol(sub.root, sub.quality)}`,
+          () => restoreSubState(chordIndex, snap));
+        return;
+      }
+      state.armedSub = { index: chordIndex, key };
+      if (!state.isPlaying) auditionSnippet(chordIndex, sub);
+      renderVoicing();
+    }
+
+    /** Exact per-index restore point for the undo chip. */
+    function snapshotSubState(chordIndex) {
+      return {
+        chord: state.progression[chordIndex],
+        subType: state.substitutions[chordIndex] || null,
+        base: state.subBase[chordIndex] || null
+      };
+    }
+
+    function restoreSubState(chordIndex, snap) {
+      state.progression[chordIndex] = snap.chord;
+      state.substitutions[chordIndex] = snap.subType;
+      state.subBase[chordIndex] = snap.base;
+      recomputeProgressionVoicings();
+      renderChordStructure();
+      renderVoicing();
+    }
+
+    // ---- Transient undo chip (5s, single instance) ----
+    let undoTimer = null;
+    let undoAction = null;
+
+    function showUndoChip(label, undoFn) {
+      const chip = document.getElementById('undoChip');
+      if (!chip) return;
+      if (undoTimer) clearTimeout(undoTimer);
+      undoAction = undoFn;
+      chip.textContent = `${label} · Undo`;
+      chip.hidden = false;
+      undoTimer = setTimeout(hideUndoChip, 5000);
+    }
+
+    function hideUndoChip() {
+      const chip = document.getElementById('undoChip');
+      if (chip) chip.hidden = true;
+      if (undoTimer) clearTimeout(undoTimer);
+      undoTimer = null;
+      undoAction = null;
+    }
+
+    /** Click handler for the chip (wired once in setupEventListeners). */
+    function undoChipActivate() {
+      const fn = undoAction;
+      hideUndoChip();
+      if (fn) fn();
     }
 
     function updateProgress() {
@@ -495,24 +577,9 @@
       const chordSymbol = formatChordSymbol(chord.root, chord.quality);
       chordNameEl.textContent = chordSymbol;
       
-      // Display substitution buttons
-      const subs = getChordSubstitutions(chord.root, chord.quality);
-      if (subs.length > 0) {
-        subsEl.innerHTML = subs.map((sub, i) => `
-          <button class="voicing-sub-btn" data-sub-index="${i}" title="${sub.description}">
-            → ${sub.symbol}
-          </button>
-        `).join('');
-        
-        // Add click handlers
-        subsEl.querySelectorAll('.voicing-sub-btn').forEach((btn, i) => {
-          btn.addEventListener('click', () => {
-            applySubstitution(chordIndex, subs[i]);
-          });
-        });
-      } else {
-        subsEl.innerHTML = '';
-      }
+      // Substitution tray (hear-first: tap = audition in context, tap again
+      // = apply). Clicks are delegated once in setupEventListeners.
+      renderSubTray(chordIndex);
       
       // The teaching moment for bassist mode: name what the LH is doing when
       // it departs from the written voicing.
@@ -567,6 +634,7 @@
         keeps working; the voicing panel is now the 'voicing' tab. */
     function toggleVoicingPanel(show) {
       const want = show !== undefined ? show : !state.showVoicing;
+      if (!want) state.armedSub = null; // closing the panel disarms the tray
       if (want) showTab('voicing');
       else if (state.activeTab === 'voicing') showTab(null);
     }
