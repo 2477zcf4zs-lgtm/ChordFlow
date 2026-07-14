@@ -379,6 +379,13 @@
         return;
       }
 
+      // Begin the loop wherever the user parked the selection: tap a chord,
+      // press play, and playback starts (and loops) from that bar. No
+      // selection = resume from the current position, as before.
+      if (state.selectedChordIndex !== null) {
+        state.currentChordIndex = state.selectedChordIndex;
+        state.currentBeat = 0;
+      }
       // Clear manual selection when playing
       state.selectedChordIndex = null;
       state.isPlaying = true;
@@ -675,6 +682,43 @@
       });
     }
 
+    /**
+     * Chord dictionary: play a listed voicing as written (the dictionary is
+     * the canonical reference, so LH mode and per-progression state don't
+     * apply — the template sounds exactly as displayed). Same auditionGain
+     * replace pattern as the other auditions; groove/tempo inherited.
+     */
+    function auditionDictVoicing(voicingIndex) {
+      const { dictRoot, dictQuality } = state;
+      const vd = KEYBOARD_VOICINGS[dictQuality];
+      const voicing = vd && vd.voicings && vd.voicings[voicingIndex];
+      if (!voicing) return;
+      if (!ensureAudioContext()) return;
+      const ctx = audioEngine.ctx;
+
+      if (audioEngine.auditionGain) {
+        const old = audioEngine.auditionGain;
+        const t0 = ctx.currentTime;
+        try {
+          old.gain.setValueAtTime(old.gain.value, t0);
+          old.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
+        } catch (e) { /* mock nodes */ }
+        setTimeout(() => { try { old.disconnect(); } catch (e) {} }, 120);
+        audioEngine.auditionGain = null;
+      }
+      const g = ctx.createGain();
+      g.gain.value = 1;
+      g.connect(audioEngine.master);
+      audioEngine.auditionGain = g;
+
+      const shift = bestShiftForVoicing(dictRoot, voicing, null, activeRangeWindow());
+      const d = realizeVoicing(dictRoot, voicing, shift, 'roots', dictQuality);
+      const secPerBeat = 60 / state.tempo;
+      scheduleChordSpan({ root: dictRoot },
+        { leftHandPitches: d.left, rightHandPitches: d.right },
+        ctx.currentTime + 0.02, secPerBeat, Math.min(state.beatsPerChord, 4), g);
+    }
+
     /** Damp every sounding pad (used when leaving the Pads tab / on stop). */
     function padReleaseAll() {
       for (const index of Object.keys(audioEngine.padVoices)) padRelease(index, true);
@@ -686,25 +730,52 @@
      * Playing: jumps playback to the chord's downbeat, resyncing the scheduler
      * clock and anchoring loopBase so the loop display doesn't jump.
      */
+    /** Jump running playback to a chord's downbeat (resync the scheduler). */
+    function jumpToChord(index) {
+      const n = state.progression.length;
+      if (!n || !state.isPlaying) return;
+      const newIndex = ((index % n) + n) % n;
+      // Freeze the displayed loop count across the jump: chordStep restarts
+      // from the new position, so fold completed loops into loopBase.
+      audioEngine.loopBase = state.loopCount - 1;
+      state.currentChordIndex = newIndex;
+      state.currentBeat = 0;
+      audioEngine.beatCounter = newIndex * state.beatsPerChord;
+      audioEngine.visualQueue = [];
+      if (audioEngine.ctx) {
+        audioEngine.nextBeatTime = audioEngine.ctx.currentTime + 0.06;
+      }
+      updatePlaybackState();
+      updateProgress();
+      scrollActiveChordIntoView();
+    }
+
+    /**
+     * Transport "Top": playing, jump the loop back to bar 1 without stopping;
+     * stopped, quietly rewind the position (and the strip scroll) to the top.
+     */
+    function rewindToTop() {
+      if (!state.progression.length) return;
+      if (state.isPlaying) {
+        jumpToChord(0);
+        return;
+      }
+      state.currentChordIndex = 0;
+      state.currentBeat = 0;
+      state.selectedChordIndex = null;
+      resetPlaybackClock();
+      updatePlaybackState();
+      updateProgress();
+      scrollActiveChordIntoView();
+      if (state.showVoicing) renderVoicing();
+    }
+
     function stepChord(delta) {
       const n = state.progression.length;
       if (!n) return;
 
       if (state.isPlaying) {
-        const newIndex = ((state.currentChordIndex + delta) % n + n) % n;
-        // Freeze the displayed loop count across the jump: chordStep restarts
-        // from the new position, so fold completed loops into loopBase.
-        audioEngine.loopBase = state.loopCount - 1;
-        state.currentChordIndex = newIndex;
-        state.currentBeat = 0;
-        audioEngine.beatCounter = newIndex * state.beatsPerChord;
-        audioEngine.visualQueue = [];
-        if (audioEngine.ctx) {
-          audioEngine.nextBeatTime = audioEngine.ctx.currentTime + 0.06;
-        }
-        updatePlaybackState();
-        updateProgress();
-        scrollActiveChordIntoView();
+        jumpToChord(state.currentChordIndex + delta);
       } else {
         const selectedIdx = state.selectedChordIndex !== null
           ? state.selectedChordIndex : state.currentChordIndex;

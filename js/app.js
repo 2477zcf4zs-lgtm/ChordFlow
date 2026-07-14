@@ -29,6 +29,9 @@
       undoChip: document.getElementById('undoChip'),
       abCompareBtn: document.getElementById('abCompareBtn'),
       flavorBtn: document.getElementById('flavorBtn'),
+      toStartBtn: document.getElementById('toStartBtn'),
+      savedToggle: document.getElementById('savedToggle'),
+      savedBody: document.getElementById('savedBody'),
       swingBtn: document.getElementById('swingBtn'),
       autoTransposeSelect: document.getElementById('autoTransposeSelect'),
       tempoRampSelect: document.getElementById('tempoRampSelect'),
@@ -310,6 +313,29 @@
       // A/B compare: whole-progression with/without subs (invariant 16:
       // per-index swaps, never a rebuild — playback position is untouched).
       elements.abCompareBtn.addEventListener('click', toggleCompareOriginal);
+
+      // Transport "Top": jump the running loop back to bar 1, or quietly
+      // rewind the position when stopped.
+      elements.toStartBtn.addEventListener('click', () => {
+        rewindToTop();
+        elements.toStartBtn.blur();
+      });
+
+      // My Progressions: collapsed by default so the library stays the main
+      // event; the header toggle shows the saved count either way.
+      elements.savedToggle.addEventListener('click', () => {
+        const open = elements.savedBody.hidden;
+        elements.savedBody.hidden = !open;
+        elements.savedToggle.setAttribute('aria-expanded', String(open));
+        elements.savedToggle.classList.toggle('open', open);
+      });
+
+      // Chord dictionary: tap a listed voicing to hear it as written.
+      elements.dictVoicingList.addEventListener('click', (e) => {
+        const item = e.target.closest('.dict-voicing-item');
+        if (!item || item.dataset.index === undefined) return;
+        auditionDictVoicing(parseInt(item.dataset.index));
+      });
 
       // Flavor dial: a creative input to GENERATION (applies on the next
       // New), not a setting — so it lives beside the generate button. It

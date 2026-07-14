@@ -76,8 +76,9 @@
           <div class="voicing-panel-header">
             <div class="voicing-chord-name" id="voicingChordName">—</div>
             <button type="button" class="ab-compare-btn" id="abCompareBtn" aria-pressed="false" disabled
-              title="Hear the progression with and without its substitutions">A/B</button>
-            <div class="voicing-subs" id="voicingSubs"></div>
+              title="A = original, B = with substitutions — tap to switch">
+              <span class="ab-side" id="abSideA">A</span><span class="ab-sep">/</span><span class="ab-side" id="abSideB">B</span>
+            </button>
           </div>
           <div class="voicing-hands">
             <div class="hand-section">
@@ -94,6 +95,9 @@
             <div class="piano-keys" id="pianoKeyboard"></div>
             <div class="piano-legend"><span class="legend-lh">Left hand</span><span class="legend-rh">Right hand</span></div>
           </div>
+          <!-- Sub tray lives BELOW the piano in a single scrollable row, so a
+               chord with many substitutions can never push the piano around. -->
+          <div class="voicing-subs" id="voicingSubs"></div>
           <div class="voicing-description" id="voicingDescription">Click any chord to see its voicing</div>
           <div class="click-hint">Tap a chord in the strip below to select it • Tap again for a different voicing</div>
         </div>
@@ -198,17 +202,22 @@
         <div class="library-panel" id="libraryPanel" role="tabpanel" aria-labelledby="libraryToggle">
           <div class="my-progressions" id="myProgressions">
             <div class="my-progressions-head">
-              <div class="panel-title">My Progressions</div>
+              <button type="button" class="saved-section-toggle" id="savedToggle" aria-expanded="false" aria-controls="savedBody">
+                <span class="saved-section-caret" aria-hidden="true">▸</span>
+                My Progressions <span class="saved-count" id="savedCount"></span>
+              </button>
+            </div>
+            <div id="savedBody" hidden>
               <div class="my-progressions-actions">
                 <button class="btn btn-secondary btn-small" id="saveProgressionBtn" title="Save the current progression">Save current</button>
                 <button class="btn btn-secondary btn-small" id="exportSavedBtn" title="Download saved progressions as JSON">Export</button>
                 <button class="btn btn-secondary btn-small" id="importSavedBtn" title="Import progressions from a JSON file">Import</button>
                 <input type="file" id="importSavedInput" accept=".json,application/json" hidden>
               </div>
+              <div class="saved-list" id="savedList"></div>
+              <div class="saved-empty" id="savedEmpty">Nothing saved yet — press “Save current” to keep a progression.</div>
+              <div class="saved-unavailable" id="savedUnavailable" hidden>Saving unavailable in this browser (storage is blocked).</div>
             </div>
-            <div class="saved-list" id="savedList"></div>
-            <div class="saved-empty" id="savedEmpty">Nothing saved yet — press “Save current” to keep a progression.</div>
-            <div class="saved-unavailable" id="savedUnavailable" hidden>Saving unavailable in this browser (storage is blocked).</div>
           </div>
           <div class="panel-title">Standard Progressions</div>
           <div class="library-grid" id="libraryGrid"></div>
@@ -293,6 +302,7 @@
               <option value="shells">Shells (3 &amp; 7)</option>
               <option value="evans">Two-hand rootless</option>
               <option value="rootless">Rootless (bassist mode)</option>
+              <option value="bassonly">Roots only (you comp)</option>
             </select>
           </div>
           <div class="control-row">
@@ -397,6 +407,13 @@
     </div>
 
     <nav class="transport-bar" aria-label="Playback transport">
+      <button class="btn btn-secondary" id="toStartBtn" title="Back to the top of the progression" aria-label="Back to start">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="19 20 9 12 19 4 19 20"></polygon>
+          <line x1="5" y1="5" x2="5" y2="19" stroke="currentColor" stroke-width="2"></line>
+        </svg>
+        <span class="btn-label">Top</span>
+      </button>
       <button class="btn btn-secondary" id="prevChordBtn" title="Previous chord" aria-label="Previous chord">
         <svg viewBox="0 0 24 24" fill="currentColor">
           <polygon points="19 20 9 12 19 4 19 20"></polygon>

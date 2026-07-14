@@ -254,6 +254,9 @@
           state.voicingShifts[index] = bestShiftForVoicing(chord.root, tierVoicings[nextIdx], prevRh, activeRangeWindow());
         }
         renderVoicing();
+        // Hear the voicing you just cycled to (stopped only — during playback
+        // the loop itself is the audition).
+        if (!state.isPlaying) auditionChord(index);
       } else {
         state.selectedChordIndex = index;
         state.armedSub = null; // new chord, stale arm
@@ -358,14 +361,27 @@
       updateAbButton();
     }
 
-    /** A/B is meaningful only with subs applied and no trial in flight. */
+    /**
+     * A/B is meaningful only with subs applied and no trial in flight.
+     * The button reads as a two-sided switch: the LIT side is what's
+     * sounding — A = original changes, B = with your substitutions.
+     */
     function updateAbButton() {
       const btn = document.getElementById('abCompareBtn');
       if (!btn) return;
       const hasSubs = state.substitutions.some(t => !!t);
       btn.disabled = !hasSubs || !!state.trialSub;
       btn.setAttribute('aria-pressed', String(state.compareOriginal));
-      btn.classList.toggle('active', state.compareOriginal);
+      btn.classList.toggle('active', hasSubs && !state.trialSub);
+      btn.title = btn.disabled
+        ? 'A/B: apply a substitution first, then compare with/without it'
+        : (state.compareOriginal
+          ? 'Hearing A (original) — tap for B (with substitutions)'
+          : 'Hearing B (with substitutions) — tap for A (original)');
+      const sideA = document.getElementById('abSideA');
+      const sideB = document.getElementById('abSideB');
+      if (sideA) sideA.classList.toggle('on', !btn.disabled && state.compareOriginal);
+      if (sideB) sideB.classList.toggle('on', !btn.disabled && !state.compareOriginal);
     }
 
     /** Restore the un-substituted chord. Cheap and playback-safe: no rebuild. */
@@ -696,17 +712,22 @@
       
       // Show realized pitches low-to-high with octave numbers (C4 = middle C)
       const formatPitch = (p) => formatNoteDisplay(p.name) + p.octave;
-      // Rootless: the LH is intentionally silent — say who owns the low end.
-      const leftNotes = chordData.leftHandPitches.length
-        ? chordData.leftHandPitches.map(formatPitch).join('  ')
-        : '— (bass / backing track)';
+      const leftNotes = chordData.leftHandPitches.map(formatPitch).join('  ');
       const rightNotes = chordData.rightHandPitches.map(formatPitch).join('  ');
 
-      leftHandEl.textContent = leftNotes;
-      rightHandEl.textContent = rightNotes;
-      
-      // Draw the voicing on the piano
-      renderPianoKeyboard(chordData.leftHandPitches, chordData.rightHandPitches);
+      if (state.leftHand === 'rootless') {
+        // Rootless over a bassist: YOU comp the voicing with your left hand
+        // while the right plays melody — display (and tint) it as the LH.
+        leftHandEl.textContent = rightNotes || '—';
+        rightHandEl.textContent = '— (melody / solo)';
+        renderPianoKeyboard(chordData.rightHandPitches, []);
+      } else {
+        leftHandEl.textContent = leftNotes || '—';
+        // bassonly: the app plays just the root; the voicing is yours to comp.
+        rightHandEl.textContent = rightNotes ||
+          (state.leftHand === 'bassonly' ? '— (you comp)' : '—');
+        renderPianoKeyboard(chordData.leftHandPitches, chordData.rightHandPitches);
+      }
       
       // Display chord name
       const chordSymbol = formatChordSymbol(chord.root, chord.quality);
@@ -721,7 +742,8 @@
       const LH_MODE_NOTES = {
         shells: ' • LH shells: root + guide tones (3 & 7)',
         evans: ' • Two-hand rootless: LH color voicing — the bass stays with the bassist',
-        rootless: ' • Rootless: play the bass yourself or over a track'
+        rootless: ' • Rootless: LH comps the voicing over a bassist or track',
+        bassonly: ' • Roots only: the app is your bassist — comp the changes yourself'
       };
       const lhNote = LH_MODE_NOTES[state.leftHand] || '';
       const rangeNote = state.range === 'reface' ? ' • 3-octave window' : '';
@@ -758,6 +780,9 @@
       state.showVoicing = state.activeTab === 'voicing';
       if (state.showVoicing) renderVoicing();
       if (state.activeTab !== 'pads') padReleaseAll(); // silence held pads on leave
+      // The pads ARE the progression, one pad per chord — the advancing strip
+      // below would just duplicate them, so it steps aside while pads are up.
+      document.body.classList.toggle('pads-open', state.activeTab === 'pads');
       updatePlaybackState(); // the 'selected' chord highlight tracks showVoicing
     }
 
@@ -797,6 +822,14 @@
       const unavailableEl = document.getElementById('savedUnavailable');
       const actions = document.querySelector('.my-progressions-actions');
       if (!listEl) return;
+
+      // The section is collapsed by default (the library is the main event);
+      // the toggle header always shows how many are saved.
+      const countEl = document.getElementById('savedCount');
+      if (countEl) {
+        const n = storageAvailable() ? readSavedProgressions().length : 0;
+        countEl.textContent = n ? `(${n})` : '';
+      }
 
       if (!storageAvailable()) {
         // Degrade gracefully: hide the machinery, say why.
@@ -968,9 +1001,10 @@
       voicingData.voicings.forEach((voicing, i) => {
         const leftNotes = voicing.left.map(interval => formatNoteDisplay(spellInterval(dictRoot, interval))).join(' ');
         const rightNotes = voicing.right.map(interval => formatNoteDisplay(spellInterval(dictRoot, interval))).join(' ');
-        
+
         html += `
-          <div class="dict-voicing-item" data-index="${i}">
+          <button type="button" class="dict-voicing-item" data-index="${i}"
+            title="Tap to hear this voicing" aria-label="Play ${voicing.name} voicing">
             <div class="dict-voicing-name">${voicing.name}</div>
             <div class="dict-voicing-notes">
               <div class="dict-hand">
@@ -982,10 +1016,10 @@
                 <div class="dict-hand-notes">${rightNotes}</div>
               </div>
             </div>
-          </div>
+          </button>
         `;
       });
-      
+
       elements.dictVoicingList.innerHTML = html;
     }
     
