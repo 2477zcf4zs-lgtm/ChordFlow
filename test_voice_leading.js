@@ -837,20 +837,20 @@ console.log('\nTest 15: voicing characterization snapshot (regression guard for 
       'aug': 'C2 | E4 G#4 C5 || C2 G#2 | C4 E4 || F#2 | A#4 C##5 F#5 || F#2 C##3 | F#4 A#4',
       'sus4': 'C2 | F4 G4 C5 || C2 G2 | C4 F4 || F#2 | B4 C#5 F#5 || F#2 C#3 | F#4 B4',
       'sus2': 'C2 | D4 G4 C5 || C2 G2 | C4 D4 || F#2 | G#4 C#5 F#5 || F#2 C#3 | F#4 G#4',
-      'maj7': 'C2 | E4 G4 B4 || C2 G2 | B4 E5 || C2 | E4 B4 || C2 | E4 B4 D5 || C2 | E4 B4 A5 || C2 | E4 B4 F#5 || C2 | E4 G4 B4 D5 || C2 | B4 D5 E5 G5 || C2 | E4 G4 A4 D5 || F#2 | A#4 C#5 E#5 || F#2 C#3 | E#4 A#4 || F#2 | A#4 E#5 || F#2 | A#4 E#5 G#5 || F#2 | A#4 E#5 D#6 || F#2 | A#4 E#5 B#5 || F#2 | A#4 C#5 E#5 G#5 || F#2 | E#4 G#4 A#4 C#5 || F#2 | A#4 C#5 D#5 G#5',
-      'min7': 'C2 | Eb4 G4 Bb4 || C2 G2 | Bb4 Eb5 || C2 | Eb4 Bb4 || C2 | Eb4 Bb4 D5 || C2 | Eb4 Bb4 F5 || C2 | Eb4 G4 Bb4 D5 || C2 | Bb4 D5 Eb5 G5 || F#2 | A4 C#5 E5 || F#2 C#3 | E4 A4 || F#2 | A4 E5 || F#2 | A4 E5 G#5 || F#2 | A4 E5 B5 || F#2 | A4 C#5 E5 G#5 || F#2 | E4 G#4 A4 C#5',
+      'maj7': 'C2 | E4 G4 B4 || C2 G2 | B4 E5 || C2 | E4 B4 || C2 | E4 B4 D5 || C2 | E4 B4 A5 || C2 | E4 B4 F#5 || C2 | E4 G4 B4 D5 || C2 | B4 D5 E5 G5 || C2 | E4 G4 A4 D5 || C2 | B4 E5 A5 || F#2 | A#4 C#5 E#5 || F#2 C#3 | E#4 A#4 || F#2 | A#4 E#5 || F#2 | A#4 E#5 G#5 || F#2 | A#4 E#5 D#6 || F#2 | A#4 E#5 B#5 || F#2 | A#4 C#5 E#5 G#5 || F#2 | E#4 G#4 A#4 C#5 || F#2 | A#4 C#5 D#5 G#5 || F#2 | E#4 A#4 D#5',
+      'min7': 'C2 | Eb4 G4 Bb4 || C2 G2 | Bb4 Eb5 || C2 | Eb4 Bb4 || C2 | Eb4 Bb4 D5 || C2 | Eb4 Bb4 F5 || C2 | Eb4 G4 Bb4 D5 || C2 | Bb4 D5 Eb5 G5 || C2 | F4 Bb4 Eb5 || F#2 | A4 C#5 E5 || F#2 C#3 | E4 A4 || F#2 | A4 E5 || F#2 | A4 E5 G#5 || F#2 | A4 E5 B5 || F#2 | A4 C#5 E5 G#5 || F#2 | E4 G#4 A4 C#5 || F#2 | B4 E5 A5',
       'dom7': 'C2 | E4 G4 Bb4 || C2 G2 | Bb4 E5 || C2 | E4 Bb4 || C2 | E4 Bb4 A5 || C2 | E4 Bb4 D5 || C2 | E4 A4 Bb4 D5 || C2 | Bb4 D5 E5 A5 || F#2 | A#4 C#5 E5 || F#2 C#3 | E4 A#4 || F#2 | A#4 E5 || F#2 | A#4 E5 D#6 || F#2 | A#4 E5 G#5 || F#2 | A#4 D#5 E5 G#5 || F#2 | E4 G#4 A#4 D#5',
       'dim7': 'C2 | Eb4 Gb4 Bbb4 || C2 Gb2 | Bbb4 Eb5 || F#2 | A4 C5 Eb5 || F#2 C3 | Eb4 A4',
       'm7b5': 'C2 | Eb4 Gb4 Bb4 || C2 Gb2 | Bb4 Eb5 || C2 | Eb4 Bb4 || C2 | Eb4 Bb4 F5 || C2 | Eb4 Bb4 Ab5 || C2 | Eb4 Gb4 Bb4 C5 || C2 | Bb4 C5 Eb5 Gb5 || C2 | Eb4 Gb4 Bb4 D5 || F#2 | A4 C5 E5 || F#2 C3 | E4 A4 || F#2 | A4 E5 || F#2 | A4 E5 B5 || F#2 | A4 E5 D6 || F#2 | A4 C5 E5 F#5 || F#2 | E4 F#4 A4 C5 || F#2 | A4 C5 E5 G#5',
       'minMaj7': 'C2 | Eb4 G4 B4 || C2 G2 | B4 Eb5 || C2 | Eb4 B4 || C2 | Eb4 B4 D5 || C2 | Eb4 G4 B4 D5 || C2 | B4 D5 Eb5 G5 || F#2 | A4 C#5 E#5 || F#2 C#3 | E#4 A4 || F#2 | A4 E#5 || F#2 | A4 E#5 G#5 || F#2 | A4 C#5 E#5 G#5 || F#2 | E#4 G#4 A4 C#5',
-      'dom7sus4': 'C2 | F4 G4 Bb4 || C2 G2 | Bb4 F5 || C2 | F4 Bb4 || C2 | F4 Bb4 D5 || C2 | F4 G4 Bb4 D5 || C2 | Bb4 D5 F5 G5 || F#2 | B4 C#5 E5 || F#2 C#3 | E4 B4 || F#2 | B4 E5 || F#2 | B4 E5 G#5 || F#2 | B4 C#5 E5 G#5 || F#2 | E4 G#4 B4 C#5',
+      'dom7sus4': 'C2 | F4 G4 Bb4 || C2 G2 | Bb4 F5 || C2 | F4 Bb4 || C2 | F4 Bb4 D5 || C2 | F4 G4 Bb4 D5 || C2 | Bb4 D5 F5 G5 || C2 | Bb4 D5 F5 || F#2 | B4 C#5 E5 || F#2 C#3 | E4 B4 || F#2 | B4 E5 || F#2 | B4 E5 G#5 || F#2 | B4 C#5 E5 G#5 || F#2 | E4 G#4 B4 C#5 || F#2 | E4 G#4 B4',
       'maj9': 'C2 | E4 G4 B4 D5 || C2 | B4 D5 E5 G5 || C2 G2 | B4 D5 E5 || F#2 | A#4 C#5 E#5 G#5 || F#2 | E#4 G#4 A#4 C#5 || F#2 C#3 | E#4 G#4 A#4',
       'min9': 'C2 | Eb4 G4 Bb4 D5 || C2 | Bb4 D5 Eb5 G5 || C2 G2 | Bb4 D5 Eb5 || F#2 | A4 C#5 E5 G#5 || F#2 | E4 G#4 A4 C#5 || F#2 C#3 | E4 G#4 A4',
       'dom9': 'C2 | E4 A4 Bb4 D5 || C2 | Bb4 D5 E5 A5 || C2 | E4 Bb4 D5 || C2 G2 | Bb4 D5 E5 || F#2 | A#4 D#5 E5 G#5 || F#2 | E4 G#4 A#4 D#5 || F#2 | A#4 E5 G#5 || F#2 C#3 | E4 G#4 A#4',
       'dom11': 'C2 | Bb4 D5 F5 || C2 | F4 Bb4 D5 || C2 G2 | Bb4 D5 F5 || F#2 | E4 G#4 B4 || F#2 | B4 E5 G#5 || F#2 C#3 | E4 G#4 B4',
-      'min11': 'C2 | Eb4 G4 Bb4 F5 || C2 | Bb4 D5 Eb5 F5 || C2 G2 | Bb4 Eb5 F5 || F#2 | A4 C#5 E5 B5 || F#2 | E4 G#4 A4 B4 || F#2 C#3 | E4 A4 B4',
+      'min11': 'C2 | Eb4 G4 Bb4 F5 || C2 | Bb4 D5 Eb5 F5 || C2 G2 | Bb4 Eb5 F5 || C2 | F4 Bb4 Eb5 || F#2 | A4 C#5 E5 B5 || F#2 | E4 G#4 A4 B4 || F#2 C#3 | E4 A4 B4 || F#2 | B4 E5 A5',
       'maj13': 'C2 | E4 B4 D5 A5 || C2 | B4 D5 E5 A5 || C2 | B4 D5 A5 || F#2 | A#4 E#5 G#5 D#6 || F#2 | E#4 G#4 A#4 D#5 || F#2 | E#4 G#4 D#5',
-      'dom13': 'C2 | E4 Bb4 D5 A5 || C2 | Bb4 D5 E5 A5 || C2 | Bb4 D5 A5 || F#2 | A#4 E5 G#5 D#6 || F#2 | E4 G#4 A#4 D#5 || F#2 | E4 G#4 D#5',
+      'dom13': 'C2 | E4 Bb4 D5 A5 || C2 | Bb4 D5 E5 A5 || C2 | Bb4 D5 A5 || C2 Bb2 | E4 A4 D5 || C2 Bb2 | D4 F#4 A4 || F#2 | A#4 E5 G#5 D#6 || F#2 | E4 G#4 A#4 D#5 || F#2 | E4 G#4 D#5 || F#2 E3 | A#4 D#5 G#5 || F#2 E3 | G#4 B#4 D#5',
       'min13': 'C2 | Eb4 Bb4 D5 A5 || C2 | Bb4 D5 Eb5 A5 || C2 | Bb4 D5 A5 || F#2 | A4 E5 G#5 D#6 || F#2 | E4 G#4 A4 D#5 || F#2 | E4 G#4 D#5',
       'add9': 'C2 | E4 G4 D5 || C2 G2 | D4 E4 || F#2 | A#4 C#5 G#5 || F#2 C#3 | G#4 A#4',
       'madd9': 'C2 | Eb4 G4 D5 || C2 G2 | D4 Eb4 || F#2 | A4 C#5 G#5 || F#2 C#3 | G#4 A4',
@@ -859,12 +859,12 @@ console.log('\nTest 15: voicing characterization snapshot (regression guard for 
       'dom7s9': 'C2 | E4 Bb4 D#5 || C2 | Bb4 D#5 E5 || C2 Bb2 | D#4 E4 || F#2 | A#4 E5 G##5 || F#2 | E4 G##4 A#4 || F#2 E3 | G##4 A#4',
       'dom7b5': 'C2 | E4 Gb4 Bb4 || C2 | Bb4 E5 Gb5 || F#2 | A#4 C5 E5 || F#2 | E4 A#4 C5',
       'dom7s5': 'C2 | E4 G#4 Bb4 || C2 | Bb4 E5 G#5 || F#2 | A#4 C##5 E5 || F#2 | E4 A#4 C##5',
-      'dom7s11': 'C2 | E4 Bb4 D5 F#5 || C2 | Bb4 D5 E5 F#5 || F#2 | A#4 E5 G#5 B#5 || F#2 | E4 G#4 A#4 B#4',
+      'dom7s11': 'C2 | E4 Bb4 D5 F#5 || C2 | Bb4 D5 E5 F#5 || C2 Bb2 | D4 F#4 A4 || F#2 | A#4 E5 G#5 B#5 || F#2 | E4 G#4 A#4 B#4 || F#2 E3 | G#4 B#4 D#5',
       'dom7b13': 'C2 | E4 Bb4 Ab5 || C2 | Bb4 E5 Ab5 || F#2 | A#4 E5 D6 || F#2 | E4 A#4 D5',
       'dom7alt': 'C2 | E4 Ab4 Bb4 D#5 || C2 | Bb4 Db5 E5 Ab5 || C2 | Bb4 D#5 E5 Ab5 || F#2 | A#4 D5 E5 G##5 || F#2 | E4 G4 A#4 D5 || F#2 | E4 G##4 A#4 D5',
       'dom9b5': 'C2 | E4 Gb4 Bb4 D5 || C2 | Bb4 D5 E5 Gb5 || F#2 | A#4 C5 E5 G#5 || F#2 | E4 G#4 A#4 C5',
       'dom9s5': 'C2 | E4 G#4 Bb4 D5 || C2 | Bb4 D5 E5 G#5 || F#2 | A#4 C##5 E5 G#5 || F#2 | E4 G#4 A#4 C##5',
-      'dom13b9': 'C2 | E4 Bb4 Db5 A5 || C2 | Bb4 Db5 E5 A5 || F#2 | A#4 E5 G5 D#6 || F#2 | E4 G4 A#4 D#5',
+      'dom13b9': 'C2 | E4 Bb4 Db5 A5 || C2 | Bb4 Db5 E5 A5 || C2 Bb2 | A4 Db5 E5 || F#2 | A#4 E5 G5 D#6 || F#2 | E4 G4 A#4 D#5 || F#2 E3 | D#4 G4 A#4',
       'dom13s11': 'C2 | E4 Bb4 F#5 A5 || C2 | Bb4 E5 F#5 A5 || F#2 | A#4 E5 B#5 D#6 || F#2 | E4 A#4 B#4 D#5',
   };
   const ROOTS = ['C', 'F#'];
@@ -892,6 +892,69 @@ console.log('\nTest 15: voicing characterization snapshot (regression guard for 
     if (qualities.indexOf(q) === -1) { drift++; check(false, `snapshot: golden quality '${q}' no longer in KEYBOARD_VOICINGS`); }
   }
   if (!drift) console.log(`  all ${qualities.length} qualities match the frozen voicing snapshot`);
+}
+
+console.log('\nTest 16: LH-shell upper-structure + quartal voicings (new vocabulary)');
+{
+  // Find a voicing by its name within a quality, realize it at C, return the
+  // pitch-class SETS for LH and RH (order-independent — we assert content).
+  const pcs = (arr) => arr.map(p => p.midi % 12).sort((a, b) => a - b);
+  const find = (quality, nameFrag) => {
+    const vs = T.KEYBOARD_VOICINGS[quality].voicings;
+    const i = vs.findIndex(v => v.name.indexOf(nameFrag) !== -1);
+    check(i !== -1, `${quality}: voicing '${nameFrag}' exists`);
+    if (i === -1) return null;
+    const d = T.getChordNotesAtIndex('C', quality, 'seventh', i, 0);
+    return { lh: pcs(d.leftHandPitches), rh: pcs(d.rightHandPitches), d };
+  };
+  const eq = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+
+  // --- Dominant upper structures (LH shell + RH triad), C-rooted ---
+  // C7#11 US II: LH C-Bb (R,b7) | RH D-F#-A (9,#11,13)
+  let v = find('dom7s11', 'US II');
+  if (v) check(eq(v.lh, [0, 10]) && eq(v.rh, [2, 6, 9]), 'C7#11 US II = LH {C,Bb} RH {D,F#,A}');
+  // C13 shell 3-13-9: LH C-Bb | RH E-A-D (3,13,9)
+  v = find('dom13', 'Shell: R-7');
+  if (v) check(eq(v.lh, [0, 10]) && eq(v.rh, [2, 4, 9]), 'C13 shell = LH {C,Bb} RH {E,A,D}');
+  // C13 US II (13#11): LH C-Bb | RH D-F#-A
+  v = find('dom13', 'US II');
+  if (v) check(eq(v.lh, [0, 10]) && eq(v.rh, [2, 6, 9]), 'C13#11 US II = LH {C,Bb} RH {D,F#,A}');
+  // C13b9 US VI: LH C-Bb | RH A-Db-E (13,b9,3)
+  v = find('dom13b9', 'US VI');
+  if (v) check(eq(v.lh, [0, 10]) && eq(v.rh, [1, 4, 9]), 'C13b9 US VI = LH {C,Bb} RH {A,Db,E}');
+  // C9sus slash bVII: LH C | RH Bb-D-F (b7,9,11)
+  v = find('dom7sus4', 'Slash');
+  if (v) check(eq(v.lh, [0]) && eq(v.rh, [2, 5, 10]), 'C13sus slash = LH {C} RH {Bb,D,F}');
+
+  // --- Quartal (RH stacked in 4ths) ---
+  // Cm7 quartal: LH C | RH F-Bb-Eb (11,b7,b3)
+  v = find('min7', 'Quartal');
+  if (v) check(eq(v.lh, [0]) && eq(v.rh, [3, 5, 10]), 'Cm7 quartal = LH {C} RH {F,Bb,Eb}');
+  v = find('min11', 'Quartal');
+  if (v) check(eq(v.rh, [3, 5, 10]), 'Cm11 quartal RH = {F,Bb,Eb}');
+  // Cmaj7 Lydian quartal: LH C | RH B-E-A (7,3,13)
+  v = find('maj7', 'Quartal');
+  if (v) check(eq(v.lh, [0]) && eq(v.rh, [4, 9, 11]), 'Cmaj7 quartal = LH {C} RH {E,A,B}');
+
+  // The two quartal min voicings realize as genuine stacked 4ths (5 semitones)
+  const q = find('min7', 'Quartal');
+  if (q) {
+    const m = q.d.rightHandPitches.map(p => p.midi);
+    check(m[1] - m[0] === 5 && m[2] - m[1] === 5, 'min7 quartal RH is two stacked perfect 4ths');
+  }
+  // Every new voicing spells cleanly across a spread of roots (no undefined/NaN)
+  let bad = 0;
+  for (const root of ['C', 'F', 'Bb', 'Ab', 'E', 'B', 'Gb']) {
+    for (const [quality, frag] of [['dom7s11','US II'],['dom13','US II'],['dom13b9','US VI'],
+        ['dom7sus4','Slash'],['min7','Quartal'],['maj7','Quartal']]) {
+      const vs = T.KEYBOARD_VOICINGS[quality].voicings;
+      const i = vs.findIndex(x => x.name.indexOf(frag) !== -1);
+      const d = T.getChordNotesAtIndex(root, quality, 'seventh', i, 0);
+      for (const p of d.leftHandPitches.concat(d.rightHandPitches))
+        if (!p.name || p.name.includes('undefined') || !Number.isFinite(p.midi)) { bad++; }
+    }
+  }
+  check(bad === 0, 'new voicings spell cleanly across all tested roots');
 }
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));
