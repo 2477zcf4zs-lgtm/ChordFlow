@@ -861,7 +861,7 @@ console.log('\nTest 15: voicing characterization snapshot (regression guard for 
       'dom7s5': 'C2 | E4 G#4 Bb4 || C2 | Bb4 E5 G#5 || F#2 | A#4 C##5 E5 || F#2 | E4 A#4 C##5',
       'dom7s11': 'C2 | E4 Bb4 D5 F#5 || C2 | Bb4 D5 E5 F#5 || C2 Bb2 | D4 F#4 A4 || F#2 | A#4 E5 G#5 B#5 || F#2 | E4 G#4 A#4 B#4 || F#2 E3 | G#4 B#4 D#5',
       'dom7b13': 'C2 | E4 Bb4 Ab5 || C2 | Bb4 E5 Ab5 || F#2 | A#4 E5 D6 || F#2 | E4 A#4 D5',
-      'dom7alt': 'C2 | E4 Ab4 Bb4 D#5 || C2 | Bb4 Db5 E5 Ab5 || C2 | Bb4 D#5 E5 Ab5 || F#2 | A#4 D5 E5 G##5 || F#2 | E4 G4 A#4 D5 || F#2 | E4 G##4 A#4 D5',
+      'dom7alt': 'C2 | E4 Ab4 Bb4 D#5 || C2 | Bb4 Db5 E5 Ab5 || C2 | Bb4 D#5 E5 Ab5 || C2 Bb2 E3 | Ab4 C5 D#5 || C2 Bb2 E3 | F#4 Bb4 Db5 || F#2 | A#4 D5 E5 G##5 || F#2 | E4 G4 A#4 D5 || F#2 | E4 G##4 A#4 D5 || F#2 E3 A#3 | D4 F#4 G##4 || F#2 E3 A#3 | B#3 E4 G4',
       'dom9b5': 'C2 | E4 Gb4 Bb4 D5 || C2 | Bb4 D5 E5 Gb5 || F#2 | A#4 C5 E5 G#5 || F#2 | E4 G#4 A#4 C5',
       'dom9s5': 'C2 | E4 G#4 Bb4 D5 || C2 | Bb4 D5 E5 G#5 || F#2 | A#4 C##5 E5 G#5 || F#2 | E4 G#4 A#4 C##5',
       'dom13b9': 'C2 | E4 Bb4 Db5 A5 || C2 | Bb4 Db5 E5 A5 || C2 Bb2 | A4 Db5 E5 || F#2 | A#4 E5 G5 D#6 || F#2 | E4 G4 A#4 D#5 || F#2 E3 | D#4 G4 A#4',
@@ -936,6 +936,21 @@ console.log('\nTest 16: LH-shell upper-structure + quartal voicings (new vocabul
   v = find('maj7', 'Quartal');
   if (v) check(eq(v.lh, [0]) && eq(v.rh, [4, 9, 11]), 'Cmaj7 quartal = LH {C} RH {E,A,B}');
 
+  // --- dom7alt upper structures: LH shell R-7-3, RH altered triad ---
+  // US bVI: LH C-Bb-E (R,b7,3) | RH Ab-C-Eb (b13,1,#9)
+  v = find('dom7alt', 'US bVI');
+  if (v) check(eq(v.lh, [0, 4, 10]) && eq(v.rh, [0, 3, 8]), 'C7alt US bVI = LH {C,E,Bb} RH {Ab,C,Eb}');
+  // US bV: LH C-Bb-E | RH Gb-Bb-Db (#11,b7,b9)
+  v = find('dom7alt', 'US bV:');
+  if (v) check(eq(v.lh, [0, 4, 10]) && eq(v.rh, [1, 6, 10]), 'C7alt US bV = LH {C,E,Bb} RH {Gb,Bb,Db}');
+  // The mud fix: the LH 3rd must land ABOVE the b7 (a tenth up), not a low third
+  v = find('dom7alt', 'US bVI');
+  if (v) {
+    const m = v.d.leftHandPitches.map(p => p.midi);
+    check(m[2] - m[0] === 16 && m[1] - m[0] === 10,
+      'C7alt shell floats the 3rd to a major 10th above the root (no low-third mud)');
+  }
+
   // The two quartal min voicings realize as genuine stacked 4ths (5 semitones)
   const q = find('min7', 'Quartal');
   if (q) {
@@ -946,7 +961,8 @@ console.log('\nTest 16: LH-shell upper-structure + quartal voicings (new vocabul
   let bad = 0;
   for (const root of ['C', 'F', 'Bb', 'Ab', 'E', 'B', 'Gb']) {
     for (const [quality, frag] of [['dom7s11','US II'],['dom13','US II'],['dom13b9','US VI'],
-        ['dom7sus4','Slash'],['min7','Quartal'],['maj7','Quartal']]) {
+        ['dom7sus4','Slash'],['min7','Quartal'],['maj7','Quartal'],
+        ['dom7alt','US bVI'],['dom7alt','US bV:']]) {
       const vs = T.KEYBOARD_VOICINGS[quality].voicings;
       const i = vs.findIndex(x => x.name.indexOf(frag) !== -1);
       const d = T.getChordNotesAtIndex(root, quality, 'seventh', i, 0);
