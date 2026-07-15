@@ -100,28 +100,26 @@ started then deliberately shelved.
     sensibly (the LH is no longer always a single low root). Bassist mode's
     `shells`/`bassonly` LH already lives near this idea — check for overlap
     before duplicating.
-  - **Status:** dominant-family upper structures proofed and owner-approved by
-    ear (C7♯11 US II, C13 shell + 13♯11, C13♭9 US VI, C9sus slash) — pending
-    build (small PR, per-voicing pitch-class tests + snapshot update). The two
-    `dom7alt` USTs (US ♭VI / ♭V) are parked on a register+spelling decision
-    (low LH third; strict spelling shows `F##`/`B𝄫`).
+  - **Status:** the **dominant family is DONE** (PRs #28–#29): `dom7s11` US II,
+    `dom13` shell + 13♯11, `dom13b9` US VI, `dom7sus4` slash, and both `dom7alt`
+    USTs (US ♭VI/♭V, shell reordered `R-b7-3` to float the 3rd out of the mud).
+    Each has pitch-class tests (Test 16) + snapshot coverage (Test 15).
+    **Still open — the major/minor "Powell hand" shells** (`maj7`/`maj13`
+    `left:['R','3','7']` + RH triad; `min11` `left:['R','b3','b7']` + RH upper)
+    and the **slash-chord family for major/minor** (`maj9#11` D/C,
+    `dom11` F/G — some overlap with what shipped). Proof-sheet + build these
+    next when picking the initiative back up.
 
-- [ ] **Quartal voicings** (the So What / McCoy Tyner sound). Stacks of perfect
-  4ths — completely absent today, and the clearest remaining vocabulary gap
-  after upper structures (per the Piano With Jonny "Complete Guide" pillars:
-  shell → guide tones → rootless → upper structures → **quartal**). Fits the
-  existing `{left, right}` model as a right-hand stack of 4th-intervals.
-  Verified anchor: the **"So What" voicing** on Dm7 (D dorian) is
-  `E–A–D–G–B` = three perfect 4ths + a major 3rd on top, i.e. intervals
-  `9, 5, R, 11, 13` over the root. Build-time design decisions (not yet worked
-  out): which chord tone anchors the stack per quality (quartal is most at home
-  on min7 / dom7sus / modal chords, awkward on a plain major 7); how to split
-  the stack across LH/RH; whether it's a new voicing on existing qualities or a
-  distinct presentation; and that a quartal stack is deliberately
-  quality-ambiguous (the same shape reads over several chords), which the DP
-  optimizer and the chord-symbol display should tolerate. Derive full per-
-  quality interval lists + a proof sheet at build time, same as the upper
-  structures.
+- [~] **Quartal voicings** (the So What / McCoy Tyner sound). **Started**
+  (PR #28): the "LH root + RH 4th-stack" shapes shipped for `min7`/`min11`
+  (`R | F-Bb-Eb` = 11-♭7-♭3) and `maj7` (`R | B-E-A` = Lydian quartal).
+  **Still open:** the tight 5-note **"So What" cluster** (Dm7 = `E–A–D–G–B` =
+  9-5-R-11-13) can't be faithfully expressed in the current LH-low / RH-mid
+  realization split — all five notes want to sit close together in the middle
+  register, which needs register special-casing (a `voicing.lhBase`-style
+  override or a dedicated quartal realizer). Also open: quartal for `dom7sus`
+  and modal/`m7b5`. Note the quartal stack is deliberately quality-ambiguous
+  (one shape reads over several chords), which the display should tolerate.
 
 ## C. Parked features (deferred, owner-confirmed)
 
