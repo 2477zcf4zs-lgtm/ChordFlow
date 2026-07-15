@@ -819,4 +819,83 @@ console.log('\nTest 14: flavor pass (borrowed vocabulary) + flavor subs + borrow
   }
 }
 
+console.log('\nTest 15: voicing characterization snapshot (regression guard for the voicing engine)');
+{
+  // A frozen record of every shipped voicing's REALIZED notes, at two roots
+  // (C = clean, F# = spelling stress: double-sharps, E#/B#, bb7). Adding a NEW
+  // voicing to a quality changes only that quality's line -> update it here and
+  // eyeball the diff. An UNEXPECTED change to any other line means the voicing
+  // engine (realizeHand / realizeVoicing / spelling / register defaults) moved
+  // under an existing voicing -- exactly the accidental regression this test
+  // exists to catch before the LH-shell voicing work (invariant 18).
+  const GOLDEN = {
+      '6': 'C2 | E4 G4 A4 || C2 | A4 D5 E5 G5 || C2 G2 | A4 E5 || F#2 | A#4 C#5 D#5 || F#2 | D#4 G#4 A#4 C#5 || F#2 C#3 | D#4 A#4',
+      '69': 'C2 | E4 A4 D5 || C2 | A4 D5 E5 G5 || C2 G2 | A4 D5 E5 || F#2 | A#4 D#5 G#5 || F#2 | D#4 G#4 A#4 C#5 || F#2 C#3 | D#4 G#4 A#4',
+      'maj': 'C2 | E4 G4 C5 || C2 G2 | C4 E4 G4 || C2 | G4 C5 E5 || F#2 | A#4 C#5 F#5 || F#2 C#3 | F#4 A#4 C#5 || F#2 | C#4 F#4 A#4',
+      'min': 'C2 | Eb4 G4 C5 || C2 G2 | C4 Eb4 G4 || C2 | G4 C5 Eb5 || F#2 | A4 C#5 F#5 || F#2 C#3 | F#4 A4 C#5 || F#2 | C#4 F#4 A4',
+      'dim': 'C2 | Eb4 Gb4 C5 || C2 Gb2 | C4 Eb4 || F#2 | A4 C5 F#5 || F#2 C3 | F#4 A4',
+      'aug': 'C2 | E4 G#4 C5 || C2 G#2 | C4 E4 || F#2 | A#4 C##5 F#5 || F#2 C##3 | F#4 A#4',
+      'sus4': 'C2 | F4 G4 C5 || C2 G2 | C4 F4 || F#2 | B4 C#5 F#5 || F#2 C#3 | F#4 B4',
+      'sus2': 'C2 | D4 G4 C5 || C2 G2 | C4 D4 || F#2 | G#4 C#5 F#5 || F#2 C#3 | F#4 G#4',
+      'maj7': 'C2 | E4 G4 B4 || C2 G2 | B4 E5 || C2 | E4 B4 || C2 | E4 B4 D5 || C2 | E4 B4 A5 || C2 | E4 B4 F#5 || C2 | E4 G4 B4 D5 || C2 | B4 D5 E5 G5 || C2 | E4 G4 A4 D5 || F#2 | A#4 C#5 E#5 || F#2 C#3 | E#4 A#4 || F#2 | A#4 E#5 || F#2 | A#4 E#5 G#5 || F#2 | A#4 E#5 D#6 || F#2 | A#4 E#5 B#5 || F#2 | A#4 C#5 E#5 G#5 || F#2 | E#4 G#4 A#4 C#5 || F#2 | A#4 C#5 D#5 G#5',
+      'min7': 'C2 | Eb4 G4 Bb4 || C2 G2 | Bb4 Eb5 || C2 | Eb4 Bb4 || C2 | Eb4 Bb4 D5 || C2 | Eb4 Bb4 F5 || C2 | Eb4 G4 Bb4 D5 || C2 | Bb4 D5 Eb5 G5 || F#2 | A4 C#5 E5 || F#2 C#3 | E4 A4 || F#2 | A4 E5 || F#2 | A4 E5 G#5 || F#2 | A4 E5 B5 || F#2 | A4 C#5 E5 G#5 || F#2 | E4 G#4 A4 C#5',
+      'dom7': 'C2 | E4 G4 Bb4 || C2 G2 | Bb4 E5 || C2 | E4 Bb4 || C2 | E4 Bb4 A5 || C2 | E4 Bb4 D5 || C2 | E4 A4 Bb4 D5 || C2 | Bb4 D5 E5 A5 || F#2 | A#4 C#5 E5 || F#2 C#3 | E4 A#4 || F#2 | A#4 E5 || F#2 | A#4 E5 D#6 || F#2 | A#4 E5 G#5 || F#2 | A#4 D#5 E5 G#5 || F#2 | E4 G#4 A#4 D#5',
+      'dim7': 'C2 | Eb4 Gb4 Bbb4 || C2 Gb2 | Bbb4 Eb5 || F#2 | A4 C5 Eb5 || F#2 C3 | Eb4 A4',
+      'm7b5': 'C2 | Eb4 Gb4 Bb4 || C2 Gb2 | Bb4 Eb5 || C2 | Eb4 Bb4 || C2 | Eb4 Bb4 F5 || C2 | Eb4 Bb4 Ab5 || C2 | Eb4 Gb4 Bb4 C5 || C2 | Bb4 C5 Eb5 Gb5 || C2 | Eb4 Gb4 Bb4 D5 || F#2 | A4 C5 E5 || F#2 C3 | E4 A4 || F#2 | A4 E5 || F#2 | A4 E5 B5 || F#2 | A4 E5 D6 || F#2 | A4 C5 E5 F#5 || F#2 | E4 F#4 A4 C5 || F#2 | A4 C5 E5 G#5',
+      'minMaj7': 'C2 | Eb4 G4 B4 || C2 G2 | B4 Eb5 || C2 | Eb4 B4 || C2 | Eb4 B4 D5 || C2 | Eb4 G4 B4 D5 || C2 | B4 D5 Eb5 G5 || F#2 | A4 C#5 E#5 || F#2 C#3 | E#4 A4 || F#2 | A4 E#5 || F#2 | A4 E#5 G#5 || F#2 | A4 C#5 E#5 G#5 || F#2 | E#4 G#4 A4 C#5',
+      'dom7sus4': 'C2 | F4 G4 Bb4 || C2 G2 | Bb4 F5 || C2 | F4 Bb4 || C2 | F4 Bb4 D5 || C2 | F4 G4 Bb4 D5 || C2 | Bb4 D5 F5 G5 || F#2 | B4 C#5 E5 || F#2 C#3 | E4 B4 || F#2 | B4 E5 || F#2 | B4 E5 G#5 || F#2 | B4 C#5 E5 G#5 || F#2 | E4 G#4 B4 C#5',
+      'maj9': 'C2 | E4 G4 B4 D5 || C2 | B4 D5 E5 G5 || C2 G2 | B4 D5 E5 || F#2 | A#4 C#5 E#5 G#5 || F#2 | E#4 G#4 A#4 C#5 || F#2 C#3 | E#4 G#4 A#4',
+      'min9': 'C2 | Eb4 G4 Bb4 D5 || C2 | Bb4 D5 Eb5 G5 || C2 G2 | Bb4 D5 Eb5 || F#2 | A4 C#5 E5 G#5 || F#2 | E4 G#4 A4 C#5 || F#2 C#3 | E4 G#4 A4',
+      'dom9': 'C2 | E4 A4 Bb4 D5 || C2 | Bb4 D5 E5 A5 || C2 | E4 Bb4 D5 || C2 G2 | Bb4 D5 E5 || F#2 | A#4 D#5 E5 G#5 || F#2 | E4 G#4 A#4 D#5 || F#2 | A#4 E5 G#5 || F#2 C#3 | E4 G#4 A#4',
+      'dom11': 'C2 | Bb4 D5 F5 || C2 | F4 Bb4 D5 || C2 G2 | Bb4 D5 F5 || F#2 | E4 G#4 B4 || F#2 | B4 E5 G#5 || F#2 C#3 | E4 G#4 B4',
+      'min11': 'C2 | Eb4 G4 Bb4 F5 || C2 | Bb4 D5 Eb5 F5 || C2 G2 | Bb4 Eb5 F5 || F#2 | A4 C#5 E5 B5 || F#2 | E4 G#4 A4 B4 || F#2 C#3 | E4 A4 B4',
+      'maj13': 'C2 | E4 B4 D5 A5 || C2 | B4 D5 E5 A5 || C2 | B4 D5 A5 || F#2 | A#4 E#5 G#5 D#6 || F#2 | E#4 G#4 A#4 D#5 || F#2 | E#4 G#4 D#5',
+      'dom13': 'C2 | E4 Bb4 D5 A5 || C2 | Bb4 D5 E5 A5 || C2 | Bb4 D5 A5 || F#2 | A#4 E5 G#5 D#6 || F#2 | E4 G#4 A#4 D#5 || F#2 | E4 G#4 D#5',
+      'min13': 'C2 | Eb4 Bb4 D5 A5 || C2 | Bb4 D5 Eb5 A5 || C2 | Bb4 D5 A5 || F#2 | A4 E5 G#5 D#6 || F#2 | E4 G#4 A4 D#5 || F#2 | E4 G#4 D#5',
+      'add9': 'C2 | E4 G4 D5 || C2 G2 | D4 E4 || F#2 | A#4 C#5 G#5 || F#2 C#3 | G#4 A#4',
+      'madd9': 'C2 | Eb4 G4 D5 || C2 G2 | D4 Eb4 || F#2 | A4 C#5 G#5 || F#2 C#3 | G#4 A4',
+      'm6': 'C2 | Eb4 G4 A4 || C2 | A4 D5 Eb5 G5 || C2 G2 | A4 Eb5 || F#2 | A4 C#5 D#5 || F#2 | D#4 G#4 A4 C#5 || F#2 C#3 | D#4 A4',
+      'dom7b9': 'C2 | E4 A4 Bb4 Db5 || C2 | Bb4 Db5 E5 || C2 Bb2 | Db4 E4 G4 || F#2 | A#4 D#5 E5 G5 || F#2 | E4 G4 A#4 || F#2 E3 | G4 A#4 C#5',
+      'dom7s9': 'C2 | E4 Bb4 D#5 || C2 | Bb4 D#5 E5 || C2 Bb2 | D#4 E4 || F#2 | A#4 E5 G##5 || F#2 | E4 G##4 A#4 || F#2 E3 | G##4 A#4',
+      'dom7b5': 'C2 | E4 Gb4 Bb4 || C2 | Bb4 E5 Gb5 || F#2 | A#4 C5 E5 || F#2 | E4 A#4 C5',
+      'dom7s5': 'C2 | E4 G#4 Bb4 || C2 | Bb4 E5 G#5 || F#2 | A#4 C##5 E5 || F#2 | E4 A#4 C##5',
+      'dom7s11': 'C2 | E4 Bb4 D5 F#5 || C2 | Bb4 D5 E5 F#5 || F#2 | A#4 E5 G#5 B#5 || F#2 | E4 G#4 A#4 B#4',
+      'dom7b13': 'C2 | E4 Bb4 Ab5 || C2 | Bb4 E5 Ab5 || F#2 | A#4 E5 D6 || F#2 | E4 A#4 D5',
+      'dom7alt': 'C2 | E4 Ab4 Bb4 D#5 || C2 | Bb4 Db5 E5 Ab5 || C2 | Bb4 D#5 E5 Ab5 || F#2 | A#4 D5 E5 G##5 || F#2 | E4 G4 A#4 D5 || F#2 | E4 G##4 A#4 D5',
+      'dom9b5': 'C2 | E4 Gb4 Bb4 D5 || C2 | Bb4 D5 E5 Gb5 || F#2 | A#4 C5 E5 G#5 || F#2 | E4 G#4 A#4 C5',
+      'dom9s5': 'C2 | E4 G#4 Bb4 D5 || C2 | Bb4 D5 E5 G#5 || F#2 | A#4 C##5 E5 G#5 || F#2 | E4 G#4 A#4 C##5',
+      'dom13b9': 'C2 | E4 Bb4 Db5 A5 || C2 | Bb4 Db5 E5 A5 || F#2 | A#4 E5 G5 D#6 || F#2 | E4 G4 A#4 D#5',
+      'dom13s11': 'C2 | E4 Bb4 F#5 A5 || C2 | Bb4 E5 F#5 A5 || F#2 | A#4 E5 B#5 D#6 || F#2 | E4 A#4 B#4 D#5',
+  };
+  const ROOTS = ['C', 'F#'];
+  const sig = (root, quality, i) => {
+    const d = T.getChordNotesAtIndex(root, quality, 'seventh', i, 0);
+    const lh = d.leftHandPitches.map(p => p.name + p.octave).join(' ');
+    const rh = d.rightHandPitches.map(p => p.name + p.octave).join(' ');
+    return `${lh} | ${rh}`;
+  };
+  let drift = 0;
+  const qualities = Object.keys(T.KEYBOARD_VOICINGS);
+  for (const q of qualities) {
+    const n = T.KEYBOARD_VOICINGS[q].voicings.length;
+    const lines = [];
+    for (const root of ROOTS) for (let i = 0; i < n; i++) lines.push(sig(root, q, i));
+    const got = lines.join(' || ');
+    if (!(q in GOLDEN)) { drift++; check(false, `snapshot: new quality '${q}' has no golden -> add it: '${got}'`); continue; }
+    if (got !== GOLDEN[q]) {
+      drift++;
+      check(false, `snapshot drift on '${q}':\n      golden: ${GOLDEN[q]}\n      got:    ${got}`);
+    }
+  }
+  // Every golden quality must still exist (a removed/renamed quality is drift too)
+  for (const q of Object.keys(GOLDEN)) {
+    if (qualities.indexOf(q) === -1) { drift++; check(false, `snapshot: golden quality '${q}' no longer in KEYBOARD_VOICINGS`); }
+  }
+  if (!drift) console.log(`  all ${qualities.length} qualities match the frozen voicing snapshot`);
+}
+
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));
+// Fail the build on any failure. Without this the process exits 0 even when
+// checks fail, so `npm test` (node test_voice_leading.js && node
+// test_dom_smoke.js) and CI would go green on a broken voicing engine.
+process.exit(failures ? 1 : 0);

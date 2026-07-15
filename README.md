@@ -84,9 +84,11 @@ npm test           # runs both suites
 
 - `test_voice_leading.js` — pure-logic tests (theory, spelling, voicing realization,
   DP voice leading, cumulative tiers, all 53 library entries, generation statistics,
-  comping-groove onsets, bassist-mode left-hand realizations, and the 3-octave
-  window sweep). It loads the logic-only files (`theory`, `library`, `voicings`,
-  `parsing`, `audio`, `state`) in a single scope — the DOM-touching layers stay out.
+  comping-groove onsets, bassist-mode left-hand realizations, the 3-octave window
+  sweep, and a characterization snapshot of every voicing's realized notes that
+  guards against accidental regressions to the voicing engine). It loads the
+  logic-only files (`theory`, `library`, `voicings`, `parsing`, `audio`, `state`)
+  in a single scope — the DOM-touching layers stay out.
 - `test_dom_smoke.js` — jsdom integration test. It loads `index.html` via
   `JSDOM.fromFile(..., { resources: 'usable', runScripts: 'dangerously' })` so the
   external scripts actually load and run, then exercises the UI, playback, the
@@ -95,8 +97,12 @@ npm test           # runs both suites
   Note for new tests using the mock audio clock: zero `ctx.currentTime` *before*
   `startPlayback`, not after — rewinding afterwards stalls the lookahead scheduler.
 
-Both suites must exit 0. They also run in CI on every push and pull request
+Both suites must exit 0 (each calls `process.exit(1)` on any failed check, so a
+failure fails CI). They also run in CI on every push and pull request
 (`.github/workflows/test.yml`, Node 22, `npm ci && npm test`).
+
+The load-bearing rules of the codebase are documented in `INVARIANTS.md` — read
+it before changing the voicing engine, audio scheduling, or state flow.
 
 There is also a real-browser layout probe for the mobile/desktop shell
 (`scripts/layout_check.js`) that asserts the no-page-scroll acceptance rules at

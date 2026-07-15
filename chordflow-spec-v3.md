@@ -477,6 +477,10 @@ suites green. Commit. Stop.
 
 ## New invariants introduced by this spec (append to the running list)
 
+> These are consolidated into `INVARIANTS.md` (the canonical list). Kept here
+> for the spec's own record.
+
+
 15. **Trial/undo state discipline:** only `beginSubTrial` / its revert path
     mutate `state.trialSub`; the trial lives inside `state.substitutions`
     (so transpose re-derivation works) with `state.subBase` as the restore

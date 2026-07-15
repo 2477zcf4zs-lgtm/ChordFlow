@@ -47,6 +47,11 @@ Both must exit 0 at the end of every phase. Update the tests when a phase intent
 
 ## Invariants — do not break these in any phase
 
+> **Canonical list: see `INVARIANTS.md`.** All 18 invariants (this section's
+> 1–9, the 10–14 added later, and spec v3's 15–18) now live there as the single
+> source of truth. The copy below is kept for historical context.
+
+
 1. `voicingsFor()` stays the single source of truth for voicing lists; every consumer (`getChordNotesAtIndex`, `selectChord` cycling, `buildVoicingCandidates`) must see identical ordering.
 2. `recomputeProgressionVoicings()` runs on every path that mutates progression, key, or complexity.
 3. The structure/state render split: playback updates never write innerHTML, only toggle classes. Structural rebuilds go through `renderChordStructure()`.
