@@ -30,10 +30,9 @@ started then deliberately shelved.
   §4.2, and pad haptics, §4.4) stay noted under the paused Phase 4 entry in
   section C. Build the whole phase together or pull the settings-IA part
   forward as cleanup — either way, work from the spec.
-- [ ] **Consolidate the invariants.** Binding invariants are currently split
-  across `chordflow-spec-v2.md` (1–14) and `chordflow-spec-v3.md` (15–17). A
-  single canonical `INVARIANTS` section (or its own file) would be easier to
-  cite from future work than chasing two specs.
+- [x] **Consolidate the invariants.** Done — all 18 now live in `INVARIANTS.md`
+  (the specs point there). Invariant 18 (characterization snapshots gate voicing
+  changes) and the `test_voice_leading.js` exit-code fix landed with it.
 - [ ] **`test_dom_smoke.js` is one long function.** It's grown to cover pads,
   bassist mode, range, flavor, the sub tray, trials/A-B, and the QoL batch.
   Worth sectioning into named sub-routines (it already uses `// ---` comment
