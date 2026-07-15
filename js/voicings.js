@@ -362,7 +362,12 @@
         voicings: [
           { left: ['R'], right: ['3', 'b13', 'b7', '#9'], name: 'Type A: 3-b13-7-#9', type: 'A' },
           { left: ['R'], right: ['b7', 'b9', '3', 'b13'], name: 'Type B: 7-b9-3-b13', type: 'B' },
-          { left: ['R'], right: ['b7', '#9', '3', 'b13'], name: '7-#9-3-b13', type: 'B' }
+          { left: ['R'], right: ['b7', '#9', '3', 'b13'], name: '7-#9-3-b13', type: 'B' },
+          // Upper structures: LH shell R-7-3 (the 3rd stacked LAST, so it lands
+          // in the tenor rather than a muddy low third), RH plays the altered
+          // triad. US bVI = Ab maj (b13-1-#9); US bV = Gb maj (#11-7-b9).
+          { left: ['R', 'b7', '3'], right: ['b13', 'R', '#9'], name: 'US bVI: R-7-3 | bVI maj triad', type: null },
+          { left: ['R', 'b7', '3'], right: ['#11', 'b7', 'b9'], name: 'US bV: R-7-3 | bV maj triad', type: null }
         ]
       },
       
