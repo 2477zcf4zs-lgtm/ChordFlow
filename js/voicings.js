@@ -71,7 +71,9 @@
           // Jazz rootless (Bill Evans A/B)
           { left: ['R'], right: ['3', '5', '7', '9'], name: 'Type A: 3-5-7-9', type: 'A', tiers: ['jazz'] },
           { left: ['R'], right: ['7', '9', '3', '5'], name: 'Type B: 7-9-3-5', type: 'B', tiers: ['jazz'] },
-          { left: ['R'], right: ['3', '5', '6', '9'], name: '6/9 color: 3-5-6-9', type: 'A', tiers: ['jazz'] }
+          { left: ['R'], right: ['3', '5', '6', '9'], name: '6/9 color: 3-5-6-9', type: 'A', tiers: ['jazz'] },
+          // Quartal (Lydian): RH stacked in 4ths — C + B-E-A = maj13 color
+          { left: ['R'], right: ['7', '3', '13'], name: 'Quartal (Lydian): R | 7-3-13 in 4ths', type: null, tiers: ['jazz'] }
         ]
       },
       
@@ -89,7 +91,9 @@
           { left: ['R'], right: ['b3', 'b7', '11'], name: 'RSP (11): R | 3-7-11', type: null, tiers: ['rsp'] },
           // Jazz rootless (Bill Evans A/B)
           { left: ['R'], right: ['b3', '5', 'b7', '9'], name: 'Type A: 3-5-7-9', type: 'A', tiers: ['jazz'] },
-          { left: ['R'], right: ['b7', '9', 'b3', '5'], name: 'Type B: 7-9-3-5', type: 'B', tiers: ['jazz'] }
+          { left: ['R'], right: ['b7', '9', 'b3', '5'], name: 'Type B: 7-9-3-5', type: 'B', tiers: ['jazz'] },
+          // Quartal (So What / McCoy): RH stacked in 4ths — C + F-Bb-Eb, keeps guide tones
+          { left: ['R'], right: ['11', 'b7', 'b3'], name: 'Quartal: R | 11-7-3 in 4ths', type: null, tiers: ['jazz'] }
         ]
       },
       
@@ -163,7 +167,10 @@
           { left: ['R'], right: ['4', 'b7', '9'], name: 'RSP (9): R | 4-7-9', type: null, tiers: ['rsp'] },
           // Jazz rootless (Bill Evans A/B)
           { left: ['R'], right: ['4', '5', 'b7', '9'], name: 'Type A: 4-5-7-9', type: 'A', tiers: ['jazz'] },
-          { left: ['R'], right: ['b7', '9', '4', '5'], name: 'Type B: 7-9-4-5', type: 'B', tiers: ['jazz'] }
+          { left: ['R'], right: ['b7', '9', '4', '5'], name: 'Type B: 7-9-4-5', type: 'B', tiers: ['jazz'] },
+          // Slash 13sus: bVII major triad in root position over the root (Bb/C) —
+          // same tones as RSP(9) but voiced as a recognizable triad-over-bass
+          { left: ['R'], right: ['b7', '9', '11'], name: 'Slash: R | bVII triad (13sus)', type: null, tiers: ['jazz'] }
         ]
       },
       
@@ -213,7 +220,9 @@
         voicings: [
           { left: ['R'], right: ['b3', '5', 'b7', '11'], name: 'Type A: 3-5-7-11', type: 'A' },
           { left: ['R'], right: ['b7', '9', 'b3', '11'], name: 'Type B: 7-9-3-11', type: 'B' },
-          { left: ['R', '5'], right: ['b7', 'b3', '11'], name: 'R-5 | 7-3-11', type: null }
+          { left: ['R', '5'], right: ['b7', 'b3', '11'], name: 'R-5 | 7-3-11', type: null },
+          // Quartal (McCoy): RH stacked in 4ths — its natural home
+          { left: ['R'], right: ['11', 'b7', 'b3'], name: 'Quartal: R | 11-7-3 in 4ths', type: null }
         ]
       },
       
@@ -231,10 +240,14 @@
         voicings: [
           { left: ['R'], right: ['3', 'b7', '9', '13'], name: 'Type A: 3-7-9-13', type: 'A' },
           { left: ['R'], right: ['b7', '9', '3', '13'], name: 'Type B: 7-9-3-13', type: 'B' },
-          { left: ['R'], right: ['b7', '9', '13'], name: 'R | 7-9-13', type: null }
+          { left: ['R'], right: ['b7', '9', '13'], name: 'R | 7-9-13', type: null },
+          // LH shell + RH: the guide tones drop to the LH, RH plays the color
+          { left: ['R', 'b7'], right: ['3', '13', '9'], name: 'Shell: R-7 | 3-13-9', type: null },
+          // US II upper structure: RH major triad on the 9 = voices the 13 as 13#11
+          { left: ['R', 'b7'], right: ['9', '#11', '13'], name: 'US II: R-7 | maj triad (13#11)', type: null }
         ]
       },
-      
+
       // Minor 13
       min13: {
         voicings: [
@@ -329,10 +342,13 @@
       dom7s11: {
         voicings: [
           { left: ['R'], right: ['3', 'b7', '9', '#11'], name: '3-7-9-#11', type: 'A' },
-          { left: ['R'], right: ['b7', '9', '3', '#11'], name: '7-9-3-#11', type: 'B' }
+          { left: ['R'], right: ['b7', '9', '3', '#11'], name: '7-9-3-#11', type: 'B' },
+          // US II upper structure: LH shell (R-7), RH major triad on the 9 =
+          // 9-#11-13, the textbook Lydian-dominant upper structure
+          { left: ['R', 'b7'], right: ['9', '#11', '13'], name: 'US II: R-7 | maj triad (9-#11-13)', type: null }
         ]
       },
-      
+
       // Dom7b13
       dom7b13: {
         voicings: [
@@ -370,10 +386,12 @@
       dom13b9: {
         voicings: [
           { left: ['R'], right: ['3', 'b7', 'b9', '13'], name: '3-7-b9-13', type: 'A' },
-          { left: ['R'], right: ['b7', 'b9', '3', '13'], name: '7-b9-3-13', type: 'B' }
+          { left: ['R'], right: ['b7', 'b9', '3', '13'], name: '7-b9-3-13', type: 'B' },
+          // US VI upper structure: LH shell (R-7), RH triad = 13-b9-3 (VI major sound)
+          { left: ['R', 'b7'], right: ['13', 'b9', '3'], name: 'US VI: R-7 | maj triad (13-b9-3)', type: null }
         ]
       },
-      
+
       // Dom13#11
       dom13s11: {
         voicings: [
