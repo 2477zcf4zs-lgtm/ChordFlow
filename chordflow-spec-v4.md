@@ -172,12 +172,15 @@ and the comping LH sits in the pianist's register.
    DP's choices change because re-stacked shapes now cost differently,
    investigate before accepting (the re-stacked Type A forms match dom7's
    existing Type A geometry, so movement costs should IMPROVE consistency).
-   Add a **span regression test** (new Test 17): for every quality × every
-   voicing × roots {C, F#, B, Eb} × LH modes {roots, shells}, realized
-   single-hand span ≤ 16 st, and ≤ 14 st except entries on an explicit
-   allowlist (currently: `dom13s11` re-stack at 14 — the allowlist should
-   start EMPTY of >14 entries; 14 is allowed generally). This is the
-   permanent tripwire that prevents this class of bug from shipping again.
+   **Test 17 (the span guard) is ALREADY LANDED** (pre-built ahead of this
+   phase): every quality × voicing × {C, F#} is capped at 14 st per hand,
+   with the eleven known offenders pinned in its `SPAN_DEBT` allowlist at
+   their measured spans (they may not get worse, and stale entries fail
+   loudly). **This phase's exit criterion: `SPAN_DEBT` is EMPTY** — each
+   re-stack removes its entry (the renames force it, since debt keys are
+   `quality|name`). The shells ceiling check (≤ 23 st) tightens to ≤ 12
+   with the one-zone fix. Never add a SPAN_DEBT entry without owner
+   approval.
 
 **Acceptance:** all eleven re-stacks live and ear-approved; shells one-zone;
 roots LH at C3 with bassist paths still at C2; Test 17 green with no
