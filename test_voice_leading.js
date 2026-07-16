@@ -13,7 +13,7 @@ function loadTheoryCore() {
   // touches live inside functions this suite never calls.
   const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/audio.js', 'js/state.js'];
   const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
-  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions };');
+  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions };');
   return fn();
 }
 const T = loadTheoryCore();
@@ -992,6 +992,61 @@ console.log('\nTest 16: LH-shell upper-structure + quartal voicings (new vocabul
     }
   }
   check(bad === 0, 'new voicings spell cleanly across all tested roots');
+}
+
+console.log('\nTest 17: single-hand span guard (playability tripwire)');
+{
+  // No voicing the app deals may require an unblockable hand. Cap: 14 st
+  // (a 9th). SPAN_DEBT lists the pre-existing offenders measured 2026-07-17
+  // — spec v4 Phase 1 re-stacks each into its traditional compact form and
+  // must drive this list to EMPTY. Debt entries may not get worse, and a
+  // stale entry (renamed/fixed) must be removed — both are asserted.
+  const SPAN_DEBT = {
+    'maj7|RSP (13): R | 3-7-13': 17,
+    'dom7|RSP (13): R | 3-7-13': 17,
+    'm7b5|RSP (b13): R | 3-7-b13': 17,
+    'maj13|Type A: 3-7-9-13': 17,
+    'dom13|Type A: 3-7-9-13': 17,
+    'min13|Type A: 3-7-9-13': 18,
+    'dom7b13|3-7-b13': 16,
+    'dom13b9|3-7-b9-13': 17,
+    'dom13s11|3-7-#11-13': 17,
+    'dom7alt|US bVI: R-7-3 | bVI maj triad': 16,
+    'dom7alt|US bV: R-7-3 | bV maj triad': 16
+  };
+  const CAP = 14;
+  const span = ns => ns.length > 1
+    ? Math.max(...ns.map(p => p.midi)) - Math.min(...ns.map(p => p.midi)) : 0;
+  const seen = new Set();
+  for (const q of Object.keys(T.KEYBOARD_VOICINGS)) {
+    const vs = T.voicingsFor(q, 'seventh');
+    vs.forEach((v, i) => {
+      const key = q + '|' + v.name;
+      const debt = SPAN_DEBT[key];
+      if (debt !== undefined) seen.add(key);
+      // Span from a fixed interval sequence is root-independent (stacking
+      // gaps are pc differences), but realize at two roots as a belt.
+      for (const root of ['C', 'F#']) {
+        const d = T.getChordNotesAtIndex(root, q, 'seventh', i, 0);
+        const ls = span(d.leftHandPitches), rs = span(d.rightHandPitches);
+        const worst = Math.max(ls, rs);
+        const cap = debt !== undefined ? debt : CAP;
+        if (worst > cap) {
+          check(false, `span guard: ${key} at ${root} spans ${worst} st ` +
+            (debt !== undefined ? `(worse than its recorded debt of ${debt})`
+              : `(> ${CAP} st cap; add to SPAN_DEBT only with owner approval)`));
+        }
+      }
+    });
+  }
+  for (const key of Object.keys(SPAN_DEBT)) {
+    check(seen.has(key), `span guard: stale SPAN_DEBT entry '${key}' — voicing renamed or fixed; remove it`);
+  }
+  // Bassist-mode shells: known 22-23 st two-zone spread, re-stacked to one
+  // zone (~10 st) by spec v4 Phase 1. Pin the ceiling so it can't worsen.
+  const shSpan = span(T.realizeShellHand('C', 'maj7'));
+  check(shSpan <= 23, `shells LH span ceiling (got ${shSpan} st; debt, Phase 1 target <= 12)`);
+  console.log('  span guard active: cap 14 st, ' + Object.keys(SPAN_DEBT).length + ' debt entries awaiting Phase 1');
 }
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));
