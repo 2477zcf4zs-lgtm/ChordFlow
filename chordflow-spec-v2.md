@@ -48,8 +48,9 @@ Both must exit 0 at the end of every phase. Update the tests when a phase intent
 ## Invariants — do not break these in any phase
 
 > **Canonical list: see `INVARIANTS.md`.** All 18 invariants (this section's
-> 1–9, the 10–14 added later, and spec v3's 15–18) now live there as the single
-> source of truth. The copy below is kept for historical context.
+> 1–9, the 10–14 added later, spec v3's 15–17, and 18 — introduced directly in
+> `INVARIANTS.md` — now live there as the single source of truth. The copy
+> below is kept for historical context.
 
 
 1. `voicingsFor()` stays the single source of truth for voicing lists; every consumer (`getChordNotesAtIndex`, `selectChord` cycling, `buildVoicingCandidates`) must see identical ordering.

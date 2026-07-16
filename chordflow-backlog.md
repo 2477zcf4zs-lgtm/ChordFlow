@@ -121,6 +121,33 @@ started then deliberately shelved.
   and modal/`m7b5`. Note the quartal stack is deliberately quality-ambiguous
   (one shape reads over several chords), which the display should tolerate.
 
+- [ ] **Hand-span playability audit — several voicings exceed a physical
+  single-hand stretch** (owner report: "required my hand to stretch to
+  something like a 13th… I can barely do a 9th"). Verified by audit
+  (2026-07-17, spans in semitones; a 9th = 14, a 10th = 16):
+  - **Worst, bassist-mode `shells` LH: 22–23 st (a 13th/14th)** — root at
+    C2 + guide tones at C3+ (`C2 E3 Bb3`) is physically a two-hand spread.
+    Cause: `realizeShellHand` splits root (LH_BASE) and tones
+    (SHELL_TONE_BASE). Likely fix: realize the whole shell in one zone
+    (root ~C3, tones close above → ~10 st) — changes bassist-mode register,
+    needs Test 11 + smoke updates.
+  - **The two `dom7alt` UST left hands: 16 st (a major 10th)** — the mud fix
+    floated the 3rd a tenth up, trading mud for stretch. Likely fix: LH
+    `['R','b7']` (10 st) with the 3rd moved to the bottom of the RH
+    (`['3', …triad]`, ≤ 11 st) — all tones kept, both hands ≤ a 7th/9th.
+  - **Nine pre-existing RH shapes at 16–18 st (10th–12th)**: `RSP (13)` on
+    maj7/dom7 (17), `RSP (b13)` m7b5 (17), `Type A: 3-7-9-13` on
+    maj13/dom13/min13 (17–18), `dom7b13` (16), `dom13b9` (17), `dom13s11`
+    (17). Cause: `realizeHand` octave-jumps when a lower pitch class follows
+    a higher one (13 below 7 → up an octave).
+  - **Proposed mechanism** (owner to choose): a **Hand span setting** (e.g.
+    9th / 10th / unlimited) enforced like the reface Range window — filter
+    candidates in `buildVoicingCandidates` + `bestShiftForVoicing` on
+    *realized per-hand span*, so unplayable voicings never get picked for a
+    player who can't reach them — vs. just fixing the worst templates.
+    Test 15 snapshot + goldens will move for any template fix (use
+    `scripts/gen_voicing_snapshot.js`).
+
 ## C. Parked features (deferred, owner-confirmed)
 
 Consolidated here from the note that was inside `chordflow-spec-v3.md`.

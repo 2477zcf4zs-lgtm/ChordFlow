@@ -531,8 +531,13 @@
      */
     function lhRootlessShapesFor(quality) {
       const vd = KEYBOARD_VOICINGS[quality];
+      // The evans LH pool is the CLASSIC rootless canon: jazz-tier AND typed
+      // (A/B forms). The type guard deliberately excludes other jazz-tagged
+      // shapes (quartal, slash, upper structures — type: null): those are RH
+      // colors, and letting them leak into the two-hand-rootless left hand
+      // was an unreviewed side effect of adding them (severed by owner call).
       const jazz = vd && vd.voicings
-        ? vd.voicings.filter(v => v.tiers && v.tiers.indexOf('jazz') !== -1)
+        ? vd.voicings.filter(v => v.tiers && v.tiers.indexOf('jazz') !== -1 && v.type)
         : [];
       if (jazz.length) return jazz.map(v => v.right);
       return [guideToneIntervals(quality).slice(1)];
