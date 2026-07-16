@@ -12,14 +12,16 @@ started then deliberately shelved.
 
 ## A. Cleanup / polish (do before more feature adds)
 
-- [ ] **Unify the dictionary's substitution buttons with the sub tray.** The
+- [ ] **Unify the dictionary's substitution buttons with the sub tray.**
+  *(Absorbed into `chordflow-spec-v4.md` Phase 4.)* The
   Chord Dictionary still renders substitutions as old-style `.voicing-sub-btn`
   elements (`renderDictVoicings` → `voicingSubs` list in `js/render.js` ~line
   961), which are non-interactive and styled differently from the hear-first
   `.sub-chip` tray the rest of the app now uses. Either restyle them as
   `.sub-chip`s or (nicer) let them audition on tap like the main tray. Removes a
   visual inconsistency and the last consumer of `.voicing-sub-btn` CSS.
-- [ ] **Settings menu cleanup — regroup + non-default indicator.** The Settings
+- [ ] **Settings menu cleanup — regroup + non-default indicator.**
+  *(Absorbed into `chordflow-spec-v4.md` Phase 4 — execute from there.)* The Settings
   panel is a long single scroll with two faint section titles and no sense of
   where you are. Split it into **Song / Sound / Practice** segmented groups
   (each fits a phone without scrolling; the active chip is the "where am I"
@@ -33,7 +35,8 @@ started then deliberately shelved.
 - [x] **Consolidate the invariants.** Done — all 18 now live in `INVARIANTS.md`
   (the specs point there). Invariant 18 (characterization snapshots gate voicing
   changes) and the `test_voice_leading.js` exit-code fix landed with it.
-- [ ] **`test_dom_smoke.js` is one long function.** It's grown to cover pads,
+- [ ] **`test_dom_smoke.js` is one long function.**
+  *(Absorbed into `chordflow-spec-v4.md` Phase 4.)* It's grown to cover pads,
   bassist mode, range, flavor, the sub tray, trials/A-B, and the QoL batch.
   Worth sectioning into named sub-routines (it already uses `// ---` comment
   banners as de-facto sections) so a failure points at a feature area.
@@ -58,11 +61,19 @@ started then deliberately shelved.
   - Update `scripts/layout_check.js` (probes 390×844 and 1280×800) to assert
     whatever the new desktop intent is. Likely warrants its own spec rather than
     a quick patch — it's a layout rethink, not a tweak.
+- [ ] **Intermittent `npm test` flake under CPU contention.** Observed twice
+  (2026-07-17) while heavy parallel work ran on the same machine; 20
+  consecutive runs green afterwards, and both suites green in isolation.
+  Suspect the smoke test's wall-clock-dependent sections (the pause/resume
+  loop-counter check polls real timers). Next occurrence: capture the failing
+  check's output, then de-flake that section (mock-clock it or widen its
+  timeout).
 - [ ] *(owner: add your own UI rough-edges here as you hit them.)*
 
 ## B. Voicing content gaps
 
-- [ ] **Left-hand shell + right-hand triad / upper-structure voicings.** Today
+- [ ] **Left-hand shell + right-hand triad / upper-structure voicings.**
+  *(Remaining families specced: `chordflow-spec-v4.md` Phase 3.)* Today
   every entry in `KEYBOARD_VOICINGS` puts the root (occasionally + 5th) alone in
   the LH and stacks everything else in the RH — great for the rootless-voicing
   pedagogy it was built around, but it omits the *other* half of real comping:
@@ -110,7 +121,9 @@ started then deliberately shelved.
     `dom11` F/G — some overlap with what shipped). Proof-sheet + build these
     next when picking the initiative back up.
 
-- [~] **Quartal voicings** (the So What / McCoy Tyner sound). **Started**
+- [~] **Quartal voicings** (the So What / McCoy Tyner sound).
+  *(Completion specced: `chordflow-spec-v4.md` Phase 3, incl. the lhBase/rhBase
+  register-override mechanism for the So What cluster.)* **Started**
   (PR #28): the "LH root + RH 4th-stack" shapes shipped for `min7`/`min11`
   (`R | F-Bb-Eb` = 11-♭7-♭3) and `maj7` (`R | B-E-A` = Lydian quartal).
   **Still open:** the tight 5-note **"So What" cluster** (Dm7 = `E–A–D–G–B` =
@@ -122,7 +135,8 @@ started then deliberately shelved.
   (one shape reads over several chords), which the display should tolerate.
 
 - [ ] **Hand-span playability audit — several voicings exceed a physical
-  single-hand stretch** (owner report: "required my hand to stretch to
+  single-hand stretch** *(Specced: `chordflow-spec-v4.md` Phase 1 fixes the
+  templates + register doctrine; Phase 2 adds the Hand span setting.)* (owner report: "required my hand to stretch to
   something like a 13th… I can barely do a 9th"). Verified by audit
   (2026-07-17, spans in semitones; a 9th = 14, a 10th = 16):
   - **Worst, bassist-mode `shells` LH: 22–23 st (a 13th/14th)** — root at
@@ -152,7 +166,8 @@ started then deliberately shelved.
 
 Consolidated here from the note that was inside `chordflow-spec-v3.md`.
 
-- [paused] **Spec v3 Phase 4.** Fully specced in `chordflow-spec-v3.md`;
+- [paused] **Spec v3 Phase 4.** *(Now absorbed into `chordflow-spec-v4.md`
+  Phase 4 — execute from v4.)* Fully specced in `chordflow-spec-v3.md`;
   execution was paused after Phase 3 to do the QoL batch. Its **settings-IA
   cleanup half (§4.1 regroup + §4.3 non-default dot) is tracked in section A**
   with the other QoL work — see that entry. The remaining, more
