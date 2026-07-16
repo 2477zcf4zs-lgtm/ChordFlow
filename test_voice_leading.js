@@ -622,6 +622,20 @@ console.log('\nTest 12: two-hand rootless (evans) LH shapes + DP voice leading')
     'triads fall back to guide tones sans root');
   check(T.lhRootlessShapesFor('min7').every(s => s.indexOf('R') === -1),
     'min7 LH shapes carry no bass root');
+  // Severed coupling (owner call): jazz-tagged but UNTYPED shapes (quartal,
+  // slash, upper structures) are RH colors and must NOT leak into the evans
+  // LH pool — only the classic typed A/B rootless forms belong there.
+  check(T.lhRootlessShapesFor('min7').length === 2 &&
+    !T.lhRootlessShapesFor('min7').some(s => s.join(',') === '11,b7,b3'),
+    'evans LH pool excludes the quartal shape (typed A/B forms only)');
+  check(T.lhRootlessShapesFor('maj7').every(s => s.join(',') !== '7,3,13') &&
+    T.lhRootlessShapesFor('dom7sus4').every(s => s.join(',') !== 'b7,9,11'),
+    'evans LH pool excludes the maj7 quartal and dom7sus4 slash shapes');
+  // dim7's jazz entries are untyped, so it now falls back to guide tones —
+  // pin that so the fallback path is deliberate, not accidental.
+  check(T.lhRootlessShapesFor('dim7').length === 1 &&
+    T.lhRootlessShapesFor('dim7')[0].join(',') === 'b3,bb7',
+    'dim7 evans LH falls back to guide tones (b3, bb7)');
 
   // Realization: evans LH sits in the tenor range, RH untouched
   const evans = T.getChordNotesAtIndex('D', 'min7', 'seventh', 0, 0, { leftHandMode: 'evans', lhIndex: 0 });
@@ -877,11 +891,14 @@ console.log('\nTest 15: voicing characterization snapshot (regression guard for 
   let drift = 0;
   const qualities = Object.keys(T.KEYBOARD_VOICINGS);
   for (const q of qualities) {
-    const n = T.KEYBOARD_VOICINGS[q].voicings.length;
+    // Index space MUST match what getChordNotesAtIndex resolves against:
+    // voicingsFor(q,'seventh'), not the raw array — they only coincide while
+    // every tier tag is allowed under 'seventh' (review finding).
+    const n = T.voicingsFor(q, 'seventh').length;
     const lines = [];
     for (const root of ROOTS) for (let i = 0; i < n; i++) lines.push(sig(root, q, i));
     const got = lines.join(' || ');
-    if (!(q in GOLDEN)) { drift++; check(false, `snapshot: new quality '${q}' has no golden -> add it: '${got}'`); continue; }
+    if (!Object.hasOwn(GOLDEN, q)) { drift++; check(false, `snapshot: new quality '${q}' has no golden -> add it: '${got}'`); continue; }
     if (got !== GOLDEN[q]) {
       drift++;
       check(false, `snapshot drift on '${q}':\n      golden: ${GOLDEN[q]}\n      got:    ${got}`);
@@ -959,12 +976,16 @@ console.log('\nTest 16: LH-shell upper-structure + quartal voicings (new vocabul
   }
   // Every new voicing spells cleanly across a spread of roots (no undefined/NaN)
   let bad = 0;
-  for (const root of ['C', 'F', 'Bb', 'Ab', 'E', 'B', 'Gb']) {
-    for (const [quality, frag] of [['dom7s11','US II'],['dom13','US II'],['dom13b9','US VI'],
-        ['dom7sus4','Slash'],['min7','Quartal'],['maj7','Quartal'],
-        ['dom7alt','US bVI'],['dom7alt','US bV:']]) {
-      const vs = T.KEYBOARD_VOICINGS[quality].voicings;
-      const i = vs.findIndex(x => x.name.indexOf(frag) !== -1);
+  for (const [quality, frag] of [['dom7s11','US II'],['dom13','US II'],['dom13b9','US VI'],
+      ['dom7sus4','Slash'],['min7','Quartal'],['maj7','Quartal'],
+      ['dom7alt','US bVI'],['dom7alt','US bV:']]) {
+    // Same filtered index space getChordNotesAtIndex resolves against, and a
+    // hard -1 guard: an unmatched fragment must FAIL, not wrap (safeIndex
+    // modulo turns -1 into the last voicing) and silently test the wrong one.
+    const vs = T.voicingsFor(quality, 'seventh');
+    const i = vs.findIndex(x => x.name.indexOf(frag) !== -1);
+    if (i === -1) { bad++; check(false, `spell-check: no voicing matching '${frag}' in ${quality}`); continue; }
+    for (const root of ['C', 'F', 'Bb', 'Ab', 'E', 'B', 'Gb']) {
       const d = T.getChordNotesAtIndex(root, quality, 'seventh', i, 0);
       for (const p of d.leftHandPitches.concat(d.rightHandPitches))
         if (!p.name || p.name.includes('undefined') || !Number.isFinite(p.midi)) { bad++; }
@@ -975,6 +996,9 @@ console.log('\nTest 16: LH-shell upper-structure + quartal voicings (new vocabul
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));
 // Fail the build on any failure. Without this the process exits 0 even when
-// checks fail, so `npm test` (node test_voice_leading.js && node
-// test_dom_smoke.js) and CI would go green on a broken voicing engine.
-process.exit(failures ? 1 : 0);
+// checks fail, so `npm test` and CI would go green on a broken voicing engine.
+// exitCode (not process.exit) lets stdout flush fully: a broad snapshot drift
+// prints tens of KB of golden-vs-got diagnostics that exit() would truncate
+// on piped output (CI). This file is pure logic — no timers — so setting
+// exitCode cannot hang the process.
+process.exitCode = failures ? 1 : 0;
