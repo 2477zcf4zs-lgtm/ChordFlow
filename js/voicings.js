@@ -502,16 +502,15 @@
 
     /**
      * Shell left hand: root anchored in the bass (C2–B2, like roots mode)
-     * with the guide tones stacked from SHELL_TONE_BASE — an octave up, in
-     * the classic Bud Powell register — so R-3-7 doesn't turn to mud at C2.
+     * in ONE zone around C3 — the pianist's comping register. The old
+     * split (root at C2, tones at C3) spanned a 13th/14th: physically
+     * unplayable by one hand (span-audit item #1, spec v4). One zone keeps
+     * the whole shell ≤ ~10 st and clear of the low-third mud.
      */
-    const SHELL_TONE_BASE = LH_BASE + 12; // C3: guide tones sit above the root zone
+    const SHELL_TONE_BASE = LH_BASE + 12; // C3: the shell's home zone
 
     function realizeShellHand(rootNote, quality) {
-      const tones = guideToneIntervals(quality);
-      const root = realizeHand(rootNote, tones.slice(0, 1), LH_BASE);
-      const upper = realizeHand(rootNote, tones.slice(1), SHELL_TONE_BASE);
-      return root.concat(upper); // ascending: root ≤ B2 < C3 ≤ guide tones
+      return realizeHand(rootNote, guideToneIntervals(quality), SHELL_TONE_BASE);
     }
 
     // Two-hand rootless (Evans texture): the LH plays its own rootless color

@@ -583,9 +583,10 @@ console.log('\nTest 11: left-hand modes (bassist mode)');
   const shells = T.getChordNotesAtIndex('C', 'min7', 'seventh', 0, 0, { leftHandMode: 'shells' });
   check(shells.leftHandPitches.map(pc).join(',') === '0,3,10',
     'Cm7 shells LH pitch classes = root, b3, b7');
-  check(shells.leftHandPitches[0].midi < T.SHELL_TONE_BASE &&
-    shells.leftHandPitches.slice(1).every(p => p.midi >= T.SHELL_TONE_BASE),
-    'shell root stays in the bass zone; guide tones sit at/above C3');
+  check(shells.leftHandPitches.every(p => p.midi >= T.SHELL_TONE_BASE) &&
+    Math.max(...shells.leftHandPitches.map(p => p.midi)) -
+    Math.min(...shells.leftHandPitches.map(p => p.midi)) <= 12,
+    'shell sits in ONE zone at/above C3 with a blockable span (<= 12 st)');
   const asc = shells.leftHandPitches.map(p => p.midi);
   check(asc.every((m, i) => i === 0 || m > asc[i - 1]), 'shell LH pitches are ascending');
 
@@ -1042,10 +1043,11 @@ console.log('\nTest 17: single-hand span guard (playability tripwire)');
   for (const key of Object.keys(SPAN_DEBT)) {
     check(seen.has(key), `span guard: stale SPAN_DEBT entry '${key}' — voicing renamed or fixed; remove it`);
   }
-  // Bassist-mode shells: known 22-23 st two-zone spread, re-stacked to one
-  // zone (~10 st) by spec v4 Phase 1. Pin the ceiling so it can't worsen.
-  const shSpan = span(T.realizeShellHand('C', 'maj7'));
-  check(shSpan <= 23, `shells LH span ceiling (got ${shSpan} st; debt, Phase 1 target <= 12)`);
+  // Bassist-mode shells: one-zone fix landed — hard playability ceiling.
+  for (const q of ['maj7', 'min7', 'dom7', 'm7b5', 'min']) {
+    const s = span(T.realizeShellHand('C', q));
+    check(s <= 12, `shells LH (${q}) blockable (got ${s} st, cap 12)`);
+  }
   console.log('  span guard active: cap 14 st, ' + Object.keys(SPAN_DEBT).length + ' debt entries awaiting Phase 1');
 }
 
