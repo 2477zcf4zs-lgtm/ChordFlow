@@ -143,13 +143,11 @@ and the comping LH sits in the pianist's register.
    updated to the new intent in the same commit (the dom7alt "3rd floats to
    a major 10th" assertion is superseded: the LH is now `R-b7` = 10 st, and
    the 3rd is the RH's bottom note — assert THAT instead).
-2. **One-zone shells:** `realizeShellHand` realizes the whole shell with a
-   single `realizeHand(rootNote, tones, LH_BASE + 12)` call (root lands
-   C3–B3, tones close above; span ≤ 10 st). Delete the split-zone
-   `SHELL_TONE_BASE` concat. Update Test 11's shells assertions (root no
-   longer "in the bass zone below C3" — assert the one-zone span instead:
-   every shell note within `[48, 48+22]` and hand span ≤ 12 st) and the
-   smoke test's shells text if it asserts specific notes.
+2. **One-zone shells: DONE EARLY** (landed ahead of this phase after the
+   owner hit the 13th-span shell live). `realizeShellHand` is now a single
+   `realizeHand(root, tones, SHELL_TONE_BASE)` call; Test 11 asserts the
+   one-zone ≤ 12 st span and Test 17 hard-caps shells at 12 st across
+   qualities. Nothing left to do here — verify green and move on.
 3. **Roots-mode register doctrine:** raise the comping root zone to C3:
    introduce `LH_COMP_BASE = 48` and use it for `leftHandMode: 'roots'`
    realization (i.e. `realizeVoicing`'s default branch anchors
