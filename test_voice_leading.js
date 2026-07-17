@@ -13,7 +13,7 @@ function loadTheoryCore() {
   // touches live inside functions this suite never calls.
   const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/audio.js', 'js/state.js'];
   const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
-  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions };');
+  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions };');
   return fn();
 }
 const T = loadTheoryCore();
@@ -604,8 +604,9 @@ console.log('\nTest 11: left-hand modes (bassist mode)');
   const implicit = T.getChordNotesAtIndex('F', 'dom7', 'seventh', 0, 0);
   check(explicit.leftHandPitches.map(p => p.midi).join(',') === implicit.leftHandPitches.map(p => p.midi).join(','),
     "default leftHandMode is 'roots' (existing calls unchanged)");
-  check(implicit.leftHandPitches.length > 0 && implicit.leftHandPitches[0].midi >= T.LH_BASE,
-    'roots mode still anchors the written LH at LH_BASE');
+  check(implicit.leftHandPitches.length > 0 && implicit.leftHandPitches[0].midi >= T.LH_COMP_BASE &&
+    implicit.leftHandPitches[0].midi < T.LH_COMP_BASE + 12,
+    'roots mode anchors the written LH in the C3 comping register (LH_COMP_BASE), not the bassist C2');
 
   // bassonly: the app is your bassist — root only, nothing else
   const bassonly = T.getChordNotesAtIndex('C', 'min7', 'seventh', 0, 0, { leftHandMode: 'bassonly' });
@@ -844,43 +845,43 @@ console.log('\nTest 15: voicing characterization snapshot (regression guard for 
   // under an existing voicing -- exactly the accidental regression this test
   // exists to catch before the LH-shell voicing work (invariant 18).
   const GOLDEN = {
-      '6': 'C2 | E4 G4 A4 || C2 | A4 D5 E5 G5 || C2 G2 | A4 E5 || F#2 | A#4 C#5 D#5 || F#2 | D#4 G#4 A#4 C#5 || F#2 C#3 | D#4 A#4',
-      '69': 'C2 | E4 A4 D5 || C2 | A4 D5 E5 G5 || C2 G2 | A4 D5 E5 || F#2 | A#4 D#5 G#5 || F#2 | D#4 G#4 A#4 C#5 || F#2 C#3 | D#4 G#4 A#4',
-      'maj': 'C2 | E4 G4 C5 || C2 G2 | C4 E4 G4 || C2 | G4 C5 E5 || F#2 | A#4 C#5 F#5 || F#2 C#3 | F#4 A#4 C#5 || F#2 | C#4 F#4 A#4',
-      'min': 'C2 | Eb4 G4 C5 || C2 G2 | C4 Eb4 G4 || C2 | G4 C5 Eb5 || F#2 | A4 C#5 F#5 || F#2 C#3 | F#4 A4 C#5 || F#2 | C#4 F#4 A4',
-      'dim': 'C2 | Eb4 Gb4 C5 || C2 Gb2 | C4 Eb4 || F#2 | A4 C5 F#5 || F#2 C3 | F#4 A4',
-      'aug': 'C2 | E4 G#4 C5 || C2 G#2 | C4 E4 || F#2 | A#4 C##5 F#5 || F#2 C##3 | F#4 A#4',
-      'sus4': 'C2 | F4 G4 C5 || C2 G2 | C4 F4 || F#2 | B4 C#5 F#5 || F#2 C#3 | F#4 B4',
-      'sus2': 'C2 | D4 G4 C5 || C2 G2 | C4 D4 || F#2 | G#4 C#5 F#5 || F#2 C#3 | F#4 G#4',
-      'maj7': 'C2 | E4 G4 B4 || C2 G2 | B4 E5 || C2 | E4 B4 || C2 | E4 B4 D5 || C2 | E4 B4 A5 || C2 | E4 B4 F#5 || C2 | E4 G4 B4 D5 || C2 | B4 D5 E5 G5 || C2 | E4 G4 A4 D5 || C2 | B4 E5 A5 || F#2 | A#4 C#5 E#5 || F#2 C#3 | E#4 A#4 || F#2 | A#4 E#5 || F#2 | A#4 E#5 G#5 || F#2 | A#4 E#5 D#6 || F#2 | A#4 E#5 B#5 || F#2 | A#4 C#5 E#5 G#5 || F#2 | E#4 G#4 A#4 C#5 || F#2 | A#4 C#5 D#5 G#5 || F#2 | E#4 A#4 D#5',
-      'min7': 'C2 | Eb4 G4 Bb4 || C2 G2 | Bb4 Eb5 || C2 | Eb4 Bb4 || C2 | Eb4 Bb4 D5 || C2 | Eb4 Bb4 F5 || C2 | Eb4 G4 Bb4 D5 || C2 | Bb4 D5 Eb5 G5 || C2 | F4 Bb4 Eb5 || F#2 | A4 C#5 E5 || F#2 C#3 | E4 A4 || F#2 | A4 E5 || F#2 | A4 E5 G#5 || F#2 | A4 E5 B5 || F#2 | A4 C#5 E5 G#5 || F#2 | E4 G#4 A4 C#5 || F#2 | B4 E5 A5',
-      'dom7': 'C2 | E4 G4 Bb4 || C2 G2 | Bb4 E5 || C2 | E4 Bb4 || C2 | E4 Bb4 A5 || C2 | E4 Bb4 D5 || C2 | E4 A4 Bb4 D5 || C2 | Bb4 D5 E5 A5 || F#2 | A#4 C#5 E5 || F#2 C#3 | E4 A#4 || F#2 | A#4 E5 || F#2 | A#4 E5 D#6 || F#2 | A#4 E5 G#5 || F#2 | A#4 D#5 E5 G#5 || F#2 | E4 G#4 A#4 D#5',
-      'dim7': 'C2 | Eb4 Gb4 Bbb4 || C2 Gb2 | Bbb4 Eb5 || F#2 | A4 C5 Eb5 || F#2 C3 | Eb4 A4',
-      'm7b5': 'C2 | Eb4 Gb4 Bb4 || C2 Gb2 | Bb4 Eb5 || C2 | Eb4 Bb4 || C2 | Eb4 Bb4 F5 || C2 | Eb4 Bb4 Ab5 || C2 | Eb4 Gb4 Bb4 C5 || C2 | Bb4 C5 Eb5 Gb5 || C2 | Eb4 Gb4 Bb4 D5 || F#2 | A4 C5 E5 || F#2 C3 | E4 A4 || F#2 | A4 E5 || F#2 | A4 E5 B5 || F#2 | A4 E5 D6 || F#2 | A4 C5 E5 F#5 || F#2 | E4 F#4 A4 C5 || F#2 | A4 C5 E5 G#5',
-      'minMaj7': 'C2 | Eb4 G4 B4 || C2 G2 | B4 Eb5 || C2 | Eb4 B4 || C2 | Eb4 B4 D5 || C2 | Eb4 G4 B4 D5 || C2 | B4 D5 Eb5 G5 || F#2 | A4 C#5 E#5 || F#2 C#3 | E#4 A4 || F#2 | A4 E#5 || F#2 | A4 E#5 G#5 || F#2 | A4 C#5 E#5 G#5 || F#2 | E#4 G#4 A4 C#5',
-      'dom7sus4': 'C2 | F4 G4 Bb4 || C2 G2 | Bb4 F5 || C2 | F4 Bb4 || C2 | F4 Bb4 D5 || C2 | F4 G4 Bb4 D5 || C2 | Bb4 D5 F5 G5 || C2 | Bb4 D5 F5 || F#2 | B4 C#5 E5 || F#2 C#3 | E4 B4 || F#2 | B4 E5 || F#2 | B4 E5 G#5 || F#2 | B4 C#5 E5 G#5 || F#2 | E4 G#4 B4 C#5 || F#2 | E4 G#4 B4',
-      'maj9': 'C2 | E4 G4 B4 D5 || C2 | B4 D5 E5 G5 || C2 G2 | B4 D5 E5 || F#2 | A#4 C#5 E#5 G#5 || F#2 | E#4 G#4 A#4 C#5 || F#2 C#3 | E#4 G#4 A#4',
-      'min9': 'C2 | Eb4 G4 Bb4 D5 || C2 | Bb4 D5 Eb5 G5 || C2 G2 | Bb4 D5 Eb5 || F#2 | A4 C#5 E5 G#5 || F#2 | E4 G#4 A4 C#5 || F#2 C#3 | E4 G#4 A4',
-      'dom9': 'C2 | E4 A4 Bb4 D5 || C2 | Bb4 D5 E5 A5 || C2 | E4 Bb4 D5 || C2 G2 | Bb4 D5 E5 || F#2 | A#4 D#5 E5 G#5 || F#2 | E4 G#4 A#4 D#5 || F#2 | A#4 E5 G#5 || F#2 C#3 | E4 G#4 A#4',
-      'dom11': 'C2 | Bb4 D5 F5 || C2 | F4 Bb4 D5 || C2 G2 | Bb4 D5 F5 || F#2 | E4 G#4 B4 || F#2 | B4 E5 G#5 || F#2 C#3 | E4 G#4 B4',
-      'min11': 'C2 | Eb4 G4 Bb4 F5 || C2 | Bb4 D5 Eb5 F5 || C2 G2 | Bb4 Eb5 F5 || C2 | F4 Bb4 Eb5 || F#2 | A4 C#5 E5 B5 || F#2 | E4 G#4 A4 B4 || F#2 C#3 | E4 A4 B4 || F#2 | B4 E5 A5',
-      'maj13': 'C2 | E4 B4 D5 A5 || C2 | B4 D5 E5 A5 || C2 | B4 D5 A5 || F#2 | A#4 E#5 G#5 D#6 || F#2 | E#4 G#4 A#4 D#5 || F#2 | E#4 G#4 D#5',
-      'dom13': 'C2 | E4 Bb4 D5 A5 || C2 | Bb4 D5 E5 A5 || C2 | Bb4 D5 A5 || C2 Bb2 | E4 A4 D5 || C2 Bb2 | D4 F#4 A4 || F#2 | A#4 E5 G#5 D#6 || F#2 | E4 G#4 A#4 D#5 || F#2 | E4 G#4 D#5 || F#2 E3 | A#4 D#5 G#5 || F#2 E3 | G#4 B#4 D#5',
-      'min13': 'C2 | Eb4 Bb4 D5 A5 || C2 | Bb4 D5 Eb5 A5 || C2 | Bb4 D5 A5 || F#2 | A4 E5 G#5 D#6 || F#2 | E4 G#4 A4 D#5 || F#2 | E4 G#4 D#5',
-      'add9': 'C2 | E4 G4 D5 || C2 G2 | D4 E4 || F#2 | A#4 C#5 G#5 || F#2 C#3 | G#4 A#4',
-      'madd9': 'C2 | Eb4 G4 D5 || C2 G2 | D4 Eb4 || F#2 | A4 C#5 G#5 || F#2 C#3 | G#4 A4',
-      'm6': 'C2 | Eb4 G4 A4 || C2 | A4 D5 Eb5 G5 || C2 G2 | A4 Eb5 || F#2 | A4 C#5 D#5 || F#2 | D#4 G#4 A4 C#5 || F#2 C#3 | D#4 A4',
-      'dom7b9': 'C2 | E4 A4 Bb4 Db5 || C2 | Bb4 Db5 E5 || C2 Bb2 | Db4 E4 G4 || F#2 | A#4 D#5 E5 G5 || F#2 | E4 G4 A#4 || F#2 E3 | G4 A#4 C#5',
-      'dom7s9': 'C2 | E4 Bb4 D#5 || C2 | Bb4 D#5 E5 || C2 Bb2 | D#4 E4 || F#2 | A#4 E5 G##5 || F#2 | E4 G##4 A#4 || F#2 E3 | G##4 A#4',
-      'dom7b5': 'C2 | E4 Gb4 Bb4 || C2 | Bb4 E5 Gb5 || F#2 | A#4 C5 E5 || F#2 | E4 A#4 C5',
-      'dom7s5': 'C2 | E4 G#4 Bb4 || C2 | Bb4 E5 G#5 || F#2 | A#4 C##5 E5 || F#2 | E4 A#4 C##5',
-      'dom7s11': 'C2 | E4 Bb4 D5 F#5 || C2 | Bb4 D5 E5 F#5 || C2 Bb2 | D4 F#4 A4 || F#2 | A#4 E5 G#5 B#5 || F#2 | E4 G#4 A#4 B#4 || F#2 E3 | G#4 B#4 D#5',
-      'dom7b13': 'C2 | E4 Bb4 Ab5 || C2 | Bb4 E5 Ab5 || F#2 | A#4 E5 D6 || F#2 | E4 A#4 D5',
-      'dom7alt': 'C2 | E4 Ab4 Bb4 D#5 || C2 | Bb4 Db5 E5 Ab5 || C2 | Bb4 D#5 E5 Ab5 || C2 Bb2 E3 | Ab4 C5 D#5 || C2 Bb2 E3 | F#4 Bb4 Db5 || F#2 | A#4 D5 E5 G##5 || F#2 | E4 G4 A#4 D5 || F#2 | E4 G##4 A#4 D5 || F#2 E3 A#3 | D4 F#4 G##4 || F#2 E3 A#3 | B#3 E4 G4',
-      'dom9b5': 'C2 | E4 Gb4 Bb4 D5 || C2 | Bb4 D5 E5 Gb5 || F#2 | A#4 C5 E5 G#5 || F#2 | E4 G#4 A#4 C5',
-      'dom9s5': 'C2 | E4 G#4 Bb4 D5 || C2 | Bb4 D5 E5 G#5 || F#2 | A#4 C##5 E5 G#5 || F#2 | E4 G#4 A#4 C##5',
-      'dom13b9': 'C2 | E4 Bb4 Db5 A5 || C2 | Bb4 Db5 E5 A5 || C2 Bb2 | A4 Db5 E5 || F#2 | A#4 E5 G5 D#6 || F#2 | E4 G4 A#4 D#5 || F#2 E3 | D#4 G4 A#4',
-      'dom13s11': 'C2 | E4 Bb4 F#5 A5 || C2 | Bb4 E5 F#5 A5 || F#2 | A#4 E5 B#5 D#6 || F#2 | E4 A#4 B#4 D#5',
+      '6': 'C3 | E4 G4 A4 || C3 | A4 D5 E5 G5 || C2 G2 | A4 E5 || F#3 | A#4 C#5 D#5 || F#3 | D#4 G#4 A#4 C#5 || F#2 C#3 | D#4 A#4',
+      '69': 'C3 | E4 A4 D5 || C3 | A4 D5 E5 G5 || C2 G2 | A4 D5 E5 || F#3 | A#4 D#5 G#5 || F#3 | D#4 G#4 A#4 C#5 || F#2 C#3 | D#4 G#4 A#4',
+      'maj': 'C3 | E4 G4 C5 || C2 G2 | C4 E4 G4 || C3 | G4 C5 E5 || F#3 | A#4 C#5 F#5 || F#2 C#3 | F#4 A#4 C#5 || F#3 | C#4 F#4 A#4',
+      'min': 'C3 | Eb4 G4 C5 || C2 G2 | C4 Eb4 G4 || C3 | G4 C5 Eb5 || F#3 | A4 C#5 F#5 || F#2 C#3 | F#4 A4 C#5 || F#3 | C#4 F#4 A4',
+      'dim': 'C3 | Eb4 Gb4 C5 || C2 Gb2 | C4 Eb4 || F#3 | A4 C5 F#5 || F#2 C3 | F#4 A4',
+      'aug': 'C3 | E4 G#4 C5 || C2 G#2 | C4 E4 || F#3 | A#4 C##5 F#5 || F#2 C##3 | F#4 A#4',
+      'sus4': 'C3 | F4 G4 C5 || C2 G2 | C4 F4 || F#3 | B4 C#5 F#5 || F#2 C#3 | F#4 B4',
+      'sus2': 'C3 | D4 G4 C5 || C2 G2 | C4 D4 || F#3 | G#4 C#5 F#5 || F#2 C#3 | F#4 G#4',
+      'maj7': 'C3 | E4 G4 B4 || C2 G2 | B4 E5 || C3 | E4 B4 || C3 | E4 B4 D5 || C3 | E4 A4 B4 || C3 | E4 B4 F#5 || C3 | E4 G4 B4 D5 || C3 | B4 D5 E5 G5 || C3 | E4 G4 A4 D5 || C3 | B4 E5 A5 || F#3 | A#4 C#5 E#5 || F#2 C#3 | E#4 A#4 || F#3 | A#4 E#5 || F#3 | A#4 E#5 G#5 || F#3 | A#4 D#5 E#5 || F#3 | A#4 E#5 B#5 || F#3 | A#4 C#5 E#5 G#5 || F#3 | E#4 G#4 A#4 C#5 || F#3 | A#4 C#5 D#5 G#5 || F#3 | E#4 A#4 D#5',
+      'min7': 'C3 | Eb4 G4 Bb4 || C2 G2 | Bb4 Eb5 || C3 | Eb4 Bb4 || C3 | Eb4 Bb4 D5 || C3 | Eb4 Bb4 F5 || C3 | Eb4 G4 Bb4 D5 || C3 | Bb4 D5 Eb5 G5 || C3 | F4 Bb4 Eb5 || F#3 | A4 C#5 E5 || F#2 C#3 | E4 A4 || F#3 | A4 E5 || F#3 | A4 E5 G#5 || F#3 | A4 E5 B5 || F#3 | A4 C#5 E5 G#5 || F#3 | E4 G#4 A4 C#5 || F#3 | B4 E5 A5',
+      'dom7': 'C3 | E4 G4 Bb4 || C2 G2 | Bb4 E5 || C3 | E4 Bb4 || C3 | E4 A4 Bb4 || C3 | E4 Bb4 D5 || C3 | E4 A4 Bb4 D5 || C3 | Bb4 D5 E5 A5 || F#3 | A#4 C#5 E5 || F#2 C#3 | E4 A#4 || F#3 | A#4 E5 || F#3 | A#4 D#5 E5 || F#3 | A#4 E5 G#5 || F#3 | A#4 D#5 E5 G#5 || F#3 | E4 G#4 A#4 D#5',
+      'dim7': 'C3 | Eb4 Gb4 Bbb4 || C2 Gb2 | Bbb4 Eb5 || F#3 | A4 C5 Eb5 || F#2 C3 | Eb4 A4',
+      'm7b5': 'C3 | Eb4 Gb4 Bb4 || C2 Gb2 | Bb4 Eb5 || C3 | Eb4 Bb4 || C3 | Eb4 Bb4 F5 || C3 | Eb4 Ab4 Bb4 || C3 | Eb4 Gb4 Bb4 C5 || C3 | Bb4 C5 Eb5 Gb5 || C3 | Eb4 Gb4 Bb4 D5 || F#3 | A4 C5 E5 || F#2 C3 | E4 A4 || F#3 | A4 E5 || F#3 | A4 E5 B5 || F#3 | A4 D5 E5 || F#3 | A4 C5 E5 F#5 || F#3 | E4 F#4 A4 C5 || F#3 | A4 C5 E5 G#5',
+      'minMaj7': 'C3 | Eb4 G4 B4 || C2 G2 | B4 Eb5 || C3 | Eb4 B4 || C3 | Eb4 B4 D5 || C3 | Eb4 G4 B4 D5 || C3 | B4 D5 Eb5 G5 || F#3 | A4 C#5 E#5 || F#2 C#3 | E#4 A4 || F#3 | A4 E#5 || F#3 | A4 E#5 G#5 || F#3 | A4 C#5 E#5 G#5 || F#3 | E#4 G#4 A4 C#5',
+      'dom7sus4': 'C3 | F4 G4 Bb4 || C2 G2 | Bb4 F5 || C3 | F4 Bb4 || C3 | F4 Bb4 D5 || C3 | F4 G4 Bb4 D5 || C3 | Bb4 D5 F5 G5 || C3 | Bb4 D5 F5 || F#3 | B4 C#5 E5 || F#2 C#3 | E4 B4 || F#3 | B4 E5 || F#3 | B4 E5 G#5 || F#3 | B4 C#5 E5 G#5 || F#3 | E4 G#4 B4 C#5 || F#3 | E4 G#4 B4',
+      'maj9': 'C3 | E4 G4 B4 D5 || C3 | B4 D5 E5 G5 || C2 G2 | B4 D5 E5 || F#3 | A#4 C#5 E#5 G#5 || F#3 | E#4 G#4 A#4 C#5 || F#2 C#3 | E#4 G#4 A#4',
+      'min9': 'C3 | Eb4 G4 Bb4 D5 || C3 | Bb4 D5 Eb5 G5 || C2 G2 | Bb4 D5 Eb5 || F#3 | A4 C#5 E5 G#5 || F#3 | E4 G#4 A4 C#5 || F#2 C#3 | E4 G#4 A4',
+      'dom9': 'C3 | E4 A4 Bb4 D5 || C3 | Bb4 D5 E5 A5 || C3 | E4 Bb4 D5 || C2 G2 | Bb4 D5 E5 || F#3 | A#4 D#5 E5 G#5 || F#3 | E4 G#4 A#4 D#5 || F#3 | A#4 E5 G#5 || F#2 C#3 | E4 G#4 A#4',
+      'dom11': 'C3 | Bb4 D5 F5 || C3 | F4 Bb4 D5 || C2 G2 | Bb4 D5 F5 || F#3 | E4 G#4 B4 || F#3 | B4 E5 G#5 || F#2 C#3 | E4 G#4 B4',
+      'min11': 'C3 | Eb4 G4 Bb4 F5 || C3 | Bb4 D5 Eb5 F5 || C2 G2 | Bb4 Eb5 F5 || C3 | F4 Bb4 Eb5 || F#3 | A4 C#5 E5 B5 || F#3 | E4 G#4 A4 B4 || F#2 C#3 | E4 A4 B4 || F#3 | B4 E5 A5',
+      'maj13': 'C3 | E4 A4 B4 D5 || C3 | B4 D5 E5 A5 || C3 | B4 D5 A5 || F#3 | A#4 D#5 E#5 G#5 || F#3 | E#4 G#4 A#4 D#5 || F#3 | E#4 G#4 D#5',
+      'dom13': 'C3 | E4 A4 Bb4 D5 || C3 | Bb4 D5 E5 A5 || C3 | Bb4 D5 A5 || C2 Bb2 | E4 A4 D5 || C2 Bb2 | D4 F#4 A4 || F#3 | A#4 D#5 E5 G#5 || F#3 | E4 G#4 A#4 D#5 || F#3 | E4 G#4 D#5 || F#2 E3 | A#4 D#5 G#5 || F#2 E3 | G#4 B#4 D#5',
+      'min13': 'C3 | Eb4 A4 Bb4 D5 || C3 | Bb4 D5 Eb5 A5 || C3 | Bb4 D5 A5 || F#3 | A4 D#5 E5 G#5 || F#3 | E4 G#4 A4 D#5 || F#3 | E4 G#4 D#5',
+      'add9': 'C3 | E4 G4 D5 || C2 G2 | D4 E4 || F#3 | A#4 C#5 G#5 || F#2 C#3 | G#4 A#4',
+      'madd9': 'C3 | Eb4 G4 D5 || C2 G2 | D4 Eb4 || F#3 | A4 C#5 G#5 || F#2 C#3 | G#4 A4',
+      'm6': 'C3 | Eb4 G4 A4 || C3 | A4 D5 Eb5 G5 || C2 G2 | A4 Eb5 || F#3 | A4 C#5 D#5 || F#3 | D#4 G#4 A4 C#5 || F#2 C#3 | D#4 A4',
+      'dom7b9': 'C3 | E4 A4 Bb4 Db5 || C3 | Bb4 Db5 E5 || C2 Bb2 | Db4 E4 G4 || F#3 | A#4 D#5 E5 G5 || F#3 | E4 G4 A#4 || F#2 E3 | G4 A#4 C#5',
+      'dom7s9': 'C3 | E4 Bb4 D#5 || C3 | Bb4 D#5 E5 || C2 Bb2 | D#4 E4 || F#3 | A#4 E5 G##5 || F#3 | E4 G##4 A#4 || F#2 E3 | G##4 A#4',
+      'dom7b5': 'C3 | E4 Gb4 Bb4 || C3 | Bb4 E5 Gb5 || F#3 | A#4 C5 E5 || F#3 | E4 A#4 C5',
+      'dom7s5': 'C3 | E4 G#4 Bb4 || C3 | Bb4 E5 G#5 || F#3 | A#4 C##5 E5 || F#3 | E4 A#4 C##5',
+      'dom7s11': 'C3 | E4 Bb4 D5 F#5 || C3 | Bb4 D5 E5 F#5 || C2 Bb2 | D4 F#4 A4 || F#3 | A#4 E5 G#5 B#5 || F#3 | E4 G#4 A#4 B#4 || F#2 E3 | G#4 B#4 D#5',
+      'dom7b13': 'C3 | E4 Ab4 Bb4 || C3 | Bb4 E5 Ab5 || F#3 | A#4 D5 E5 || F#3 | E4 A#4 D5',
+      'dom7alt': 'C3 | E4 Ab4 Bb4 D#5 || C3 | Bb4 Db5 E5 Ab5 || C3 | Bb4 D#5 E5 Ab5 || C2 Bb2 | E4 Ab4 C5 D#5 || C2 Bb2 | E4 F#4 Bb4 Db5 || F#3 | A#4 D5 E5 G##5 || F#3 | E4 G4 A#4 D5 || F#3 | E4 G##4 A#4 D5 || F#2 E3 | A#4 D5 F#5 G##5 || F#2 E3 | A#4 B#4 E5 G5',
+      'dom9b5': 'C3 | E4 Gb4 Bb4 D5 || C3 | Bb4 D5 E5 Gb5 || F#3 | A#4 C5 E5 G#5 || F#3 | E4 G#4 A#4 C5',
+      'dom9s5': 'C3 | E4 G#4 Bb4 D5 || C3 | Bb4 D5 E5 G#5 || F#3 | A#4 C##5 E5 G#5 || F#3 | E4 G#4 A#4 C##5',
+      'dom13b9': 'C3 | E4 A4 Bb4 Db5 || C3 | Bb4 Db5 E5 A5 || C2 Bb2 | A4 Db5 E5 || F#3 | A#4 D#5 E5 G5 || F#3 | E4 G4 A#4 D#5 || F#2 E3 | D#4 G4 A#4',
+      'dom13s11': 'C3 | E4 A4 Bb4 F#5 || C3 | Bb4 E5 F#5 A5 || F#3 | A#4 D#5 E5 B#5 || F#3 | E4 A#4 B#4 D#5',
   };
   const ROOTS = ['C', 'F#'];
   const sig = (root, quality, i) => {
@@ -954,19 +955,22 @@ console.log('\nTest 16: LH-shell upper-structure + quartal voicings (new vocabul
   v = find('maj7', 'Quartal');
   if (v) check(eq(v.lh, [0]) && eq(v.rh, [4, 9, 11]), 'Cmaj7 quartal = LH {C} RH {E,A,B}');
 
-  // --- dom7alt upper structures: LH shell R-7-3, RH altered triad ---
-  // US bVI: LH C-Bb-E (R,b7,3) | RH Ab-C-Eb (b13,1,#9)
+  // --- dom7alt upper structures: LH two-note shell R-b7, RH = 3 + altered triad ---
+  // US bVI: LH C-Bb (R,b7) | RH E-Ab-C-Eb (3,b13,1,#9) — 3rd floats to RH bottom
   v = find('dom7alt', 'US bVI');
-  if (v) check(eq(v.lh, [0, 4, 10]) && eq(v.rh, [0, 3, 8]), 'C7alt US bVI = LH {C,E,Bb} RH {Ab,C,Eb}');
-  // US bV: LH C-Bb-E | RH Gb-Bb-Db (#11,b7,b9)
+  if (v) check(eq(v.lh, [0, 10]) && eq(v.rh, [0, 3, 4, 8]), 'C7alt US bVI = LH {C,Bb} RH {E,Ab,C,Eb}');
+  // US bV: LH C-Bb | RH E-Gb-Bb-Db (3,#11,b7,b9)
   v = find('dom7alt', 'US bV:');
-  if (v) check(eq(v.lh, [0, 4, 10]) && eq(v.rh, [1, 6, 10]), 'C7alt US bV = LH {C,E,Bb} RH {Gb,Bb,Db}');
-  // The mud fix: the LH 3rd must land ABOVE the b7 (a tenth up), not a low third
+  if (v) check(eq(v.lh, [0, 10]) && eq(v.rh, [1, 4, 6, 10]), 'C7alt US bV = LH {C,Bb} RH {E,Gb,Bb,Db}');
+  // Playability (spec v4 Phase 1): the LH is now the two-note shell R-b7 (10 st,
+  // blockable), and the 3rd is the BOTTOM of the RH — floated out of the LH so
+  // there is neither a muddy low third nor the old 16-st major-10th LH stretch.
   v = find('dom7alt', 'US bVI');
   if (v) {
-    const m = v.d.leftHandPitches.map(p => p.midi);
-    check(m[2] - m[0] === 16 && m[1] - m[0] === 10,
-      'C7alt shell floats the 3rd to a major 10th above the root (no low-third mud)');
+    const lm = v.d.leftHandPitches.map(p => p.midi);
+    const rm = v.d.rightHandPitches.map(p => p.midi);
+    check(lm.length === 2 && lm[1] - lm[0] === 10, 'C7alt US shell LH is R-b7 (10 st, no low-third mud)');
+    check(rm[0] % 12 === 4, 'C7alt US 3rd is the RH bottom note (floated out of the LH)');
   }
 
   // The two quartal min voicings realize as genuine stacked 4ths (5 semitones)
@@ -998,23 +1002,14 @@ console.log('\nTest 16: LH-shell upper-structure + quartal voicings (new vocabul
 console.log('\nTest 17: single-hand span guard (playability tripwire)');
 {
   // No voicing the app deals may require an unblockable hand. Cap: 14 st
-  // (a 9th). SPAN_DEBT lists the pre-existing offenders measured 2026-07-17
-  // — spec v4 Phase 1 re-stacks each into its traditional compact form and
-  // must drive this list to EMPTY. Debt entries may not get worse, and a
-  // stale entry (renamed/fixed) must be removed — both are asserted.
-  const SPAN_DEBT = {
-    'maj7|RSP (13): R | 3-7-13': 17,
-    'dom7|RSP (13): R | 3-7-13': 17,
-    'm7b5|RSP (b13): R | 3-7-b13': 17,
-    'maj13|Type A: 3-7-9-13': 17,
-    'dom13|Type A: 3-7-9-13': 17,
-    'min13|Type A: 3-7-9-13': 18,
-    'dom7b13|3-7-b13': 16,
-    'dom13b9|3-7-b9-13': 17,
-    'dom13s11|3-7-#11-13': 17,
-    'dom7alt|US bVI: R-7-3 | bVI maj triad': 16,
-    'dom7alt|US bV: R-7-3 | bV maj triad': 16
-  };
+  // (a 9th). SPAN_DEBT listed the eleven pre-existing offenders measured
+  // 2026-07-17; spec v4 Phase 1 re-stacked each into its traditional compact
+  // form and drove this list to EMPTY (the exit criterion). It is intentionally
+  // left here (empty) as the burn-down ledger: every voicing now clears the
+  // 14-st CAP outright. Re-populating it requires owner approval (a new debt
+  // means a knowingly-unplayable shape shipped). The single 9th (dom13#11 at
+  // exactly 14 st) is owner-approved and clears CAP without an entry.
+  const SPAN_DEBT = {};
   const CAP = 14;
   const span = ns => ns.length > 1
     ? Math.max(...ns.map(p => p.midi)) - Math.min(...ns.map(p => p.midi)) : 0;
@@ -1048,7 +1043,7 @@ console.log('\nTest 17: single-hand span guard (playability tripwire)');
     const s = span(T.realizeShellHand('C', q));
     check(s <= 12, `shells LH (${q}) blockable (got ${s} st, cap 12)`);
   }
-  console.log('  span guard active: cap 14 st, ' + Object.keys(SPAN_DEBT).length + ' debt entries awaiting Phase 1');
+  console.log('  span guard active: cap 14 st, ' + Object.keys(SPAN_DEBT).length + ' debt entries (Phase 1 emptied the ledger)');
 }
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));

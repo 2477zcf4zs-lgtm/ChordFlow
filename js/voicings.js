@@ -66,7 +66,7 @@
           { left: ['R'], right: ['3', '7'], name: 'Shell: R | 3-7', type: null, tiers: ['strict'] },
           // Root-Shell-Pretty: root + shell (3,7) + one color note
           { left: ['R'], right: ['3', '7', '9'], name: 'RSP (9): R | 3-7-9', type: null, tiers: ['rsp'] },
-          { left: ['R'], right: ['3', '7', '13'], name: 'RSP (13): R | 3-7-13', type: null, tiers: ['rsp'] },
+          { left: ['R'], right: ['3', '13', '7'], name: 'RSP (13): R | 3-13-7', type: null, tiers: ['rsp'] },
           { left: ['R'], right: ['3', '7', '#11'], name: 'RSP (#11): R | 3-7-#11', type: null, tiers: ['rsp'] },
           // Jazz rootless (Bill Evans A/B)
           { left: ['R'], right: ['3', '5', '7', '9'], name: 'Type A: 3-5-7-9', type: 'A', tiers: ['jazz'] },
@@ -107,7 +107,7 @@
           { left: ['R', '5'], right: ['b7', '3'], name: 'Strict spread: R-5 | 7-3', type: null, tiers: ['strict'] },
           { left: ['R'], right: ['3', 'b7'], name: 'Shell: R | 3-7', type: null, tiers: ['strict'] },
           // Root-Shell-Pretty: pretty note = 13 or 9
-          { left: ['R'], right: ['3', 'b7', '13'], name: 'RSP (13): R | 3-7-13', type: null, tiers: ['rsp'] },
+          { left: ['R'], right: ['3', '13', 'b7'], name: 'RSP (13): R | 3-13-7', type: null, tiers: ['rsp'] },
           { left: ['R'], right: ['3', 'b7', '9'], name: 'RSP (9): R | 3-7-9', type: null, tiers: ['rsp'] },
           // Jazz rootless (Bill Evans A/B -- 13 replaces the 5)
           { left: ['R'], right: ['3', '13', 'b7', '9'], name: 'Type A: 3-13-7-9', type: 'A', tiers: ['jazz'] },
@@ -133,7 +133,7 @@
           { left: ['R'], right: ['b3', 'b7'], name: 'Shell: R | 3-7', type: null, tiers: ['strict'] },
           // Root-Shell-Pretty: pretty note = 11 or b13
           { left: ['R'], right: ['b3', 'b7', '11'], name: 'RSP (11): R | 3-7-11', type: null, tiers: ['rsp'] },
-          { left: ['R'], right: ['b3', 'b7', 'b13'], name: 'RSP (b13): R | 3-7-b13', type: null, tiers: ['rsp'] },
+          { left: ['R'], right: ['b3', 'b13', 'b7'], name: 'RSP (b13): R | 3-b13-7', type: null, tiers: ['rsp'] },
           // Jazz rootless (the "m6 shape" and modern 9 color)
           { left: ['R'], right: ['b3', 'b5', 'b7', 'R'], name: 'Type A: 3-b5-7-R', type: 'A', tiers: ['jazz'] },
           { left: ['R'], right: ['b7', 'R', 'b3', 'b5'], name: 'Type B: 7-R-3-b5', type: 'B', tiers: ['jazz'] },
@@ -229,7 +229,7 @@
       // Major 13
       maj13: {
         voicings: [
-          { left: ['R'], right: ['3', '7', '9', '13'], name: 'Type A: 3-7-9-13', type: 'A' },
+          { left: ['R'], right: ['3', '13', '7', '9'], name: 'Type A: 3-13-7-9', type: 'A' },
           { left: ['R'], right: ['7', '9', '3', '13'], name: 'Type B: 7-9-3-13', type: 'B' },
           { left: ['R'], right: ['7', '9', '13'], name: 'R | 7-9-13', type: null }
         ]
@@ -238,7 +238,7 @@
       // Dominant 13
       dom13: {
         voicings: [
-          { left: ['R'], right: ['3', 'b7', '9', '13'], name: 'Type A: 3-7-9-13', type: 'A' },
+          { left: ['R'], right: ['3', '13', 'b7', '9'], name: 'Type A: 3-13-7-9', type: 'A' },
           { left: ['R'], right: ['b7', '9', '3', '13'], name: 'Type B: 7-9-3-13', type: 'B' },
           { left: ['R'], right: ['b7', '9', '13'], name: 'R | 7-9-13', type: null },
           // LH shell + RH: the guide tones drop to the LH, RH plays the color
@@ -251,7 +251,7 @@
       // Minor 13
       min13: {
         voicings: [
-          { left: ['R'], right: ['b3', 'b7', '9', '13'], name: 'Type A: 3-7-9-13', type: 'A' },
+          { left: ['R'], right: ['b3', '13', 'b7', '9'], name: 'Type A: 3-13-7-9', type: 'A' },
           { left: ['R'], right: ['b7', '9', 'b3', '13'], name: 'Type B: 7-9-3-13', type: 'B' },
           { left: ['R'], right: ['b7', '9', '13'], name: 'R | 7-9-13', type: null }
         ]
@@ -352,7 +352,7 @@
       // Dom7b13
       dom7b13: {
         voicings: [
-          { left: ['R'], right: ['3', 'b7', 'b13'], name: '3-7-b13', type: 'A' },
+          { left: ['R'], right: ['3', 'b13', 'b7'], name: '3-b13-7', type: 'A' },
           { left: ['R'], right: ['b7', '3', 'b13'], name: '7-3-b13', type: 'B' }
         ]
       },
@@ -363,11 +363,13 @@
           { left: ['R'], right: ['3', 'b13', 'b7', '#9'], name: 'Type A: 3-b13-7-#9', type: 'A' },
           { left: ['R'], right: ['b7', 'b9', '3', 'b13'], name: 'Type B: 7-b9-3-b13', type: 'B' },
           { left: ['R'], right: ['b7', '#9', '3', 'b13'], name: '7-#9-3-b13', type: 'B' },
-          // Upper structures: LH shell R-7-3 (the 3rd stacked LAST, so it lands
-          // in the tenor rather than a muddy low third), RH plays the altered
-          // triad. US bVI = Ab maj (b13-1-#9); US bV = Gb maj (#11-7-b9).
-          { left: ['R', 'b7', '3'], right: ['b13', 'R', '#9'], name: 'US bVI: R-7-3 | bVI maj triad', type: null },
-          { left: ['R', 'b7', '3'], right: ['#11', 'b7', 'b9'], name: 'US bV: R-7-3 | bV maj triad', type: null }
+          // Upper structures: LH plays the two-note shell (R-b7, ~10 st,
+          // blockable), and the 3rd floats up to become the BOTTOM of the RH
+          // (above the b7), so the altered triad sits on a guide-tone anchor
+          // with no muddy low third and no major-10th LH stretch. RH = 3 + the
+          // altered triad: US bVI = Ab maj (b13-1-#9); US bV = Gb maj (#11-7-b9).
+          { left: ['R', 'b7'], right: ['3', 'b13', 'R', '#9'], name: 'US bVI: R-7 | 3 + bVI triad', type: null },
+          { left: ['R', 'b7'], right: ['3', '#11', 'b7', 'b9'], name: 'US bV: R-7 | 3 + bV triad', type: null }
         ]
       },
       
@@ -390,7 +392,7 @@
       // Dom13b9
       dom13b9: {
         voicings: [
-          { left: ['R'], right: ['3', 'b7', 'b9', '13'], name: '3-7-b9-13', type: 'A' },
+          { left: ['R'], right: ['3', '13', 'b7', 'b9'], name: '3-13-7-b9', type: 'A' },
           { left: ['R'], right: ['b7', 'b9', '3', '13'], name: '7-b9-3-13', type: 'B' },
           // US VI upper structure: LH shell (R-7), RH triad = 13-b9-3 (VI major sound)
           { left: ['R', 'b7'], right: ['13', 'b9', '3'], name: 'US VI: R-7 | maj triad (13-b9-3)', type: null }
@@ -400,7 +402,7 @@
       // Dom13#11
       dom13s11: {
         voicings: [
-          { left: ['R'], right: ['3', 'b7', '#11', '13'], name: '3-7-#11-13', type: 'A' },
+          { left: ['R'], right: ['3', '13', 'b7', '#11'], name: '3-13-7-#11', type: 'A' },
           { left: ['R'], right: ['b7', '3', '#11', '13'], name: '7-3-#11-13', type: 'B' }
         ]
       }
@@ -411,7 +413,12 @@
     const RH_TARGET_CENTER = 65; // F4: ideal center of gravity for the RH
     const RH_SOFT_LOW = 55;      // G3: soft lower bound for RH notes
     const RH_SOFT_HIGH = 79;     // G5: soft upper bound for RH notes
-    const LH_BASE = 36;          // C2: left-hand roots placed in C2–B2
+    const LH_BASE = 36;          // C2: the BASSIST register — bassonly mode and
+                                 // the backing bass live here (a detached low root).
+    const LH_COMP_BASE = 48;     // C3: the PIANIST's comping register — a roots-mode
+                                 // LONE root sits here (spec v4 register doctrine), so
+                                 // it no longer floats ~2 octaves below the RH.
+                                 // (Multi-note shell lefts stay at LH_BASE; see below.)
 
     // Keyboard range windows (3-octave mode): 'reface' constrains every
     // realized note to one C-to-C 37-key span so voicings fit a Yamaha
@@ -608,7 +615,9 @@
      * moves the right hand up/down; the left hand stays anchored low.
      * leftHandMode swaps what the LH plays — the RH (and therefore the
      * voice-leading optimizer, which only reads voicing.right) is untouched:
-     *   'roots'    — the template's written LH (default, original behavior)
+     *   'roots'    — the template's written LH; a lone root comps at C3
+     *                (LH_COMP_BASE), a multi-note shell stays low at C2
+     *                (LH_BASE) to clear the RH; default mode
      *   'shells'   — root + guide tones (3rd & 7th) for the quality
      *   'evans'    — a second rootless voicing in the tenor range; lhIndex
      *                picks the shape (DP-chosen via computeLeftHandVoicings)
@@ -625,7 +634,16 @@
         const safe = ((lhIndex || 0) % shapes.length + shapes.length) % shapes.length;
         left = realizeHand(rootNote, shapes[safe], LH_ROOTLESS_BASE);
       } else if (leftHandMode === 'bassonly') left = realizeHand(rootNote, ['R'], LH_BASE);
-      else left = realizeHand(rootNote, voicing.left, LH_BASE);
+      else {
+        // Roots mode: a LONE root comps in the pianist's C3 register (fixes the
+        // old ~2-octave LH/RH gap). A multi-note LEFT (a two-note shell like
+        // R-b7 or R-5, from the US/shell vocabulary) stays in the low C2 zone:
+        // raised to C3 its top note crosses into the RH at high roots. Those
+        // shells were designed and verified low — keep them there. (Lifting the
+        // RH with the shell to comp both at C3 is Phase 3's per-voicing override.)
+        const base = voicing.left.length > 1 ? LH_BASE : LH_COMP_BASE;
+        left = realizeHand(rootNote, voicing.left, base);
+      }
       return {
         left,
         right: leftHandMode === 'bassonly' ? [] : realizeHand(rootNote, voicing.right, RH_BASE + octaveShift)
