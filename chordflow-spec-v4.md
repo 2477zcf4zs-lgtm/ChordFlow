@@ -397,6 +397,50 @@ desktop UI, loop region, tap tempo, user guide — is now Phases 5–7 above.)
 - Phase 3: exact So What split and whether dom7sus4 quartal makes the cut —
   both decided on the proof sheet by ear.
 
+## Known traps — read before your first commit
+
+Operational lessons already paid for in earlier sessions. Each of these
+looked like something else when it first happened:
+
+1. **A failing `npm test` under parallel load may be the known flake.** Twice
+   observed (2026-07-17): 2 failures while heavy work ran on the same
+   machine, then 20 consecutive green runs. Before touching any code, rerun
+   the failing suite **in isolation**. If it fails in isolation, it's real.
+   If it only fails under load, capture the failing check's output and see
+   the backlog's flake entry — do not "fix" code the tests aren't actually
+   indicting.
+2. **A merged fix can be invisible on the live site for GitHub-side
+   reasons.** The "pages build and deployment" workflow once failed three
+   merges in a row with GitHub's own outage page, silently freezing the
+   deployed site on stale code for a day (the owner saw an already-fixed bug
+   "recur"). After merging to main, check that workflow's run is green; if
+   it failed, re-run it (`rerun_workflow_run`) — do not diagnose the app.
+   Separately, the site has no cache-busting on `js/*.js`, so even a good
+   deploy takes ~10 minutes to reach a phone.
+3. **Never switch `test_voice_leading.js` to `process.exit()`.** It uses
+   `process.exitCode` deliberately: `exit()` truncates piped stdout and eats
+   the diagnostic output (empirically proven). The suite is pure logic — it
+   cannot hang — so `exitCode` is safe. (`test_dom_smoke.js` keeps
+   `process.exit`; it has pending timers.)
+4. **If a golden/snapshot test fails after your voicing edit, the test is
+   doing its job.** The only legitimate response is: confirm the new output
+   is *intended*, regenerate via `scripts/gen_voicing_snapshot.js`, and name
+   the change in the commit message. Editing GOLDEN lines by hand, or
+   loosening Test 17's cap / adding SPAN_DEBT entries to make a new voicing
+   fit, is never acceptable — Phase 1's whole purpose is to *empty*
+   SPAN_DEBT.
+5. **The "Verified facts" section was measured against main @ `92bf524`
+   (2026-07-17).** Later phases land on top of earlier ones, so before
+   relying on a measured number or line reference in a later session, spot-
+   check it against the code in front of you. If the spec and the code
+   disagree, or any instruction is ambiguous in a way that changes the
+   music, **stop and ask the owner — post the options, don't pick one
+   silently.** The owner strongly prefers a paused session over a confident
+   wrong guess.
+6. **Do not spawn subagents for searches or reviews.** Background agents
+   have repeatedly died mid-task with session-limit errors in this
+   environment. Do the work inline.
+
 ## Session protocol
 
 - One phase per session. Phases 1–3 in order; Phase 4 may run any time;
