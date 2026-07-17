@@ -41,7 +41,8 @@ started then deliberately shelved.
   Worth sectioning into named sub-routines (it already uses `// ---` comment
   banners as de-facto sections) so a failure points at a feature area.
 - [ ] **Re-evaluate the desktop browser UI — it got left behind and feels
-  clunky.** The layout has a single `@media (min-width: 900px)` breakpoint
+  clunky.** *(Absorbed into `chordflow-spec-v4.md` Phase 5 — design-first,
+  execute from there.)* The layout has a single `@media (min-width: 900px)` breakpoint
   (`css/styles.css` ~line 1771) that drops the entire mobile UI into a
   two-column grid: chord strip + transport on the left, and the whole tabbed
   panel area crammed into a fixed **480px** right column. Everything tuned for
@@ -174,9 +175,12 @@ Consolidated here from the note that was inside `chordflow-spec-v3.md`.
   feature-flavored bits stay here: the **LH cycle chip on the voicing panel**
   (§4.2) and **pad haptics** (§4.4). Resume from the spec when ready, whole or
   in parts.
-- [ ] **Loop-region selection** — drag / two-tap on the chord strip to loop just
+- [ ] **Loop-region selection** — *(Absorbed into `chordflow-spec-v4.md`
+  Phase 6.)* drag / two-tap on the chord strip to loop just
   bars 3–4. The scheduler is span-generic, so this is mostly index math + strip
   UI.
-- [ ] **Tap tempo** in the tempo popover.
-- [ ] **User guide** — in-app or doc; scope undecided. (Owner asked to keep this
-  on the back burner.)
+- [ ] **Tap tempo** in the tempo popover. *(Absorbed into
+  `chordflow-spec-v4.md` Phase 6.)*
+- [ ] **User guide** — in-app or doc. *(Absorbed into `chordflow-spec-v4.md`
+  Phase 7, scope-gated; no longer on the back burner — owner incorporated it
+  2026-07-17.)*

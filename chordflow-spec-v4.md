@@ -1,4 +1,4 @@
-# ChordFlow — Project Spec (v4: traditional voicings, playability, vocabulary completion, cleanup)
+# ChordFlow — Project Spec (v4: traditional voicings, playability, vocabulary completion, cleanup, desktop & practice extras)
 
 This spec is written for a fresh session (target executor: **Opus 4.8**) with no
 prior context. Before executing any phase, read:
@@ -285,11 +285,107 @@ chips; smoke suite sectioned with proven check-parity; both suites green;
 
 ---
 
+## Phase 5 — Desktop UI re-evaluation (design-first)
+
+The desktop layout got left behind while everything was tuned for the phone
+(owner: "it got left behind and feels very clunky"). This is a layout
+**rethink**, not a patch — so it runs design-first, mirroring the ear-check
+gate: **propose before building.**
+
+Current state (verified against `css/styles.css`):
+- One breakpoint: a single `@media (min-width: 900px)` (~line 1771) drops the
+  mobile UI into a two-column grid — chord strip + transport left, the whole
+  tabbed panel area in a fixed **480px** right column. A 1440px+ monitor looks
+  identical to a 900px one.
+- The mobile one-panel-at-a-time tab model is kept on desktop, where there's
+  room to show two panels at once (voicing + piano, or piano + dictionary).
+- Branding is just the tiny CF monogram in the tab bar; desktop has room for a
+  proper title/identity.
+- Piano, chord boxes, and the sub tray are sized for the narrow column.
+
+Steps:
+1. **Design gate:** write up 2–3 concrete layout directions (which panels
+   pair up, what the large-desktop tier adds, where identity lives, what
+   resizes) and post them for the owner to pick from. **Do not build until a
+   direction is approved.**
+2. Implement the approved direction. Add at least one large-desktop tier
+   (e.g. ≥ 1280px) beyond the 900px breakpoint. Desktop-only changes: the
+   sub-900px experience must be untouched (byte-identical mobile CSS, or
+   prove no visual change at 390×844).
+3. Update `scripts/layout_check.js`: keep the 390×844 and 1280×800 probes,
+   add a 1440×900 probe, and assert the *new* desktop intent (e.g. two
+   panels visible, no fixed 480px cap).
+
+**Acceptance:** owner-approved direction implemented; `layout_check.js`
+green at 390×844, 1280×800, and 1440×900; mobile unchanged; both test
+suites green. Commit. Stop.
+
+---
+
+## Phase 6 — Practice-flow extras (loop region + tap tempo)
+
+Two small, independent transport upgrades. No voicing changes — the ear-check
+gate does not apply; the smoke suite does.
+
+1. **Loop-region selection.** Loop just bars 3–4 of a progression instead of
+   the whole thing.
+   - Interaction: two-tap on the chord strip — tap a chord's *region handle*
+     (or long-press; pick whichever coexists with the existing tap-to-select /
+     tap-again-to-cycle gestures without ambiguity, and say why in the PR) to
+     mark the start, tap another to mark the end. Region shows as a highlight
+     on the strip plus a small chip ("Bars 3–4 ×") — the × clears it.
+   - The scheduler is span-generic, so this is mostly index math + strip UI:
+     playback and the loop counter wrap within the region while it's active.
+     The Top transport button jumps to the region start while a region is set.
+     Changing/regenerating the progression clears the region (keep state
+     simple; persistence can come later if the owner asks).
+   - Smoke checks: set a region mid-progression → scheduled indices stay
+     inside it across a wrap; loop counter increments per region pass; clearing
+     restores full-span looping; Top targets region start while set.
+2. **Tap tempo.** In the existing tempo popover: a "Tap" button; 3+ taps set
+   the BPM from the average inter-tap interval (ignore/reset on gaps > 2s),
+   rounded to the nearest integer and clamped to the tempo control's existing
+   min/max. Applies live, same code path as the slider (the scheduler already
+   reads tempo per tick — verify, don't fork it).
+   - Smoke check: simulate 4 taps at a known interval with the mocked clock →
+     BPM lands on the expected value; out-of-range taps clamp.
+
+**Acceptance:** both features working with the smoke checks above; both
+suites green; no change to default behavior when unused. Commit. Stop.
+
+---
+
+## Phase 7 — User guide (scope-gate first)
+
+Kept on the back burner until the surface stabilized; incorporated now as the
+final phase, after the register/vocabulary work has settled what there is to
+document.
+
+1. **Scope gate:** propose an outline to the owner before writing. The two
+   candidate shapes (pick one, or propose a hybrid):
+   - **(a) In-app guide** — a compact panel (natural home: the existing help
+     tab / "?" surface): short sections for transport & loop, LH modes (roots /
+     shells / evans / rootless / bass only + backing bass), the sub tray with
+     trials & A/B, flavor dial & borrowed-chord tint, range & hand span. One
+     screen per section, phone-first.
+   - **(b) Repo doc** — `USER_GUIDE.md`, longer-form, linked from the README.
+2. Write it in the app's voice and the owner's philosophy: it teaches
+   **standard techniques and jazz approaches** (what a shell is, why rootless
+   voicings exist, what an upper structure is), not just which button does
+   what. Short glossary over long prose.
+3. Keep it maintainable: one source of truth — if (a), the content lives as a
+   simple data structure (title + body per section), not scattered markup.
+
+**Acceptance:** owner-approved outline; guide shipped in the chosen shape;
+smoke check that the guide surface renders (if in-app); both suites green.
+Commit. Stop.
+
+---
+
 ## Out of scope (tracked elsewhere)
 
-Desktop UI re-evaluation (needs its own spec — see backlog), loop-region
-selection, tap tempo, user guide (back burner), and any voicing without a
-traditional citation.
+Any voicing without a traditional citation. (Everything previously parked —
+desktop UI, loop region, tap tempo, user guide — is now Phases 5–7 above.)
 
 ## Open questions to raise with the owner at build time
 
@@ -303,7 +399,9 @@ traditional citation.
 
 ## Session protocol
 
-- One phase per session, in order (Phase 4 may run any time). `npm test`
+- One phase per session. Phases 1–3 in order; Phase 4 may run any time;
+  Phases 5–7 are independent of each other and of 1–3, but 7 (user guide)
+  reads best last, once the feature surface has settled. `npm test`
   green before starting and at every commit.
 - Never weaken a test to pass it; replace with equivalent-or-better coverage
   of the new intent (Phase 1 deliberately changes several assertions — each
