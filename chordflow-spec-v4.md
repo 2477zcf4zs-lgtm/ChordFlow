@@ -49,6 +49,10 @@ Operational consequences, binding for every phase:
   change on release); the owner will set 9th for himself. Single user today —
   keep it simple, no persistence work beyond the existing settings pattern.
 - Low-root-as-color, C3-comping-norm register doctrine (above): approved.
+- **Mixed LH mode approved as the app default (owner, 2026-07-17):** the app
+  chooses each chord's left hand by voice leading (root vs shell etc.) instead
+  of one fixed formula; the named LH modes remain as pedagogical isolations.
+  Specced as Phase 1b.
 - The nine wide RH shapes get **re-stacked to their traditional compact
   forms** (verified recipes in Phase 1) rather than deleted or span-filtered
   away — the span setting is a personal guard, not the fix for wrong data.
@@ -185,6 +189,79 @@ roots LH at C3 with bassist paths still at C2; Test 17 green with no
 allowlist entries above 14 st; snapshot updated same-commit; both suites
 green. Commit. Stop.
 
+## Phase 1b — Mixed left hand (voice-led comping; the new default)
+
+Owner direction (2026-07-17): the fixed LH modes are pedagogical isolations —
+real comping *mixes* them. A new `'mixed'` mode lets the app choose each
+chord's left hand by voice leading rather than a strict formulation, and it
+becomes the **app default**. Runs after Phase 1 (it composes the C3 register
+doctrine); do it before Phase 2.
+
+**Candidates** (per chord — all built from existing realizers, no new
+vocabulary; every one sits in the C3 comping zone and spans ≤ 11 st):
+
+1. **Lone root** — `realizeHand(root, ['R'], LH_COMP_BASE)`.
+2. **Full shell** — `realizeShellHand(root, quality)` (root + guide tones,
+   one zone, the same shape shells mode plays).
+3. **Half shells** — root + one guide tone: `['R', 3rd]` and `['R', 7th]`
+   (intervals from `guideToneIntervals`, realized at `LH_COMP_BASE`). The
+   in-between color a comper actually reaches for.
+
+**Selection — a DP, not rules:** mirror `computeLeftHandVoicings` (the evans
+LH optimizer, the established pattern for exactly this problem). Per-chord
+candidate layers; cost =
+
+- LH movement between consecutive choices (`voiceMovementCost` on the LH
+  midis) — this is the "voice leading over formulas" the mode exists for;
+- register centering (soft, around ~E3);
+- **hard collision penalty** if the candidate's top note reaches the realized
+  RH bottom for that chord (half/full shells on high roots can climb toward
+  the RH — the DP must see the real RH, see plumbing below);
+- mild idiom priors, tuned on the proof sheet (e.g. shells favored on
+  dominant function, the lone root on resolutions) — keep the weights gentle;
+  movement should dominate.
+
+**Plumbing (no new realization API):**
+
+- `realizeVoicing` gains the `'mixed'` branch; it interprets the existing
+  `lhIndex` argument as the candidate id. State reuses the evans pattern: a
+  per-chord `lhVoicingIndices` array recomputed whenever the progression or
+  the RH choices change (same trigger as evans).
+- The **RH optimizer is untouched** (it reads only `voicing.right`, invariant).
+  Mixed runs AFTER it: extend the LH DP's inputs with the realized RH bottom
+  per chord (an optional `rhBottoms` array — evans' DP can take and benefit
+  from the same argument, but its current behavior must not change without a
+  separately-approved proof sheet).
+- **Default swap mechanics (subtle, get this exactly right):** the *app-level*
+  default changes — `state.leftHand` defaults to `'mixed'` and the Settings
+  select gains "Mixed (auto)" as its first option. The **engine-level default
+  parameter stays `'roots'`** (`realizeVoicing` / `getChordNotesAtIndex`):
+  Test 15's snapshot and every explicit-mode caller are built on it, and it
+  keeps the goldens byte-stable through this phase. Only tests that assert the
+  *app* default (`test_dom_smoke.js` — the LH restore-default checks, ~lines
+  847/891) change to `'mixed'`, each named in the commit message.
+- **Display teaches:** the voicing panel names the per-chord decision (e.g.
+  "LH mixed → shell (R-3-7)"), so the mode communicates the *why*, not just
+  the notes.
+
+**Ear gate (mandatory — this is the most behavior-visible change in the
+spec):** proof sheet through the real engine showing, per chord, the chosen
+candidate + realized LH|RH: (a) a ii-V-I in at least two keys, (b) one 8-bar
+random progression. Owner approves the *mixing behavior* (not just the
+notes) before the default flips.
+
+**Tests:** unit — DP picks deterministic; zero LH/RH collisions across all
+12 roots on a 13th-chord stress progression; total consecutive-LH movement
+never exceeds the naive all-roots baseline (the mode must *improve* voice
+leading, that's its contract); every candidate ≤ 12 st (keeps Phase 2's
+RH-only span-filter assumption valid). Smoke — app default is mixed; the LH
+select round-trips every mode; each fixed mode's output is byte-identical to
+its pre-1b behavior (isolations preserved).
+
+**Acceptance:** mixed mode ear-approved and live as the app default; fixed
+modes unchanged; engine defaults (and therefore the snapshot) stable; both
+suites green. Commit. Stop.
+
 ## Phase 2 — Hand span setting
 
 A personal playability guard, mirroring the reface Range window mechanically.
@@ -200,8 +277,9 @@ A personal playability guard, mirroring the reface Range window mechanically.
      roots-mode LH for candidate costing, same simplification the window
      uses for RH-only; document this); hard-drop candidates whose RH span
      exceeds the cap, least-violating fallback so a DP layer never empties.
-     (LH spans are template-fixed after Phase 1 — ≤ 12 st everywhere — so
-     RH-only filtering is sufficient; assert that assumption in a comment.)
+     (LH spans are template-fixed after Phase 1 and candidate-fixed after
+     Phase 1b — ≤ 12 st everywhere — so RH-only filtering is sufficient;
+     assert that assumption in a comment.)
    - `bestShiftForVoicing`: span overflow × 1000 penalty (manual cycling
      and default placement respect the cap).
    - `voicingsFor` is NOT touched — the cap must not change list indices
@@ -443,7 +521,8 @@ looked like something else when it first happened:
 
 ## Session protocol
 
-- One phase per session. Phases 1–3 in order; Phase 4 may run any time;
+- One phase per session. Phases 1 → 1b → 2 → 3 in order; Phase 4 may run any
+  time;
   Phases 5–7 are independent of each other and of 1–3, but 7 (user guide)
   reads best last, once the feature surface has settled. `npm test`
   green before starting and at every commit.
