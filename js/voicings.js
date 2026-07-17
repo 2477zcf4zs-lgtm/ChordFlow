@@ -610,18 +610,26 @@
       return { indices };
     }
 
-    // ================= Mixed left hand (voice-led comping) =================
-    // The app default: instead of one fixed LH formula, choose each chord's
-    // left hand — lone root, full shell, or a half shell — by voice leading,
-    // the way a comper actually mixes them. A DP (mirroring the evans LH
-    // optimizer above) trades movement against harmonic "thinness" so shells
-    // are the home texture but the hand drops to a lighter shape when a full
-    // shell would lurch or crowd the RH. All candidates sit in the C3 zone.
+    // ============== Mixed comping (voice-led, JOINT left + right) ==============
+    // The app default: instead of one fixed LH formula with a fixed RH, the
+    // engine chooses each chord's RH voicing AND its LH shape (lone root / full
+    // shell / half shell) TOGETHER, by voice leading. A DP (mirroring the RH
+    // and evans optimizers above) minimizes RH movement + LH movement, keeps
+    // the 3rd and 7th present across the two hands (completeness), and never
+    // lets the hands collide. The payoff: where it voice-leads well the engine
+    // sends the RH up to an upper structure and lets the LH take the full
+    // shell; elsewhere it comps rootless-RH + a light LH. All LH candidates
+    // sit in the C3 zone. (Owner-approved, spec v4 Phase 1b.)
 
     const MIX_LH_CENTER = 52; // E3: soft center of gravity for the comping LH
     // Plain triads (no 7th, no added color): a full R-3-5 shell just doubles
     // the RH triad, so it's mildly discouraged there (nudged toward root/half).
     const MIX_PLAIN_TRIADS = ['maj', 'min', 'aug', 'dim', 'sus2', 'sus4'];
+    // A REAL 7th must be carried by one hand; the 5th/6th fallback that
+    // guideToneIntervals emits for triads/6ths is NOT a mandatory guide tone.
+    const MIX_SEVENTH_INTERVALS = ['7', 'b7', 'bb7'];
+    const MIX_COLLISION = 1000; // LH top reaches the RH bottom (unplayable overlap)
+    const MIX_INCOMPLETE = 100; // a real guide tone (3rd/7th) present in neither hand
 
     /**
      * Mixed-mode LH candidates for a quality, as interval arrays in a STABLE
@@ -654,52 +662,78 @@
     }
 
     /**
-     * Local (per-chord) cost of a mixed candidate. Gentle, movement-dominant:
-     * a soft register pull toward E3, a "thinness" cost so a bare root under a
-     * seventh chord isn't free (this is what produces genuine mixing rather
-     * than an all-roots comp), a mild redundancy nudge off full shells on
-     * plain triads, and a HARD collision guard if the LH would reach the RH.
-     * Weights are the ear-calibration knob (spec v4 Phase 1b, tuned by owner).
+     * The pitch classes a mixed voicing MUST carry across its two hands: the
+     * 3rd (or the sus tone) always, plus a real 7th when the quality has one.
+     * The 5th/6th that guideToneIntervals emits as a fallback for triads and
+     * 6th chords is deliberately excluded — it is colour, not a guide tone, so
+     * a lone-root LH under a triad-in-the-RH is fine.
      */
-    function mixedLocalCost(quality, candIndex, midis, rhBottom) {
-      let c = 0;
+    function essentialGuideTonePcs(rootNote, quality) {
+      const gt = guideToneIntervals(quality);            // ['R', third, seventh-or-fallback]
+      const essential = gt[1] ? [gt[1]] : [];            // the 3rd/sus tone defines the chord
+      if (gt[2] && MIX_SEVENTH_INTERVALS.indexOf(gt[2]) !== -1) essential.push(gt[2]);
+      return essential.length ? realizeHand(rootNote, essential, RH_BASE).map(n => n.midi % 12) : [];
+    }
+
+    /**
+     * Intrinsic (RH-independent) cost of a mixed LH candidate: a soft pull to
+     * E3, a "thinness" cost so a bare root under a seventh chord isn't free
+     * (this is what produces mixing rather than an all-roots comp), and a mild
+     * nudge off a full shell on a plain triad (where it just doubles the RH).
+     */
+    function mixedLhIntrinsicCost(quality, candIndex, midis) {
       const mean = midis.reduce((a, b) => a + b, 0) / midis.length;
-      c += Math.abs(mean - MIX_LH_CENTER) * 0.1;               // soft centering
-      const nGuide = Math.max(0, midis.length - 1);            // shell tones held
-      c += (2 - Math.min(2, nGuide)) * 0.7;                    // thinness: root=1.4, half=0.7, full=0
-      if (candIndex === 1 && MIX_PLAIN_TRIADS.indexOf(quality) !== -1) c += 1.0; // triad shell = RH double
-      if (rhBottom !== undefined && rhBottom !== null && Math.max(...midis) >= rhBottom) c += 1000; // collision
+      let c = Math.abs(mean - MIX_LH_CENTER) * 0.1;             // soft centering
+      c += (2 - Math.min(2, midis.length - 1)) * 0.4;          // thinness: root .8, half .4, full 0
+      if (candIndex === 1 && MIX_PLAIN_TRIADS.indexOf(quality) !== -1) c += 1.0;
       return c;
     }
 
     /**
-     * Choose a mixed LH candidate for every chord at once, minimizing LH voice
-     * movement + local cost — the same DP shape as computeLeftHandVoicings,
-     * over the mixed candidate sets. `rhBottoms[i]` (optional) is the realized
-     * RH bottom midi for chord i, so the collision guard sees the real RH.
-     * Returns { indices, totalCost } (totalCost lets tests verify optimality).
+     * Joint mixed comping: choose RH voicing + shift AND LH shape for every
+     * chord at once, minimizing RH movement + LH movement, with a per-node
+     * local cost (RH register/tier from buildVoicingCandidates + LH intrinsic +
+     * a hard collision guard + a completeness penalty when a guide tone would
+     * be dropped). Reuses buildVoicingCandidates for the RH side so the RH's
+     * register/window/tier logic is not duplicated. Returns
+     * { rhIndices, rhShifts, lhIndices, totalCost }.
      */
-    function computeMixedLeftHand(progression, rhBottoms) {
-      const indices = [];
-      if (!progression || !progression.length) return { indices, totalCost: 0 };
-      const rb = rhBottoms || [];
+    function computeMixedVoicing(progression, complexity, range = null) {
+      const rhIndices = [], rhShifts = [], lhIndices = [];
+      if (!progression || !progression.length) return { rhIndices, rhShifts, lhIndices, totalCost: 0 };
 
-      const layers = progression.map((chord, i) =>
-        lhMixedCandidateIntervals(chord.quality).map((ivs, vIndex) => {
-          const midis = realizeMixedCandidate(chord.root, chord.quality, vIndex).map(n => n.midi);
-          return { vIndex, midis, localCost: mixedLocalCost(chord.quality, vIndex, midis, rb[i]) };
+      const layers = progression.map(chord => {
+        const rhCands = buildVoicingCandidates(chord, complexity, range);
+        const lhCands = lhMixedCandidateIntervals(chord.quality).map((ivs, ci) => ({
+          ci, midis: realizeMixedCandidate(chord.root, chord.quality, ci).map(n => n.midi)
         }));
+        const gtPcs = essentialGuideTonePcs(chord.root, chord.quality);
+        const nodes = [];
+        for (const rc of rhCands) {
+          const rhBottom = rc.rhMidis.length ? Math.min(...rc.rhMidis) : Infinity;
+          const rhPcs = new Set(rc.rhMidis.map(m => m % 12));
+          for (const lc of lhCands) {
+            const lhPcs = new Set(lc.midis.map(m => m % 12));
+            let local = rc.localCost + mixedLhIntrinsicCost(chord.quality, lc.ci, lc.midis);
+            if (Math.max(...lc.midis) >= rhBottom) local += MIX_COLLISION;
+            for (const pc of gtPcs) if (!rhPcs.has(pc) && !lhPcs.has(pc)) local += MIX_INCOMPLETE;
+            nodes.push({ rhVIndex: rc.vIndex, rhShift: rc.shift, rhMidis: rc.rhMidis,
+              lhCi: lc.ci, lhMidis: lc.midis, localCost: local });
+          }
+        }
+        return nodes;
+      });
 
-      let costs = layers[0].map(c => c.localCost);
+      let costs = layers[0].map(n => n.localCost);
       const back = [layers[0].map(() => -1)];
       for (let i = 1; i < layers.length; i++) {
-        const nextCosts = [];
-        const pointers = [];
+        const nextCosts = [], pointers = [];
         for (let j = 0; j < layers[i].length; j++) {
-          let best = Infinity;
-          let bestK = 0;
+          let best = Infinity, bestK = 0;
           for (let k = 0; k < layers[i - 1].length; k++) {
-            const c = costs[k] + voiceMovementCost(layers[i - 1][k].midis, layers[i][j].midis);
+            const c = costs[k]
+              + voiceMovementCost(layers[i - 1][k].rhMidis, layers[i][j].rhMidis)
+              + voiceMovementCost(layers[i - 1][k].lhMidis, layers[i][j].lhMidis);
             if (c < best) { best = c; bestK = k; }
           }
           nextCosts.push(best + layers[i][j].localCost);
@@ -713,34 +747,33 @@
       for (let k = 1; k < costs.length; k++) if (costs[k] < costs[j]) j = k;
       const totalCost = costs[j];
       for (let i = layers.length - 1; i >= 0; i--) {
-        indices[i] = layers[i][j].vIndex;
+        const n = layers[i][j];
+        rhIndices[i] = n.rhVIndex; rhShifts[i] = n.rhShift; lhIndices[i] = n.lhCi;
         j = back[i][j];
       }
-      return { indices, totalCost };
+      return { rhIndices, rhShifts, lhIndices, totalCost };
     }
 
     /**
-     * Realized RH bottom midi per chord for an already-chosen RH (voicing
-     * indices + shifts) — the collision input for the mixed LH DP. Kept next to
-     * its consumers (recompute + the sub preview) so both build it identically.
+     * Best mixed LH candidate for a FIXED right hand — used when the user
+     * manually cycles the RH voicing in mixed mode: recoordinate the LH to the
+     * pinned RH (cover the guide tones, clear the RH, else lightest). Local
+     * only; neighbour movement isn't considered because the user chose this RH.
      */
-    function rhBottomsFor(progression, indices, shifts, complexity) {
-      return progression.map((c, i) => {
-        const vs = voicingsFor(c.quality, complexity);
-        const v = vs[((indices[i] || 0) % vs.length + vs.length) % vs.length];
-        const rh = realizeHand(c.root, v.right, RH_BASE + (shifts && shifts[i] || 0)).map(n => n.midi);
-        return rh.length ? Math.min(...rh) : null;
+    function bestMixedLhForRh(rootNote, quality, rhMidis) {
+      const rhBottom = rhMidis.length ? Math.min(...rhMidis) : Infinity;
+      const rhPcs = new Set(rhMidis.map(m => m % 12));
+      const gtPcs = essentialGuideTonePcs(rootNote, quality);
+      let bestCi = 0, bestCost = Infinity;
+      lhMixedCandidateIntervals(quality).forEach((ivs, ci) => {
+        const midis = realizeMixedCandidate(rootNote, quality, ci).map(n => n.midi);
+        const lhPcs = new Set(midis.map(m => m % 12));
+        let c = mixedLhIntrinsicCost(quality, ci, midis);
+        if (Math.max(...midis) >= rhBottom) c += MIX_COLLISION;
+        for (const pc of gtPcs) if (!rhPcs.has(pc) && !lhPcs.has(pc)) c += MIX_INCOMPLETE;
+        if (c < bestCost) { bestCost = c; bestCi = ci; }
       });
-    }
-
-    /**
-     * Per-chord LH shape indices for a progression under a given LH mode: the
-     * mixed DP (collision-aware) for 'mixed', the evans DP otherwise. Single
-     * entry point so recompute and the sub preview stay in step.
-     */
-    function computeLhModeIndices(progression, mode, indices, shifts, complexity) {
-      if (mode !== 'mixed') return computeLeftHandVoicings(progression).indices;
-      return computeMixedLeftHand(progression, rhBottomsFor(progression, indices, shifts, complexity)).indices;
+      return bestCi;
     }
 
     /**
@@ -748,10 +781,10 @@
      * moves the right hand up/down; the left hand stays anchored low.
      * leftHandMode swaps what the LH plays — the RH (and therefore the
      * voice-leading optimizer, which only reads voicing.right) is untouched:
-     *   'mixed'    — voice-led comping: lhIndex selects a per-chord candidate
-     *                (lone root / full shell / half shell) chosen by the DP in
-     *                computeMixedLeftHand; the APP default (engine default
-     *                stays 'roots' so the snapshot is stable)
+     *   'mixed'    — voice-led comping: lhIndex selects a per-chord LH
+     *                candidate (lone root / full shell / half shell) chosen
+     *                JOINTLY with the RH by computeMixedVoicing; the APP default
+     *                (engine default stays 'roots' so the snapshot is stable)
      *   'roots'    — the template's written LH; a lone root comps at C3
      *                (LH_COMP_BASE), a multi-note shell stays low at C2
      *                (LH_BASE) to clear the RH; engine default mode
@@ -971,7 +1004,18 @@
     }
 
     function recomputeProgressionVoicings() {
-      const result = computeProgressionVoicings(state.progression, state.complexity, activeRangeWindow());
+      const range = activeRangeWindow();
+      if (state.leftHand === 'mixed') {
+        // Mixed mode chooses RH voicing + LH shape JOINTLY, so it owns all
+        // three arrays (the RH is picked for combined LH+RH voice leading, not
+        // by the RH-only optimizer).
+        const joint = computeMixedVoicing(state.progression, state.complexity, range);
+        state.voicingIndices = joint.rhIndices;
+        state.voicingShifts = joint.rhShifts;
+        state.lhVoicingIndices = joint.lhIndices;
+        return;
+      }
+      const result = computeProgressionVoicings(state.progression, state.complexity, range);
       state.voicingIndices = result.indices;
       state.voicingShifts = result.shifts;
       // LH shapes for two-hand rootless: cheap (few shapes, no shifts), so

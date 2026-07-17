@@ -252,6 +252,13 @@
             prevRh = realizeHand(prevChord.root, pv.right, RH_BASE + pShift).map(n => n.midi);
           }
           state.voicingShifts[index] = bestShiftForVoicing(chord.root, tierVoicings[nextIdx], prevRh, activeRangeWindow());
+          // Mixed mode: the LH is coordinated with the RH, so recoordinate it
+          // to the RH the user just cycled to (cover the guide tones, clear it).
+          if (state.leftHand === 'mixed') {
+            if (!state.lhVoicingIndices) state.lhVoicingIndices = [];
+            const rhMidis = realizeHand(chord.root, tierVoicings[nextIdx].right, RH_BASE + (state.voicingShifts[index] || 0)).map(n => n.midi);
+            state.lhVoicingIndices[index] = bestMixedLhForRh(chord.root, chord.quality, rhMidis);
+          }
         }
         renderVoicing();
         // Hear the voicing you just cycled to (stopped only — during playback
@@ -748,7 +755,13 @@
         rootless: ' • Rootless: LH comps the voicing over a bassist or track',
         bassonly: ' • Roots only: the app is your bassist — comp the changes yourself'
       };
-      const lhNote = LH_MODE_NOTES[state.leftHand] || '';
+      let lhNote = LH_MODE_NOTES[state.leftHand] || '';
+      if (state.leftHand === 'mixed') {
+        // Name the per-chord LH the joint optimizer chose (teaches the "why").
+        const MIX_LABEL = ['lone root', 'shell (R-3-7)', 'root + 3rd', 'root + 7th'];
+        const ci = (state.lhVoicingIndices && state.lhVoicingIndices[chordIndex]) || 0;
+        lhNote = ' • LH mixed → ' + (MIX_LABEL[ci] || 'lone root') + ' (voice-led)';
+      }
       const rangeNote = state.range === 'reface' ? ' • 3-octave window' : '';
       elements.voicingDescription.textContent = `${chordData.name} • ${chordData.voicingName}${lhNote}${rangeNote}`;
     }

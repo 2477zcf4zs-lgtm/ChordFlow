@@ -34,7 +34,7 @@
       tempoRamp: 0,       // BPM added per completed loop (0 = off)
       hideSymbols: false, // flashcard mode: hide chord letter symbols
       padMode: 'oneshot', // tap-to-play trigger: 'oneshot' (rings out) | 'hold'
-      leftHand: 'roots',  // LH realization: roots|shells|rootless|evans (bassist mode)
+      leftHand: 'mixed',  // LH realization: mixed(default, voice-led)|roots|shells|rootless|evans|bassonly
       bassBacking: false, // rootless playback: sustain a stand-in bass root
       lhVoicingIndices: [], // per-chord LH shape (two-hand rootless), DP-chosen
       range: 'full',      // keyboard window: 'full' | 'reface' (3 octaves, C2-C5)

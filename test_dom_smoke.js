@@ -456,6 +456,10 @@ async function main() {
       'header toggle expands the saved section');
     document.getElementById('savedToggle').click();
     check(savedBody.hidden === true, 'header toggle collapses it again');
+    // App default LH is mixed (voice-led comping) — assert before any change.
+    check(st().leftHand === 'mixed' &&
+      document.getElementById('leftHandSelect').value === 'mixed',
+      'app default LH is mixed (state + select agree)');
     // Roots-only mode: the app is your bassist
     const lhSelect2 = document.getElementById('leftHandSelect');
     lhSelect2.value = 'bassonly';
@@ -807,6 +811,12 @@ async function main() {
     const lhNotesEl = document.getElementById('leftHandNotes');
     const rhNotesEl = document.getElementById('rightHandNotes');
     window.renderVoicing();
+    // Baseline the FIXED modes from 'roots': roots/shells/evans/rootless share
+    // one RH (the RH-only optimizer). Mixed is the exception — it picks the RH
+    // jointly with the LH — so capture the comparison baseline under roots.
+    lhSelect.value = 'roots';
+    lhSelect.dispatchEvent(new window.Event('change'));
+    window.renderVoicing();
     const rootsLhText = lhNotesEl.textContent;
     const rootsRhText = rhNotesEl.textContent;
 
@@ -847,6 +857,17 @@ async function main() {
     check(st().leftHand === 'roots' && lhNotesEl.textContent === rootsLhText,
       'roots mode restores the original LH');
 
+    // Mixed (the app default): the app picks the LH per chord AND the RH
+    // jointly, so it owns a full per-chord lhVoicingIndices array and names
+    // its decision. (RH may differ from the fixed modes — that's the point.)
+    lhSelect.value = 'mixed';
+    lhSelect.dispatchEvent(new window.Event('change'));
+    check(st().leftHand === 'mixed' && Array.isArray(st().lhVoicingIndices) &&
+      st().lhVoicingIndices.length === st().progression.length,
+      'mixed mode: a per-chord LH decision is computed for every chord');
+    check(document.getElementById('voicingDescription').textContent.indexOf('LH mixed') !== -1,
+      'mixed names its per-chord LH decision in the description');
+
     // --- Two-hand rootless (evans) + backing bass ---
     lhSelect.value = 'evans';
     lhSelect.dispatchEvent(new window.Event('change'));
@@ -886,10 +907,10 @@ async function main() {
     window.stopAndReset();
     window.eval('synthNote = __synthReal;');
     bassBtn.click(); // bass off
-    lhSelect.value = 'roots';
+    lhSelect.value = 'mixed';
     lhSelect.dispatchEvent(new window.Event('change'));
-    check(st().bassBacking === false && st().leftHand === 'roots',
-      'bass + left hand restored to defaults');
+    check(st().bassBacking === false && st().leftHand === 'mixed',
+      'bass + left hand restored to defaults (LH default is mixed)');
 
     // --- 3-octave mode (Reface window C2-C5) ---
     const rangeSelect = document.getElementById('rangeSelect');
