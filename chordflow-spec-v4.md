@@ -197,6 +197,24 @@ chord's left hand by voice leading rather than a strict formulation, and it
 becomes the **app default**. Runs after Phase 1 (it composes the C3 register
 doctrine); do it before Phase 2.
 
+> **DELIVERED 2026-07-17 (PR #39) — scope expanded to JOINT LH+RH by owner.**
+> Mid-build the owner approved letting the RH move to an upper structure "when
+> it makes musical sense (voice leading) — the engine decides in context."
+> So `'mixed'` is a **joint** optimizer (`computeMixedVoicing`), not the
+> LH-only DP first sketched below: it picks the RH voicing (reusing
+> `buildVoicingCandidates`) AND the LH shape together, minimizing RH movement +
+> LH movement, with a hard collision guard and a **completeness** term (the 3rd
+> and a real 7th must appear across the two hands). The payoff — where it
+> voice-leads well it sends the RH to an upper structure and takes the full
+> shell in the LH (e.g. dom13 runs); elsewhere it comps rootless-RH + a light
+> LH. Consequence the owner accepted: in mixed mode the RH is now
+> context-dependent (`recomputeProgressionVoicings` owns all three arrays for
+> mixed), and manual RH cycling recoordinates the LH (`bestMixedLhForRh`).
+> Traditional-first is EMERGENT (a random sweep showed traditional shapes ~96%,
+> quartal only ~4% and only when clearly smoothest), so no modernity penalty
+> was added. Ear-approved. Tests: Test 18 (unit) + the smoke default-LH block.
+> The LH-only description below is kept for provenance; the joint version supersedes it.
+
 **Candidates** (per chord — all built from existing realizers, no new
 vocabulary; every one sits in the C3 comping zone and spans ≤ 11 st):
 
@@ -260,7 +278,7 @@ its pre-1b behavior (isolations preserved).
 
 **Acceptance:** mixed mode ear-approved and live as the app default; fixed
 modes unchanged; engine defaults (and therefore the snapshot) stable; both
-suites green. Commit. Stop.
+suites green. Commit. Stop. — **MET (joint version, PR #39).**
 
 ## Phase 2 — Hand span setting
 

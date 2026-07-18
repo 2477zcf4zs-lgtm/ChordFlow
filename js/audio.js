@@ -667,8 +667,17 @@
       // Real voicings for the slice: the same optimizers playback uses, so
       // the preview's voice leading is what applying would actually produce.
       const range = activeRangeWindow();
-      const { indices, shifts } = computeProgressionVoicings(slice, state.complexity, range);
-      const lhIdx = computeLeftHandVoicings(slice).indices;
+      let indices, shifts, lhIdx;
+      if (state.leftHand === 'mixed') {
+        // Mixed picks RH + LH jointly, so the preview must use the joint
+        // optimizer too (else the previewed RH wouldn't match what applying gives).
+        const joint = computeMixedVoicing(slice, state.complexity, range);
+        indices = joint.rhIndices; shifts = joint.rhShifts; lhIdx = joint.lhIndices;
+      } else {
+        const r = computeProgressionVoicings(slice, state.complexity, range);
+        indices = r.indices; shifts = r.shifts;
+        lhIdx = computeLeftHandVoicings(slice).indices;
+      }
 
       const secPerBeat = 60 / state.tempo;
       // Inherit the groove, but cap the per-chord span so an 8-beats/chord

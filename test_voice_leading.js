@@ -13,7 +13,7 @@ function loadTheoryCore() {
   // touches live inside functions this suite never calls.
   const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/audio.js', 'js/state.js'];
   const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
-  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions };');
+  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, bestMixedLhForRh };');
   return fn();
 }
 const T = loadTheoryCore();
@@ -1044,6 +1044,64 @@ console.log('\nTest 17: single-hand span guard (playability tripwire)');
     check(s <= 12, `shells LH (${q}) blockable (got ${s} st, cap 12)`);
   }
   console.log('  span guard active: cap 14 st, ' + Object.keys(SPAN_DEBT).length + ' debt entries (Phase 1 emptied the ledger)');
+}
+
+console.log('\nTest 18: mixed left hand (joint voice-led comping — the app default)');
+{
+  const span = ns => ns.length > 1 ? Math.max(...ns.map(p => p.midi)) - Math.min(...ns.map(p => p.midi)) : 0;
+  // A varied, DETERMINISTIC stress progression: 13th chords at high roots
+  // (collision bait), seventh chords, a triad (completeness edge), altered.
+  const prog = [
+    { root: 'C', quality: 'maj7' }, { root: 'A', quality: 'dom13b9' }, { root: 'D', quality: 'min7' },
+    { root: 'G', quality: 'dom13' }, { root: 'B', quality: 'dom13s11' }, { root: 'E', quality: 'maj' },
+    { root: 'Ab', quality: 'min11' }, { root: 'Db', quality: 'dom7alt' }
+  ];
+  const joint = T.computeMixedVoicing(prog, 'seventh', null);
+  check(joint.rhIndices.length === prog.length && joint.lhIndices.length === prog.length &&
+    joint.rhShifts.length === prog.length, 'mixed returns RH + shift + LH for every chord');
+
+  const again = T.computeMixedVoicing(prog, 'seventh', null);
+  check(JSON.stringify(again.lhIndices) === JSON.stringify(joint.lhIndices) &&
+    JSON.stringify(again.rhIndices) === JSON.stringify(joint.rhIndices), 'mixed is deterministic');
+
+  // Realize each chord exactly as the app does; assert the correctness invariants.
+  let collided = 0, incomplete = 0, wide = 0;
+  const textures = new Set();
+  prog.forEach((c, i) => {
+    const d = T.getChordNotesAtIndex(c.root, c.quality, 'seventh', joint.rhIndices[i], joint.rhShifts[i],
+      { leftHandMode: 'mixed', lhIndex: joint.lhIndices[i] });
+    const L = d.leftHandPitches.map(p => p.midi), R = d.rightHandPitches.map(p => p.midi);
+    if (R.length && Math.max(...L) >= Math.min(...R)) collided++;
+    if (span(d.leftHandPitches) > 12) wide++;
+    const have = new Set(L.concat(R).map(m => m % 12));
+    for (const pc of T.essentialGuideTonePcs(c.root, c.quality)) if (!have.has(pc)) { incomplete++; break; }
+    textures.add(joint.lhIndices[i]);
+  });
+  check(collided === 0, 'mixed never collides the hands (LH top clears the RH bottom)');
+  check(incomplete === 0, 'mixed always covers the 3rd and real 7th across the two hands');
+  check(wide === 0, 'mixed LH always blockable (span <= 12 st)');
+  check(textures.size >= 2, 'mixed actually MIXES textures (not a degenerate single formula)');
+
+  // Signature behavior: on a dom13 chain the engine sends the RH to an upper
+  // structure and takes the FULL shell in the LH (candidate 1).
+  const chain = [{ root: 'C', quality: 'dom13' }, { root: 'F', quality: 'dom13' }, { root: 'Bb', quality: 'maj7' }];
+  check(T.computeMixedVoicing(chain, 'seventh', null).lhIndices.indexOf(1) !== -1,
+    'mixed reaches the LH-shell + RH-upper-structure texture where it voice-leads (dom13 chain)');
+
+  // Manual RH cycling recoordinates the LH: for a fixed RH, the chosen LH
+  // clears it (no collision) — the recoordination used by selectChord.
+  const fixedRh = T.getChordNotesAtIndex('C', 'dom7', 'seventh', 0, 0, { leftHandMode: 'roots' })
+    .rightHandPitches.map(p => p.midi);
+  const ci = T.bestMixedLhForRh('C', 'dom7', fixedRh);
+  const lhm = T.realizeMixedCandidate('C', 'dom7', ci).map(n => n.midi);
+  check(Math.max(...lhm) < Math.min(...fixedRh), 'bestMixedLhForRh clears the fixed RH (manual-cycle recoordination)');
+
+  // The engine default is UNCHANGED ('roots') so the snapshot stays stable —
+  // only the APP default (state.leftHand) is mixed.
+  const implicit = T.getChordNotesAtIndex('F', 'dom7', 'seventh', 0, 0);
+  const rootsExplicit = T.getChordNotesAtIndex('F', 'dom7', 'seventh', 0, 0, { leftHandMode: 'roots' });
+  check(implicit.leftHandPitches.map(p => p.midi).join() === rootsExplicit.leftHandPitches.map(p => p.midi).join(),
+    "engine default stays 'roots' (mixed is the app default, not the engine default)");
 }
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));
