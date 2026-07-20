@@ -408,6 +408,32 @@
       }
     };
 
+    // ============== Holistic voicing model (v5 Stage A) ==============
+    // A voicing's IDENTITY is its ordered interval STACK; which notes land in
+    // which hand is a distribution DECISION, not part of the identity. The
+    // authored { left, right } form is the voicing's DEFAULT DISTRIBUTION — we
+    // derive the canonical stack + splitAfter from it once, and the realization
+    // pipeline reads the stack (via voicingLh/voicingRh). Because
+    // stack.slice(0, splitAfter) === left exactly, this is byte-identical to
+    // the old per-hand model (Stage A is sound-frozen). Stage B lets the
+    // solver pick a split other than splitAfter; Stage B-4 retires the authored
+    // left/right. Order still encodes register (realizeHand is unchanged).
+    function toStack(v) {
+      if (v.stack) return v;
+      v.stack = [...(v.left || []), ...(v.right || [])];
+      v.splitAfter = (v.left || []).length; // the authored default distribution
+      return v;
+    }
+    for (const q of Object.keys(KEYBOARD_VOICINGS)) {
+      const vs = KEYBOARD_VOICINGS[q] && KEYBOARD_VOICINGS[q].voicings;
+      if (vs) vs.forEach(toStack);
+    }
+    // The default hand distribution of a voicing's stack (falls back to the
+    // authored fields for any voicing not passed through toStack, e.g. the
+    // FALLBACK_VOICING defined later).
+    function voicingLh(v) { return v.stack ? v.stack.slice(0, v.splitAfter) : (v.left || []); }
+    function voicingRh(v) { return v.stack ? v.stack.slice(v.splitAfter) : (v.right || []); }
+
     // Register constants (MIDI note numbers; C4 = 60)
     const RH_BASE = 60;          // Base placement for right-hand voicings
     const RH_TARGET_CENTER = 65; // F4: ideal center of gravity for the RH
@@ -545,7 +571,7 @@
       const jazz = vd && vd.voicings
         ? vd.voicings.filter(v => v.tiers && v.tiers.indexOf('jazz') !== -1 && v.type)
         : [];
-      if (jazz.length) return jazz.map(v => v.right);
+      if (jazz.length) return jazz.map(v => voicingRh(v));
       return [guideToneIntervals(quality).slice(1)];
     }
 
@@ -834,7 +860,8 @@
      * Realize a full voicing. octaveShift (in semitones, multiples of 12)
      * moves the right hand up/down; the left hand stays anchored low.
      * leftHandMode swaps what the LH plays — the RH (and therefore the
-     * voice-leading optimizer, which only reads voicing.right) is untouched:
+     * voice-leading optimizer, which reads only the voicing's RH slice
+     * voicingRh(v) = the stack above splitAfter) is untouched:
      *   'mixed'    — voice-led comping: lhIndex selects a per-chord LH
      *                candidate (lone root / full shell / half shell) chosen
      *                JOINTLY with the RH by computeMixedVoicing; the APP default
@@ -852,7 +879,7 @@
     function realizeVoicing(rootNote, voicing, octaveShift = 0, leftHandMode = 'roots', quality = null, lhIndex = 0) {
       // RH first: mixed places its LH strictly below the REALIZED right hand
       // (window shifts can pull the RH low — the LH follows down, never crosses).
-      const right = leftHandMode === 'bassonly' ? [] : realizeHand(rootNote, voicing.right, RH_BASE + octaveShift);
+      const right = leftHandMode === 'bassonly' ? [] : realizeHand(rootNote, voicingRh(voicing), RH_BASE + octaveShift);
       const rhBottom = right.length ? Math.min(...right.map(n => n.midi)) : Infinity;
       let left;
       if (leftHandMode === 'rootless') left = [];
@@ -868,10 +895,11 @@
         // old ~2-octave LH/RH gap). A multi-note LEFT (a two-note shell like
         // R-b7 or R-5, from the US/shell vocabulary) stays in the low C2 zone:
         // raised to C3 its top note crosses into the RH at high roots. Those
-        // shells were designed and verified low — keep them there. (Lifting the
-        // RH with the shell to comp both at C3 is Phase 3's per-voicing override.)
-        const base = voicing.left.length > 1 ? LH_BASE : LH_COMP_BASE;
-        left = realizeHand(rootNote, voicing.left, base);
+        // shells were designed and verified low — keep them there. (In v5 the
+        // window/register handling moves to the distribution solver, Stage B-1.)
+        const lh = voicingLh(voicing); // the stack's default LH slice
+        const base = lh.length > 1 ? LH_BASE : LH_COMP_BASE;
+        left = realizeHand(rootNote, lh, base);
       }
       return { left, right };
     }
@@ -981,7 +1009,7 @@
           ? Math.min(...voicing.tiers.map(t => tierCosts[t] ?? Infinity))
           : 0;
         for (const shift of shifts) {
-          const rhMidis = realizeHand(chord.root, voicing.right, RH_BASE + shift).map(n => n.midi);
+          const rhMidis = realizeHand(chord.root, voicingRh(voicing), RH_BASE + shift).map(n => n.midi);
           const sparsity = Math.max(0, 4 - rhMidis.length);
           const localCost = registerPenalty(rhMidis) + sparsity * 0.4 + tierCost;
           const overflow = windowOverflow(rhMidis, range);
@@ -1088,7 +1116,7 @@
       let bestCost = Infinity;
       const shifts = range ? [-24, -12, 0, 12] : [-12, 0, 12];
       for (const shift of shifts) {
-        const rhMidis = realizeHand(rootNote, voicing.right, RH_BASE + shift).map(n => n.midi);
+        const rhMidis = realizeHand(rootNote, voicingRh(voicing), RH_BASE + shift).map(n => n.midi);
         // Out-of-window placements only win when nothing fits at all.
         const c = registerPenalty(rhMidis) + voiceMovementCost(prevRhMidis, rhMidis)
           + windowOverflow(rhMidis, range) * 1000;
@@ -1117,7 +1145,7 @@
         const shapes = lhRootlessShapesFor(quality);
         return shapes[((lhIndex || 0) % shapes.length + shapes.length) % shapes.length];
       }
-      return voicing.left; // roots
+      return voicingLh(voicing); // roots (the stack's default LH slice)
     }
 
     // Qualities whose symbol conventionally upgrades when a natural extension
@@ -1149,7 +1177,7 @@
     function soundingChord(rootNote, quality, chordInfo, voicing, leftHandMode, lhIndex) {
       if (leftHandMode === 'bassonly') return null; // only the root sounds
       const names = new Set(
-        lhIntervalNamesFor(leftHandMode, quality, voicing, lhIndex).concat(voicing.right));
+        lhIntervalNamesFor(leftHandMode, quality, voicing, lhIndex).concat(voicingRh(voicing)));
       const writtenPcs = new Set(chordInfo.intervals.map(s => ((s % 12) + 12) % 12));
       let extras = [];
       for (const iv of names) {
