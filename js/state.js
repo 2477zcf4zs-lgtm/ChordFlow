@@ -36,7 +36,9 @@
       padMode: 'oneshot', // tap-to-play trigger: 'oneshot' (rings out) | 'hold'
       leftHand: 'mixed',  // LH realization: mixed(default, voice-led)|roots|shells|rootless|evans|bassonly
       bassBacking: false, // rootless playback: sustain a stand-in bass root
-      lhVoicingIndices: [], // per-chord LH shape (two-hand rootless), DP-chosen
+      lhVoicingIndices: [], // per-chord LH index, DP-chosen; meaning depends on
+                            // leftHand: evans = rootless shape index, mixed =
+                            // candidate id (0 root / 1 shell / 2 R+3 / 3 R+7)
       range: 'full',      // keyboard window: 'full' | 'reface' (3 octaves, C2-C5)
       flavor: 'off',      // generation color: off|subtle|bold (borrowed/mediant vocabulary)
       density: 1.0,       // per-progression sparsity character (2.4); rolled on new/load

@@ -13,7 +13,7 @@ function loadTheoryCore() {
   // touches live inside functions this suite never calls.
   const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/audio.js', 'js/state.js'];
   const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
-  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, bestMixedLhForRh };');
+  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, realizeMixedCandidateBelow, bestMixedLhForRh };');
   return fn();
 }
 const T = loadTheoryCore();
@@ -1102,6 +1102,39 @@ console.log('\nTest 18: mixed left hand (joint voice-led comping — the app def
   const rootsExplicit = T.getChordNotesAtIndex('F', 'dom7', 'seventh', 0, 0, { leftHandMode: 'roots' });
   check(implicit.leftHandPitches.map(p => p.midi).join() === rootsExplicit.leftHandPitches.map(p => p.midi).join(),
     "engine default stays 'roots' (mixed is the app default, not the engine default)");
+
+  // --- The reface regression (review finding, 2026-07-18): under the 3-octave
+  // window the RH legally shifts down to fit C2-C5; a C3-pinned LH crossed
+  // over it (e.g. Bmin13: LH B3 above RH bottom A3). The LH must instead
+  // follow the RH down ("play lower, play less"). Deterministic sweep: every
+  // root x a 13th-heavy trio — the exact shapes that reproduced the bug.
+  {
+    const win = T.RANGE_WINDOWS.reface;
+    let crossed = 0, wideLh = 0, incompleteW = 0;
+    for (const root of ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']) {
+      const p = [{ root, quality: 'min13' }, { root, quality: 'dom13' }, { root, quality: 'maj13' }];
+      const jw = T.computeMixedVoicing(p, 'seventh', win);
+      p.forEach((c, i) => {
+        const d = T.getChordNotesAtIndex(c.root, c.quality, 'seventh', jw.rhIndices[i], jw.rhShifts[i],
+          { leftHandMode: 'mixed', lhIndex: jw.lhIndices[i], range: win });
+        const L = d.leftHandPitches.map(x => x.midi), R = d.rightHandPitches.map(x => x.midi);
+        if (R.length && Math.max(...L) >= Math.min(...R)) crossed++;
+        if (span(d.leftHandPitches) > 12) wideLh++;
+        const have = new Set(L.concat(R).map(m => m % 12));
+        for (const pc of T.essentialGuideTonePcs(c.root, c.quality)) if (!have.has(pc)) { incompleteW++; break; }
+      });
+    }
+    check(crossed === 0, `reface window: mixed never crosses the hands (got ${crossed} crossings)`);
+    check(wideLh === 0, 'reface window: mixed LH stays blockable (span <= 12 st)');
+    check(incompleteW === 0, 'reface window: guide tones still covered across the hands');
+    // The manual-cycle path shares the fix: for a window-lowered RH the chosen
+    // candidate's RH-aware realization clears it (the old code returned a
+    // crossed B3-D4-A4 shell here).
+    const rhLow = T.realizeHand('B', T.voicingsFor('min13', 'seventh')[0].right, T.RH_BASE - 12).map(n => n.midi);
+    const ciLow = T.bestMixedLhForRh('B', 'min13', rhLow);
+    const lhLow = T.realizeMixedCandidateBelow('B', 'min13', ciLow, Math.min(...rhLow)).map(n => n.midi);
+    check(Math.max(...lhLow) < Math.min(...rhLow), 'manual-cycle recoordination clears a window-lowered RH');
+  }
 }
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));
