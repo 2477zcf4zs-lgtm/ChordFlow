@@ -280,6 +280,72 @@ its pre-1b behavior (isolations preserved).
 modes unchanged; engine defaults (and therefore the snapshot) stable; both
 suites green. Commit. Stop. — **MET (joint version, PR #39).**
 
+## Phase 1c — Mobile shell integrity & the vertical budget (regression fix)
+
+Owner report (2026-07-18, on-device): (a) "the top ribbon with the tabs is at
+some point jumping up the screen and is blocked by the dynamic island…
+negative space is below the progression strip, so the whole thing jumps up —
+popped up in the last few commits"; (b) after the sounding-chord line landed,
+"one has to scroll to see all of the information in the tray." These are one
+coherent problem: a **height regression armed a latent shell bug.** Run this
+BEFORE Phase 2 — it's a daily-use regression.
+
+**Verified mechanics (2026-07-18, against main @ `052a41e`):**
+
+1. `index.html:5` declares `viewport-fit=cover` — the app extends into the
+   Dynamic Island zone by design — but only the BOTTOM is inset-aware
+   (`.transport` consumes `env(safe-area-inset-bottom)`, `styles.css:606`).
+   The tab bar (`styles.css:90`) has `padding: 8px 12px 0` with **no
+   `env(safe-area-inset-top)`**: any upward shift of the document puts the
+   tabs under the island.
+2. `body { overflow: hidden }` (`styles.css:48`) is NOT a real scroll lock on
+   iOS Safari — the document can still be scrolled programmatically or by
+   tap/focus auto-scroll. Once `document.scrollTop > 0`, the whole 100dvh
+   `.app` shell rides up (tabs → under the island) and dead space appears
+   below the transport. Exactly the reported symptom.
+3. The nudge trigger is new: the sounding-chord line + the earlier
+   taller-piano change pushed the voicing panel past the height budget on a
+   390×844-class phone (report (b)), so clipped content now exists for
+   `scrollIntoView` (`render.js:910`, the chord-strip centering) and iOS's
+   own tap-scroll to act on. `block: 'nearest'` SHOULD be vertically inert,
+   but Safari is known to nudge ancestor scrollers anyway when the target is
+   clipped.
+
+**Fix (three parts, all at the shell/budget altitude — no per-feature hacks):**
+
+1. **Top safe-area:** `.tab-bar { padding-top: calc(8px +
+   env(safe-area-inset-top, 0px)) }` — with `viewport-fit=cover`, every
+   edge-anchored bar must consume its inset, not just the bottom one.
+2. **Real scroll lock:** make the document genuinely unscrollable on iOS —
+   the robust pattern is `position: fixed; inset: 0` on the app shell (or
+   html/body `overscroll-behavior: none` + a belt-and-suspenders scroll
+   guard that resets `document.scrollTop` to 0 on any document `scroll`
+   event, since the shell must NEVER ride up regardless of what nudges it).
+   Replace the strip's `scrollIntoView` with explicit `scrollLeft` math on
+   the strip's own horizontal scroller — an ancestor-safe scroll that
+   CANNOT bubble to the document (keep the reduced-motion behavior).
+3. **Vertical budget:** the voicing panel must again fit a 390×844 viewport
+   WITHOUT internal scrolling in its common state (selected chord + wrapped
+   sub tray + sounding line visible). Reclaim height at the panel level:
+   the piano already flex-shrinks — audit its min-height and the fixed
+   margins (`.piano-legend` margin-top 10px, `.sounding-chord` margin-top
+   6px, panel paddings) and let the piano give back what the sounding line
+   took. Do NOT remove the sounding line or collapse it into the
+   description (owner values it where it is); do NOT reintroduce the
+   "unused space" gap the earlier piano-growth commit fixed — the budget
+   must balance, not seesaw.
+
+**Acceptance:** `scripts/layout_check.js` gains, at the 390×844 probe:
+(a) `document.scrollHeight <= window.innerHeight` (no page scroll exists);
+(b) after driving `selectChord` on a sub-heavy chord with the sounding line
+visible: the voicing panel's `scrollHeight <= clientHeight` (no internal
+scroll needed) AND `document.scrollTop === 0` after the interaction;
+(c) the stylesheet consumes `env(safe-area-inset-top)` in the tab bar (the
+island itself can't be emulated headlessly — assert the mechanism).
+Mobile-only changes; desktop probes unchanged. Both suites + layout check
+green. Owner verifies on the actual phone (the island can only truly be
+tested there) before merge is called done. Commit. Stop.
+
 ## Phase 2 — Hand span setting
 
 A personal playability guard, mirroring the reface Range window mechanically.
@@ -539,7 +605,8 @@ looked like something else when it first happened:
 
 ## Session protocol
 
-- One phase per session. Phases 1 → 1b → 2 → 3 in order; Phase 4 may run any
+- One phase per session. Phases 1 → 1b → 1c → 2 → 3 in order (1c is a
+  daily-use regression fix — do it next); Phase 4 may run any
   time;
   Phases 5–7 are independent of each other and of 1–3, but 7 (user guide)
   reads best last, once the feature surface has settled. `npm test`
