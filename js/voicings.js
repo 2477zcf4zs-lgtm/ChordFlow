@@ -98,8 +98,9 @@
           // three 4ths + a 3rd, sitting in ONE mid-register zone. An ANCHORED
           // voicing (v5 holistic model): realized as one contiguous stack and
           // split where the hands fall — inexpressible in the old low-LH/high-RH
-          // model without a hack. Manual-select only (a colour you reach for).
-          { left: ['9', '5'], right: ['R', '11', '13'], anchor: 48, name: 'So What (quartal cluster)', type: null, tiers: ['jazz'] }
+          // model without a hack. Split 3/2 = the signature LH quartal (E-A-D)
+          // with the 4th+3rd (G-B) on top.
+          { left: ['9', '5', 'R'], right: ['11', '13'], anchor: 48, name: 'So What (quartal cluster)', type: null, tiers: ['jazz'] }
         ]
       },
       
@@ -800,7 +801,10 @@
             let local = rc.localCost + mixedLhIntrinsicCost(chord.quality, ci, midis)
               + placed.dropOctaves * MIX_LH_DROP_COST;
             if (Math.max(...midis) >= rhBottom) local += MIX_COLLISION;
-            for (const pc of gtPcs) if (!rhPcs.has(pc) && !lhPcs.has(pc)) local += MIX_INCOMPLETE;
+            // Anchored quartal voicings (So What) are deliberately guide-tone-
+            // free — don't penalize them for it (they realize as their own
+            // complete cluster; the mixed LH candidate is moot for them).
+            if (!rc.anchored) for (const pc of gtPcs) if (!rhPcs.has(pc) && !lhPcs.has(pc)) local += MIX_INCOMPLETE;
             nodes.push({ rhVIndex: rc.vIndex, rhShift: rc.shift, rhMidis: rc.rhMidis,
               lhCi: ci, lhMidis: midis, localCost: local });
           }
@@ -1018,27 +1022,27 @@
       // register-penalty loser, so it isn't offered.
       const shifts = range ? [-24, -12, 0, 12] : [-12, 0, 12];
       voicingsFor(chord.quality, complexity).forEach((voicing, vIndex) => {
-        // Anchored voicings (So What etc.) are complete two-hand statements a
-        // player reaches for deliberately — never auto-comped by the optimizer.
-        // Skipping keeps every existing DP choice byte-identical; they remain
-        // reachable via manual voicing cycling.
-        if (voicing.anchor != null) return;
         // Untagged voicings are native to the selected tier (cost 0). The tier
         // cost now carries the "prefer fuller voicings" preference, so the raw
         // sparsity weight is small (0.4) rather than the old 1.0.
         const tierCost = (tierCosts && voicing.tiers)
           ? Math.min(...voicing.tiers.map(t => tierCosts[t] ?? Infinity))
           : 0;
+        // An anchored voicing (So What) is a full cluster whose LH carries most
+        // of the notes; costing it by its RH slice alone must not treat it as
+        // "sparse" (it isn't) and — being deliberately guide-tone-free (quartal)
+        // — it is exempt from the mixed completeness penalty (flagged through).
+        const anchored = voicing.anchor != null;
         for (const shift of shifts) {
           const rhMidis = realizeHand(chord.root, voicingRh(voicing), RH_BASE + shift).map(n => n.midi);
-          const sparsity = Math.max(0, 4 - rhMidis.length);
+          const sparsity = anchored ? 0 : Math.max(0, 4 - rhMidis.length);
           const localCost = registerPenalty(rhMidis) + sparsity * 0.4 + tierCost;
           const overflow = windowOverflow(rhMidis, range);
           if (overflow > 0) {
-            spill.push({ overflow, cand: { vIndex, shift, rhMidis, localCost } });
+            spill.push({ overflow, cand: { vIndex, shift, rhMidis, localCost, anchored } });
             continue;
           }
-          cands.push({ vIndex, shift, rhMidis, localCost });
+          cands.push({ vIndex, shift, rhMidis, localCost, anchored });
         }
       });
       // Hard window, safe DP: if no candidate fits at all, keep the least-
@@ -1155,6 +1159,9 @@
 
     /** Interval names the LH contributes under a given mode (mirrors realizeVoicing). */
     function lhIntervalNamesFor(leftHandMode, quality, voicing, lhIndex) {
+      // Anchored voicings realize their own split in EVERY mode (the LH mode
+      // doesn't override them), so the LH is always the stack's LH slice.
+      if (voicing.anchor != null) return voicingLh(voicing);
       if (leftHandMode === 'rootless') return [];
       if (leftHandMode === 'bassonly') return ['R'];
       if (leftHandMode === 'shells') return guideToneIntervals(quality);
