@@ -771,6 +771,21 @@
       }
       const rangeNote = state.range === 'reface' ? ' • 3-octave window' : '';
       elements.voicingDescription.textContent = `${chordData.name} • ${chordData.voicingName}${lhNote}${rangeNote}`;
+
+      // "Sounding: Fmaj9" — when the voicing colors beyond the chart symbol,
+      // name what the hands actually play (the chart label never changes; the
+      // gap between page and hands is the lesson). Hidden when they agree.
+      const soundEl = document.getElementById('soundingChord');
+      if (soundEl) {
+        const s = chordData.sounding;
+        if (s && chordData.rightHandPitches.length) {
+          soundEl.innerHTML = 'Sounding: <strong></strong>' + (s.rootImplied ? ' · root implied' : '');
+          soundEl.querySelector('strong').textContent = s.symbol;
+          soundEl.hidden = false;
+        } else {
+          soundEl.hidden = true;
+        }
+      }
     }
 
     // ============================================

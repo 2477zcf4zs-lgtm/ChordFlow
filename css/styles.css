@@ -1608,6 +1608,20 @@
     }
     .piano-legend .legend-lh::before { background: var(--accent-coral); }
     .piano-legend .legend-rh::before { background: var(--accent-blue); }
+    /* "Sounding: Fmaj9" — names what the voicing actually is when it colors
+       beyond the chart symbol (hidden when page and hands agree). */
+    .sounding-chord {
+      text-align: center;
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .sounding-chord strong {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent-gold, #e8b34b);
+    }
     /* ============================================
        TEMPO POPOVER (opened from the transport tempo readout)
        ============================================ */

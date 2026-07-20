@@ -69,6 +69,17 @@ started then deliberately shelved.
   loop-counter check polls real timers). Next occurrence: capture the failing
   check's output, then de-flake that section (mock-clock it or widen its
   timeout).
+  - **Captured (2026-07-18, reproduced by running 4 smoke copies in
+    parallel; always green in isolation, 12/12):** it is a CLASS, not one
+    check — different wall-clock sections fail run to run. Instance 1:
+    `TypeError: null.click()` at the sub-tray tritone-chip tap (~line 198;
+    stack shows resumption off the timer queue — the tray was not showing
+    G7's chips at that instant; state dump instrumentation now in place at
+    that line for the next occurrence). Instance 2: `FAIL: trialed sub
+    re-derived in the new key (C7 -> Gb7)` (trial system, also
+    timer-driven). De-flake belongs with the Phase 4 smoke-test sectioning
+    work (spec v4): mock-clock the sub-tray/trial sections the way playback
+    sections already are. CI (uncontended) has never tripped it.
 - [ ] *(owner: add your own UI rough-edges here as you hit them.)*
 
 ## B. Voicing content gaps
