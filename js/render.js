@@ -756,7 +756,13 @@
         bassonly: ' • Roots only: the app is your bassist — comp the changes yourself'
       };
       let lhNote = LH_MODE_NOTES[state.leftHand] || '';
-      if (state.leftHand === 'mixed') {
+      const curVoicing = voicingsFor(chord.quality, state.complexity)[chordData.voicingIndex];
+      if (curVoicing && curVoicing.anchor != null) {
+        // Anchored voicings (So What) are a complete cluster split across both
+        // hands in EVERY mode — the voicing name says what it is, so describe
+        // the distribution rather than the LH mode's usual treatment.
+        lhNote = ' • quartal cluster — one sonority split across the hands';
+      } else if (state.leftHand === 'mixed') {
         // Name the per-chord LH the joint optimizer chose (teaches the "why").
         // Derive the label from the candidate's REAL intervals — 'R-b3-b7' on a
         // m7, 'root + 4' on a sus — never a hardcoded 'R-3-7' that misstates

@@ -854,7 +854,7 @@ console.log('\nTest 15: voicing characterization snapshot (regression guard for 
       'sus4': 'C3 | F4 G4 C5 || C2 G2 | C4 F4 || F#3 | B4 C#5 F#5 || F#2 C#3 | F#4 B4',
       'sus2': 'C3 | D4 G4 C5 || C2 G2 | C4 D4 || F#3 | G#4 C#5 F#5 || F#2 C#3 | F#4 G#4',
       'maj7': 'C3 | E4 G4 B4 || C2 G2 | B4 E5 || C3 | E4 B4 || C3 | E4 B4 D5 || C3 | E4 A4 B4 || C3 | E4 B4 F#5 || C3 | E4 G4 B4 D5 || C3 | B4 D5 E5 G5 || C3 | E4 G4 A4 D5 || C3 | B4 E5 A5 || F#3 | A#4 C#5 E#5 || F#2 C#3 | E#4 A#4 || F#3 | A#4 E#5 || F#3 | A#4 E#5 G#5 || F#3 | A#4 D#5 E#5 || F#3 | A#4 E#5 B#5 || F#3 | A#4 C#5 E#5 G#5 || F#3 | E#4 G#4 A#4 C#5 || F#3 | A#4 C#5 D#5 G#5 || F#3 | E#4 A#4 D#5',
-      'min7': 'C3 | Eb4 G4 Bb4 || C2 G2 | Bb4 Eb5 || C3 | Eb4 Bb4 || C3 | Eb4 Bb4 D5 || C3 | Eb4 Bb4 F5 || C3 | Eb4 G4 Bb4 D5 || C3 | Bb4 D5 Eb5 G5 || C3 | F4 Bb4 Eb5 || F#3 | A4 C#5 E5 || F#2 C#3 | E4 A4 || F#3 | A4 E5 || F#3 | A4 E5 G#5 || F#3 | A4 E5 B5 || F#3 | A4 C#5 E5 G#5 || F#3 | E4 G#4 A4 C#5 || F#3 | B4 E5 A5',
+      'min7': 'C3 | Eb4 G4 Bb4 || C2 G2 | Bb4 Eb5 || C3 | Eb4 Bb4 || C3 | Eb4 Bb4 D5 || C3 | Eb4 Bb4 F5 || C3 | Eb4 G4 Bb4 D5 || C3 | Bb4 D5 Eb5 G5 || C3 | F4 Bb4 Eb5 || D3 G3 C4 | F4 A4 || F#3 | A4 C#5 E5 || F#2 C#3 | E4 A4 || F#3 | A4 E5 || F#3 | A4 E5 G#5 || F#3 | A4 E5 B5 || F#3 | A4 C#5 E5 G#5 || F#3 | E4 G#4 A4 C#5 || F#3 | B4 E5 A5 || G#3 C#4 F#4 | B4 D#5',
       'dom7': 'C3 | E4 G4 Bb4 || C2 G2 | Bb4 E5 || C3 | E4 Bb4 || C3 | E4 A4 Bb4 || C3 | E4 Bb4 D5 || C3 | E4 A4 Bb4 D5 || C3 | Bb4 D5 E5 A5 || F#3 | A#4 C#5 E5 || F#2 C#3 | E4 A#4 || F#3 | A#4 E5 || F#3 | A#4 D#5 E5 || F#3 | A#4 E5 G#5 || F#3 | A#4 D#5 E5 G#5 || F#3 | E4 G#4 A#4 D#5',
       'dim7': 'C3 | Eb4 Gb4 Bbb4 || C2 Gb2 | Bbb4 Eb5 || F#3 | A4 C5 Eb5 || F#2 C3 | Eb4 A4',
       'm7b5': 'C3 | Eb4 Gb4 Bb4 || C2 Gb2 | Bb4 Eb5 || C3 | Eb4 Bb4 || C3 | Eb4 Bb4 F5 || C3 | Eb4 Ab4 Bb4 || C3 | Eb4 Gb4 Bb4 C5 || C3 | Bb4 C5 Eb5 Gb5 || C3 | Eb4 Gb4 Bb4 D5 || F#3 | A4 C5 E5 || F#2 C3 | E4 A4 || F#3 | A4 E5 || F#3 | A4 E5 B5 || F#3 | A4 D5 E5 || F#3 | A4 C5 E5 F#5 || F#3 | E4 F#4 A4 C5 || F#3 | A4 C5 E5 G#5',
@@ -1188,6 +1188,46 @@ console.log('\nTest 19: sounding chord (chart symbol vs what the voicing actuall
   }
   check(bad === 0, `sounding names are always clean strings or null (${bad} bad)`);
   check(strictNoisy === 0, `strict-tier voicings never claim extra color (${strictNoisy} noisy)`);
+}
+
+console.log('\nTest 20: So What (anchored quartal cluster — v5 holistic distribution)');
+{
+  const pcs = arr => arr.map(p => p.midi % 12).sort((a, b) => a - b);
+  const eqSet = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+  const span = ns => ns.length > 1 ? Math.max(...ns.map(p => p.midi)) - Math.min(...ns.map(p => p.midi)) : 0;
+  const vs = T.voicingsFor('min7', 'seventh');
+  const i = vs.findIndex(v => v.name.indexOf('So What') !== -1);
+  check(i !== -1, 'min7 has the So What voicing');
+  check(vs[i].anchor != null, 'So What is an anchored voicing');
+
+  // Pitch content: 9-5-R-11-13. For Dm7 → E A D G B.
+  const d = T.getChordNotesAtIndex('D', 'min7', 'seventh', i, 0);
+  check(eqSet(pcs(d.leftHandPitches.concat(d.rightHandPitches)), [2, 4, 7, 9, 11]),
+    'Dm7 So What sounds D-E-G-A-B (9-5-R-11-13, the quartal cluster)');
+  // Split 3/2, contiguous (no hand crossing), both hands playable.
+  check(d.leftHandPitches.length === 3 && d.rightHandPitches.length === 2,
+    'split 3/2: LH quartal (3), RH (2)');
+  check(Math.max(...d.leftHandPitches.map(p => p.midi)) < Math.min(...d.rightHandPitches.map(p => p.midi)),
+    'contiguous split — the hands never cross');
+  check(span(d.leftHandPitches) <= 14 && span(d.rightHandPitches) <= 14,
+    'both hands blockable (LH ' + span(d.leftHandPitches) + ' / RH ' + span(d.rightHandPitches) + ' st)');
+
+  // Anchored: it IS both hands, so every LH mode realizes the same cluster.
+  const modes = ['roots', 'shells', 'evans', 'rootless', 'bassonly', 'mixed'];
+  const ref = modes.map(m => {
+    const r = T.getChordNotesAtIndex('D', 'min7', 'seventh', i, 0, { leftHandMode: m });
+    return r.leftHandPitches.concat(r.rightHandPitches).map(p => p.midi).join(',');
+  });
+  check(ref.every(x => x === ref[0]), 'anchored voicing realizes identically in every LH mode (it IS both hands)');
+
+  // Realizes cleanly across roots (no NaN / undefined spelling).
+  let clean = true;
+  for (const root of ['C', 'Eb', 'F#', 'A', 'Bb']) {
+    const r = T.getChordNotesAtIndex(root, 'min7', 'seventh', i, 0);
+    for (const p of r.leftHandPitches.concat(r.rightHandPitches))
+      if (!p.name || p.name.includes('undefined') || !Number.isFinite(p.midi)) clean = false;
+  }
+  check(clean, 'So What spells cleanly across roots');
 }
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));

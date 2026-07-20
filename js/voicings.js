@@ -93,7 +93,14 @@
           { left: ['R'], right: ['b3', '5', 'b7', '9'], name: 'Type A: 3-5-7-9', type: 'A', tiers: ['jazz'] },
           { left: ['R'], right: ['b7', '9', 'b3', '5'], name: 'Type B: 7-9-3-5', type: 'B', tiers: ['jazz'] },
           // Quartal (So What / McCoy): RH stacked in 4ths — C + F-Bb-Eb, keeps guide tones
-          { left: ['R'], right: ['11', 'b7', 'b3'], name: 'Quartal: R | 11-7-3 in 4ths', type: null, tiers: ['jazz'] }
+          { left: ['R'], right: ['11', 'b7', 'b3'], name: 'Quartal: R | 11-7-3 in 4ths', type: null, tiers: ['jazz'] },
+          // So What (Evans/Davis): the 5-note quartal cluster (9-5-R-11-13),
+          // three 4ths + a 3rd, sitting in ONE mid-register zone. An ANCHORED
+          // voicing (v5 holistic model): realized as one contiguous stack and
+          // split where the hands fall — inexpressible in the old low-LH/high-RH
+          // model without a hack. Split 3/2 = the signature LH quartal (E-A-D)
+          // with the 4th+3rd (G-B) on top.
+          { left: ['9', '5', 'R'], right: ['11', '13'], anchor: 48, name: 'So What (quartal cluster)', type: null, tiers: ['jazz'] }
         ]
       },
       
@@ -794,7 +801,10 @@
             let local = rc.localCost + mixedLhIntrinsicCost(chord.quality, ci, midis)
               + placed.dropOctaves * MIX_LH_DROP_COST;
             if (Math.max(...midis) >= rhBottom) local += MIX_COLLISION;
-            for (const pc of gtPcs) if (!rhPcs.has(pc) && !lhPcs.has(pc)) local += MIX_INCOMPLETE;
+            // Anchored quartal voicings (So What) are deliberately guide-tone-
+            // free — don't penalize them for it (they realize as their own
+            // complete cluster; the mixed LH candidate is moot for them).
+            if (!rc.anchored) for (const pc of gtPcs) if (!rhPcs.has(pc) && !lhPcs.has(pc)) local += MIX_INCOMPLETE;
             nodes.push({ rhVIndex: rc.vIndex, rhShift: rc.shift, rhMidis: rc.rhMidis,
               lhCi: ci, lhMidis: midis, localCost: local });
           }
@@ -877,6 +887,16 @@
      *                voicing itself is yours to comp on a real instrument
      */
     function realizeVoicing(rootNote, voicing, octaveShift = 0, leftHandMode = 'roots', quality = null, lhIndex = 0) {
+      // Anchored voicing (v5 holistic model): a COMPLETE two-hand sonority
+      // realized as one contiguous stack from a mid `anchor` and split at
+      // splitAfter — "one sonority, split where the hands fall" (e.g. So What,
+      // which sits entirely in the middle register). It IS both hands, so the
+      // LH mode does not override it. Kept out of the auto-optimizer
+      // (buildVoicingCandidates), so it appears only on manual selection.
+      if (voicing.anchor != null && voicing.stack) {
+        const whole = realizeHand(rootNote, voicing.stack, voicing.anchor + octaveShift);
+        return { left: whole.slice(0, voicing.splitAfter), right: whole.slice(voicing.splitAfter) };
+      }
       // RH first: mixed places its LH strictly below the REALIZED right hand
       // (window shifts can pull the RH low — the LH follows down, never crosses).
       const right = leftHandMode === 'bassonly' ? [] : realizeHand(rootNote, voicingRh(voicing), RH_BASE + octaveShift);
@@ -1008,16 +1028,21 @@
         const tierCost = (tierCosts && voicing.tiers)
           ? Math.min(...voicing.tiers.map(t => tierCosts[t] ?? Infinity))
           : 0;
+        // An anchored voicing (So What) is a full cluster whose LH carries most
+        // of the notes; costing it by its RH slice alone must not treat it as
+        // "sparse" (it isn't) and — being deliberately guide-tone-free (quartal)
+        // — it is exempt from the mixed completeness penalty (flagged through).
+        const anchored = voicing.anchor != null;
         for (const shift of shifts) {
           const rhMidis = realizeHand(chord.root, voicingRh(voicing), RH_BASE + shift).map(n => n.midi);
-          const sparsity = Math.max(0, 4 - rhMidis.length);
+          const sparsity = anchored ? 0 : Math.max(0, 4 - rhMidis.length);
           const localCost = registerPenalty(rhMidis) + sparsity * 0.4 + tierCost;
           const overflow = windowOverflow(rhMidis, range);
           if (overflow > 0) {
-            spill.push({ overflow, cand: { vIndex, shift, rhMidis, localCost } });
+            spill.push({ overflow, cand: { vIndex, shift, rhMidis, localCost, anchored } });
             continue;
           }
-          cands.push({ vIndex, shift, rhMidis, localCost });
+          cands.push({ vIndex, shift, rhMidis, localCost, anchored });
         }
       });
       // Hard window, safe DP: if no candidate fits at all, keep the least-
@@ -1134,6 +1159,9 @@
 
     /** Interval names the LH contributes under a given mode (mirrors realizeVoicing). */
     function lhIntervalNamesFor(leftHandMode, quality, voicing, lhIndex) {
+      // Anchored voicings realize their own split in EVERY mode (the LH mode
+      // doesn't override them), so the LH is always the stack's LH slice.
+      if (voicing.anchor != null) return voicingLh(voicing);
       if (leftHandMode === 'rootless') return [];
       if (leftHandMode === 'bassonly') return ['R'];
       if (leftHandMode === 'shells') return guideToneIntervals(quality);
