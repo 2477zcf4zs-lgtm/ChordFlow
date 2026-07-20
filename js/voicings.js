@@ -788,6 +788,14 @@
         const gtPcs = essentialGuideTonePcs(chord.root, chord.quality);
         const nodes = [];
         for (const rc of rhCands) {
+          // Anchored voicings (So What) are a COMPLETE guide-tone-free cluster,
+          // structurally at odds with mixed comping's contract that every chord
+          // covers the 3rd & 7th. They stay MANUAL-ONLY in mixed mode: not a
+          // comping-DP candidate here (the user still reaches them by cycling
+          // voicings; realizeVoicing renders the cluster directly). This also
+          // sidesteps the phantom-LH mis-costing — realizeVoicing ignores lhCi
+          // for anchored voicings, so there is no honest LH candidate to cost.
+          if (rc.anchored) continue;
           const rhBottom = rc.rhMidis.length ? Math.min(...rc.rhMidis) : Infinity;
           const rhPcs = new Set(rc.rhMidis.map(m => m % 12));
           for (let ci = 0; ci < nLh; ci++) {
@@ -801,10 +809,7 @@
             let local = rc.localCost + mixedLhIntrinsicCost(chord.quality, ci, midis)
               + placed.dropOctaves * MIX_LH_DROP_COST;
             if (Math.max(...midis) >= rhBottom) local += MIX_COLLISION;
-            // Anchored quartal voicings (So What) are deliberately guide-tone-
-            // free — don't penalize them for it (they realize as their own
-            // complete cluster; the mixed LH candidate is moot for them).
-            if (!rc.anchored) for (const pc of gtPcs) if (!rhPcs.has(pc) && !lhPcs.has(pc)) local += MIX_INCOMPLETE;
+            for (const pc of gtPcs) if (!rhPcs.has(pc) && !lhPcs.has(pc)) local += MIX_INCOMPLETE;
             nodes.push({ rhVIndex: rc.vIndex, rhShift: rc.shift, rhMidis: rc.rhMidis,
               lhCi: ci, lhMidis: midis, localCost: local });
           }
@@ -891,11 +896,23 @@
       // realized as one contiguous stack from a mid `anchor` and split at
       // splitAfter — "one sonority, split where the hands fall" (e.g. So What,
       // which sits entirely in the middle register). It IS both hands, so the
-      // LH mode does not override it. Kept out of the auto-optimizer
-      // (buildVoicingCandidates), so it appears only on manual selection.
-      if (voicing.anchor != null && voicing.stack) {
+      // FULL-texture modes (roots / mixed / shells / evans) do not reduce it;
+      // the optimizer may reach for it too (buildVoicingCandidates).
+      if (voicing.anchor != null) {
+        // Data invariant: toStack gives every KEYBOARD_VOICINGS entry a stack at
+        // load, so an anchored voicing without one is an authoring bug — fail
+        // loud rather than fall through to wrong-register normal realization.
+        if (!voicing.stack) throw new Error('anchored voicing missing stack: ' + (voicing.name || '?'));
+        // bassonly: the app is your bassist — only the root sounds; the cluster
+        // is yours to comp (honors the mode's contract, like every other voicing).
+        if (leftHandMode === 'bassonly') return { left: realizeHand(rootNote, ['R'], LH_BASE), right: [] };
         const whole = realizeHand(rootNote, voicing.stack, voicing.anchor + octaveShift);
-        return { left: whole.slice(0, voicing.splitAfter), right: whole.slice(voicing.splitAfter) };
+        const lo = whole.slice(0, voicing.splitAfter);
+        const hi = whole.slice(voicing.splitAfter);
+        // rootless: an external bassist owns the low end — drop the cluster's
+        // root layer and comp the mid-register color (no doubled bass).
+        if (leftHandMode === 'rootless') return { left: lo.filter((n, k) => voicing.stack[k] !== 'R'), right: hi };
+        return { left: lo, right: hi };
       }
       // RH first: mixed places its LH strictly below the REALIZED right hand
       // (window shifts can pull the RH low — the LH follows down, never crosses).
@@ -1030,8 +1047,8 @@
           : 0;
         // An anchored voicing (So What) is a full cluster whose LH carries most
         // of the notes; costing it by its RH slice alone must not treat it as
-        // "sparse" (it isn't) and — being deliberately guide-tone-free (quartal)
-        // — it is exempt from the mixed completeness penalty (flagged through).
+        // "sparse" (it isn't). The flag also lets computeMixedVoicing give it a
+        // single node with its real fixed LH instead of phantom LH candidates.
         const anchored = voicing.anchor != null;
         for (const shift of shifts) {
           const rhMidis = realizeHand(chord.root, voicingRh(voicing), RH_BASE + shift).map(n => n.midi);
@@ -1159,9 +1176,14 @@
 
     /** Interval names the LH contributes under a given mode (mirrors realizeVoicing). */
     function lhIntervalNamesFor(leftHandMode, quality, voicing, lhIndex) {
-      // Anchored voicings realize their own split in EVERY mode (the LH mode
-      // doesn't override them), so the LH is always the stack's LH slice.
-      if (voicing.anchor != null) return voicingLh(voicing);
+      // Anchored voicings: mirror realizeVoicing's mode-aware anchored branch —
+      // bassonly plays only the root, rootless drops the cluster's root layer,
+      // full-texture modes keep the whole LH slice.
+      if (voicing.anchor != null) {
+        if (leftHandMode === 'bassonly') return ['R'];
+        if (leftHandMode === 'rootless') return voicingLh(voicing).filter(iv => iv !== 'R');
+        return voicingLh(voicing);
+      }
       if (leftHandMode === 'rootless') return [];
       if (leftHandMode === 'bassonly') return ['R'];
       if (leftHandMode === 'shells') return guideToneIntervals(quality);
@@ -1230,7 +1252,20 @@
         extras.sort((a, b) => SOUNDING_COLOR_ORDER.indexOf(a) - SOUNDING_COLOR_ORDER.indexOf(b));
         suffix += '(' + extras.join(',') + ')';
       }
-      return { symbol: formatNoteDisplay(rootNote) + suffix, rootImplied: !names.has('R') };
+      // Honesty about SUBTRACTION, not just addition: an upgraded name like
+      // "Dm13" (or a rootless slice) can imply chord-defining guide tones the
+      // voicing doesn't actually sound — the So What quartal cluster has no 3rd
+      // or 7th at all. Flag the ones the context (bassist, ear) must supply, so
+      // a learner isn't told the cluster contains degrees it omits.
+      const gt = guideToneIntervals(quality); // ['R', third-slot?, seventh-slot?]
+      const impliedGuideTones = [];
+      if (gt[1] && !names.has(gt[1])) impliedGuideTones.push('3rd');
+      if (gt[2] && !names.has(gt[2])) impliedGuideTones.push('7th');
+      return {
+        symbol: formatNoteDisplay(rootNote) + suffix,
+        rootImplied: !names.has('R'),
+        impliedGuideTones
+      };
     }
 
     /**
@@ -1273,6 +1308,7 @@
         name: chordInfo.name,
         voicingName: voicing.name,
         voicingIndex: safeIndex,
+        anchored: voicing.anchor != null,
         octaveShift: shift,
         sounding: soundingChord(rootNote, quality, chordInfo, voicing, leftHandMode, lhIndex)
       };

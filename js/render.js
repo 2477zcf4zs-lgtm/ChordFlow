@@ -756,12 +756,14 @@
         bassonly: ' • Roots only: the app is your bassist — comp the changes yourself'
       };
       let lhNote = LH_MODE_NOTES[state.leftHand] || '';
-      const curVoicing = voicingsFor(chord.quality, state.complexity)[chordData.voicingIndex];
-      if (curVoicing && curVoicing.anchor != null) {
-        // Anchored voicings (So What) are a complete cluster split across both
-        // hands in EVERY mode — the voicing name says what it is, so describe
-        // the distribution rather than the LH mode's usual treatment.
-        lhNote = ' • quartal cluster — one sonority split across the hands';
+      if (chordData.anchored && state.leftHand !== 'bassonly') {
+        // Anchored voicings (So What) are a complete cluster the full-texture
+        // modes split across both hands; in rootless the bassist owns the root
+        // so the cluster comps above it. bassonly keeps its own note (the app is
+        // the bassist — the cluster isn't sounded), so it's excluded here.
+        lhNote = state.leftHand === 'rootless'
+          ? ' • quartal cluster (rootless) — comp the color above the bassist'
+          : ' • quartal cluster — one sonority split across the hands';
       } else if (state.leftHand === 'mixed') {
         // Name the per-chord LH the joint optimizer chose (teaches the "why").
         // Derive the label from the candidate's REAL intervals — 'R-b3-b7' on a
@@ -785,7 +787,14 @@
       if (soundEl) {
         const s = chordData.sounding;
         if (s && chordData.rightHandPitches.length) {
-          soundEl.innerHTML = 'Sounding: <strong></strong>' + (s.rootImplied ? ' · root implied' : '');
+          // Notes the CONTEXT supplies rather than the hands: the bass root when
+          // it's implied, and any chord-defining guide tone the voicing omits
+          // (e.g. the So What quartal cluster sounds no 3rd or 7th).
+          const implied = [];
+          if (s.rootImplied) implied.push('root');
+          if (s.impliedGuideTones && s.impliedGuideTones.length) implied.push(...s.impliedGuideTones);
+          const tail = implied.length ? ' · ' + implied.join(' & ') + ' implied' : '';
+          soundEl.innerHTML = 'Sounding: <strong></strong>' + tail;
           soundEl.querySelector('strong').textContent = s.symbol;
           soundEl.hidden = false;
         } else {

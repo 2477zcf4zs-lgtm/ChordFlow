@@ -28,6 +28,20 @@ you whether a new change is allowed to touch it.
    `splitAfter`) is the ONLY input the RH voice-leading optimizer reads; this
    restated the old "optimizer reads only `voicing.right`" rule in stack terms.
 
+1b. **Anchored voicings realize once, honoring the ensemble contract (v5 Stage B).**
+   A voicing with an `anchor` is a COMPLETE two-hand sonority (e.g. So What);
+   `realizeVoicing` renders it as one contiguous stack from the anchor and splits
+   it at `splitAfter`. The FULL-texture modes (roots / shells / evans / mixed)
+   realize the whole cluster identically; the reduced-ensemble modes still hold:
+   **bassonly** plays only the root at `LH_BASE` (the app is the bassist),
+   **rootless** drops the cluster's root layer (an external bassist owns it).
+   `lhIntervalNamesFor` mirrors this exactly (it is the sounding-name's view of
+   the LH). Because a guide-tone-free cluster is structurally at odds with mixed
+   comping's "every chord covers the 3rd & 7th" contract (invariant via
+   `MIX_INCOMPLETE`), anchored voicings are **manual-only in mixed mode** —
+   `computeMixedVoicing` never emits them as candidates (owner decision), though
+   they stay eligible in the RH-only optimizer and reachable by manual cycling.
+
 2. **Recompute on every harmonic mutation.** `recomputeProgressionVoicings()`
    runs on every path that mutates progression, key, or complexity.
 

@@ -8,6 +8,30 @@ Audio piano synth with comping grooves, a metronome, and tap-to-play pads.
 It is a **static, no-build web app** — plain HTML, CSS, and classic (non-module)
 JavaScript. There is no bundler and no framework.
 
+## Purpose & guiding principles
+
+Every feature and voicing decision serves these core purposes:
+
+- **Practice chart reading** — generate/load progressions the player can read and
+  comp from, in real keys, as written.
+- **Teach standard, traditional keyboard voicings** — the vocabulary is a set of
+  *named, provenance-cited* voicings (Type A/B rootless, Powell/US shells, quartal
+  / So What, drop-2, etc.). ChordFlow **communicates standard technique**; it does
+  not invent voicings. When two readings compete, **prioritize the traditional
+  one**.
+- **Familiarize the hands and ears to jazz harmony** — a practice tool for
+  building the reflexes and the sound of jazz comping.
+- **Stay reasonably idiomatic** — voicings should be what a working player would
+  actually reach for, and playable (roughly a 9th per hand, a 10th ceiling for a
+  marked stretch; comping in the pianist's register, the bassist owning the low
+  end).
+
+Two process rules protect this: the **ear gate** — anything that changes what the
+app *plays* gets an ear-check before it ships, proven against the characterization
+snapshot (Test 15) and the `scripts/full_surface.js` oracle — and the **playability
+caps** enforced by the span guard (Test 17). The load-bearing engineering rules
+live in `INVARIANTS.md`.
+
 ## Features
 
 - **Generation** — random progressions from weighted, complexity-tiered quality

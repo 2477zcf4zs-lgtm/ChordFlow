@@ -1212,13 +1212,45 @@ console.log('\nTest 20: So What (anchored quartal cluster — v5 holistic distri
   check(span(d.leftHandPitches) <= 14 && span(d.rightHandPitches) <= 14,
     'both hands blockable (LH ' + span(d.leftHandPitches) + ' / RH ' + span(d.rightHandPitches) + ' st)');
 
-  // Anchored: it IS both hands, so every LH mode realizes the same cluster.
-  const modes = ['roots', 'shells', 'evans', 'rootless', 'bassonly', 'mixed'];
-  const ref = modes.map(m => {
+  // Anchored: it IS both hands, so the FULL-texture modes realize the same
+  // cluster; the reduced-ensemble modes honor their contract (bassonly = the
+  // app is the bassist, root only; rootless = an external bassist owns the
+  // root, so the cluster comps above it, root dropped).
+  const notes = m => {
     const r = T.getChordNotesAtIndex('D', 'min7', 'seventh', i, 0, { leftHandMode: m });
-    return r.leftHandPitches.concat(r.rightHandPitches).map(p => p.midi).join(',');
-  });
-  check(ref.every(x => x === ref[0]), 'anchored voicing realizes identically in every LH mode (it IS both hands)');
+    return r.leftHandPitches.concat(r.rightHandPitches).map(p => p.midi);
+  };
+  const sortNums = a => a.slice().sort((x, y) => x - y);
+  const pcsOf = midis => sortNums([...new Set(midis.map(m => ((m % 12) + 12) % 12))]);
+  const full = ['roots', 'shells', 'evans', 'mixed'].map(m => notes(m).join(','));
+  check(full.every(x => x === full[0]), 'full-texture modes (roots/shells/evans/mixed) realize the same cluster');
+  check(eqSet(notes('bassonly'), [38]), 'bassonly: only the root sounds (D2), the app is your bassist');
+  const rl = notes('rootless');
+  check(rl.indexOf(62) === -1 && eqSet(pcsOf(rl), [4, 7, 9, 11]),
+    'rootless: cluster minus the root layer (E-A-G-B, no D4) — the bassist owns the root');
+
+  // Sounding-chord honesty: the quartal cluster carries color (9/11/13) but no
+  // 3rd or 7th, so its name must FLAG those as implied — never silently assert
+  // a full m13 the voicing doesn't contain (this is a teaching tool).
+  const soundD = T.getChordNotesAtIndex('D', 'min7', 'seventh', i, 0).sounding;
+  check(soundD && eqSet(soundD.impliedGuideTones || [], ['3rd', '7th']),
+    'So What sounding flags the 3rd & 7th as implied (context supplies them)');
+  // rootless drops the root too, so it is additionally root-implied.
+  const soundRl = T.getChordNotesAtIndex('D', 'min7', 'seventh', i, 0, { leftHandMode: 'rootless' }).sounding;
+  check(soundRl && soundRl.rootImplied === true && eqSet(soundRl.impliedGuideTones || [], ['3rd', '7th']),
+    'So What rootless: root + 3rd + 7th all implied');
+
+  // Optimizer reachability + the manual-only-in-mixed contract. So What must
+  // stay an ELIGIBLE candidate (the sparsity exemption keeps its 2-note RH
+  // slice from pricing it out of candidacy — a future cost change must not
+  // silently drop it); but mixed comping guarantees every chord covers the 3rd
+  // & 7th, so it must NOT auto-pick a guide-tone-free cluster (owner decision).
+  const cand = T.buildVoicingCandidates({ root: 'D', quality: 'min7' }, 'seventh', null);
+  check(cand.some(c => c.vIndex === i && c.anchored === true),
+    'So What stays an eligible (anchored) optimizer candidate');
+  const mixVamp = T.computeMixedVoicing(Array.from({ length: 4 }, () => ({ root: 'D', quality: 'min7' })), 'seventh', null);
+  check(mixVamp.rhIndices.every(x => x !== i),
+    'mixed comping never auto-picks So What (manual-only in mixed — always covers 3 & 7)');
 
   // Realizes cleanly across roots (no NaN / undefined spelling).
   let clean = true;
