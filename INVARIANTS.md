@@ -17,6 +17,17 @@ you whether a new change is allowed to touch it.
    (`getChordNotesAtIndex`, `selectChord` cycling, `buildVoicingCandidates`)
    must see identical ordering, because `state.voicingIndices` indexes into it.
 
+1a. **A voicing's identity is its interval STACK (v5 Stage A).** `KEYBOARD_VOICINGS`
+   entries carry an ordered `stack` and a default distribution `splitAfter`;
+   the authored `{ left, right }` form is the default distribution (derived to
+   `stack` at load by `toStack`, retired in v5 Stage B-4). The realization
+   pipeline reads the stack via `voicingLh(v)` / `voicingRh(v)` (never
+   `v.left` / `v.right` directly), so the hand split is a *distribution
+   decision*, not part of identity — this is what lets the Stage-B solver pick
+   a split other than `splitAfter`. `voicingRh(v)` (the stack above
+   `splitAfter`) is the ONLY input the RH voice-leading optimizer reads; this
+   restated the old "optimizer reads only `voicing.right`" rule in stack terms.
+
 2. **Recompute on every harmonic mutation.** `recomputeProgressionVoicings()`
    runs on every path that mutates progression, key, or complexity.
 
@@ -27,9 +38,11 @@ you whether a new change is allowed to touch it.
     windows, and future LH-shell voicings) inject there, never per consumer.
 
 11. **Recompute asymmetry.** Left Hand *mode* changes need **no** voicing
-    recompute (the RH and its optimizer are untouched); Range changes **must**
-    call `recomputeProgressionVoicings()` (the window changes what the optimizer
-    picks). Any new setting must be classified as one or the other.
+    recompute (the RH slice `voicingRh(v)` and its optimizer are untouched);
+    Range changes **must** call `recomputeProgressionVoicings()` (the window
+    changes what the optimizer picks). Any new setting must be classified as
+    one or the other. (Mixed mode is the standing exception — its RH is chosen
+    jointly with the LH, so it recomputes; see spec v4 Phase 1b.)
 
 ## Rendering
 

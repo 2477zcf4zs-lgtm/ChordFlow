@@ -249,14 +249,14 @@
             const prevVoicings = voicingsFor(prevChord.quality, state.complexity);
             const pv = prevVoicings[state.voicingIndices[index - 1] % prevVoicings.length];
             const pShift = (state.voicingShifts && state.voicingShifts[index - 1]) || 0;
-            prevRh = realizeHand(prevChord.root, pv.right, RH_BASE + pShift).map(n => n.midi);
+            prevRh = realizeHand(prevChord.root, voicingRh(pv), RH_BASE + pShift).map(n => n.midi);
           }
           state.voicingShifts[index] = bestShiftForVoicing(chord.root, tierVoicings[nextIdx], prevRh, activeRangeWindow());
           // Mixed mode: the LH is coordinated with the RH, so recoordinate it
           // to the RH the user just cycled to (cover the guide tones, clear it).
           if (state.leftHand === 'mixed') {
             if (!state.lhVoicingIndices) state.lhVoicingIndices = [];
-            const rhMidis = realizeHand(chord.root, tierVoicings[nextIdx].right, RH_BASE + (state.voicingShifts[index] || 0)).map(n => n.midi);
+            const rhMidis = realizeHand(chord.root, voicingRh(tierVoicings[nextIdx]), RH_BASE + (state.voicingShifts[index] || 0)).map(n => n.midi);
             state.lhVoicingIndices[index] = bestMixedLhForRh(chord.root, chord.quality, rhMidis);
           }
         }
@@ -1045,8 +1045,8 @@
       
       let html = '';
       voicingData.voicings.forEach((voicing, i) => {
-        const leftNotes = voicing.left.map(interval => formatNoteDisplay(spellInterval(dictRoot, interval))).join(' ');
-        const rightNotes = voicing.right.map(interval => formatNoteDisplay(spellInterval(dictRoot, interval))).join(' ');
+        const leftNotes = voicingLh(voicing).map(interval => formatNoteDisplay(spellInterval(dictRoot, interval))).join(' ');
+        const rightNotes = voicingRh(voicing).map(interval => formatNoteDisplay(spellInterval(dictRoot, interval))).join(' ');
 
         html += `
           <button type="button" class="dict-voicing-item" data-index="${i}"
