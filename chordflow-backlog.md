@@ -80,6 +80,12 @@ started then deliberately shelved.
     timer-driven). De-flake belongs with the Phase 4 smoke-test sectioning
     work (spec v4): mock-clock the sub-tray/trial sections the way playback
     sections already are. CI (uncontended) has never tripped it.
+- [ ] **Mobile shell regression: tabs jump under the Dynamic Island + voicing
+  panel needs scrolling.** *(Specced: `chordflow-spec-v4.md` Phase 1c —
+  execute from there, before Phase 2.)* Reported on-device 2026-07-18; the
+  sounding-chord line's height armed a latent shell bug (no top safe-area
+  inset on the tab bar + `overflow: hidden` not being a real iOS scroll
+  lock + `scrollIntoView` nudging the document).
 - [ ] *(owner: add your own UI rough-edges here as you hit them.)*
 
 ## B. Voicing content gaps
