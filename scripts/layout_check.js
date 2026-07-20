@@ -85,7 +85,70 @@ function box(el) { return el ? { top: Math.round(el.top), bottom: Math.round(el.
     check(s.keyVisible, 'key select reachable in settings without page scroll');
     check(s.scrollH <= s.innerH + 1, 'still no page scroll with settings open');
 
+    // --- Phase 1c: mobile shell integrity + vertical budget ---
+    if (vw === 390) {
+      // Re-open voicing on a SUB-HEAVY chord (the ii-V-I's dominant, index 1 =
+      // ~7 functional subs) with the sounding line showing — the exact panel
+      // that overflowed. Then try to nudge the document: the fixed-body shell
+      // must not move (no riding up under the Dynamic Island).
+      const b1 = await page.evaluate(() => {
+        document.querySelector('.tab-btn') && document.getElementById('voicingBtn') &&
+          document.getElementById('voicingBtn').click();
+        const boxes = document.querySelectorAll('.chord-box');
+        (boxes[1] || boxes[0]).click();
+        const pa = document.querySelector('.panel-area');
+        const snd = document.getElementById('soundingChord');
+        window.scrollTo(0, 120); // hostile nudge
+        return {
+          over: pa.scrollHeight - pa.clientHeight,
+          subChips: document.querySelectorAll('#voicingSubs .sub-chip').length,
+          soundingShown: !!(snd && !snd.hidden),
+          docTop: window.pageYOffset,
+          appTop: Math.round(document.querySelector('.app').getBoundingClientRect().top)
+        };
+      });
+      check(b1.subChips >= 4, `sub-heavy chord in view (${b1.subChips} sub chips)`);
+      check(b1.soundingShown, 'sounding-chord line visible on the tested voicing');
+      check(b1.over <= 1, `voicing panel fits without internal scroll at 844 (overflow ${b1.over}px)`);
+      check(b1.docTop === 0, `document cannot be scrolled — shell stays pinned (scrollTop ${b1.docTop})`);
+      check(b1.appTop === 0, `app shell top stays at 0 after a scroll nudge (top ${b1.appTop})`);
+
+      // The stylesheet must consume the TOP safe-area inset in the tab bar
+      // (the island itself can't be emulated headlessly — assert the mechanism).
+      const css = require('fs').readFileSync(require('path').join(ROOT, 'css/styles.css'), 'utf8');
+      const tabRule = (css.match(/\.tab-bar\s*\{[^}]*\}/) || [''])[0];
+      check(/env\(safe-area-inset-top/.test(tabRule),
+        'tab bar consumes env(safe-area-inset-top) (clears the Dynamic Island)');
+      const bodyRule = (css.match(/\n\s*body\s*\{[^}]*position:\s*fixed[^}]*\}/) || [''])[0];
+      check(/position:\s*fixed/.test(bodyRule), 'body is position:fixed (real iOS scroll lock)');
+    }
+
     await page.screenshot({ path: `shot-${vw}x${vh}.png` });
+    await page.close();
+  }
+
+  // Device-realistic tight budget (Safari toolbar up): the sub-heavy voicing
+  // panel must still fit without internal scroll at a reduced usable height.
+  {
+    console.log('\n=== MOBILE TIGHT 390x740 (toolbar up) ===');
+    const page = await browser.newPage({ viewport: { width: 390, height: 740 } });
+    const errors = [];
+    page.on('pageerror', e => errors.push(String(e)));
+    await page.goto(url, { waitUntil: 'networkidle' });
+    await page.waitForSelector('.library-item', { state: 'attached' });
+    await page.click('.chord-box');
+    await page.waitForSelector('#voicingPanel.visible');
+    await page.waitForTimeout(200);
+    const t = await page.evaluate(() => {
+      const boxes = document.querySelectorAll('.chord-box');
+      (boxes[1] || boxes[0]).click();
+      const pa = document.querySelector('.panel-area');
+      const de = document.documentElement;
+      return { over: pa.scrollHeight - pa.clientHeight, scrollH: de.scrollHeight, innerH: window.innerHeight };
+    });
+    check(t.scrollH <= t.innerH + 1, `no page scroll at 740 (${t.scrollH} <= ${t.innerH})`);
+    check(t.over <= 1, `sub-heavy voicing panel fits at tight 740 height (overflow ${t.over}px)`);
+    check(errors.length === 0, 'no page errors at tight height');
     await page.close();
   }
 

@@ -906,13 +906,21 @@
       const idx = state.isPlaying
         ? state.currentChordIndex
         : (state.selectedChordIndex !== null ? state.selectedChordIndex : state.currentChordIndex);
-      const cell = elements.chordContainer.querySelector('.chord-cell[data-index="' + idx + '"]');
-      if (!cell || typeof cell.scrollIntoView !== 'function') return;
+      const cont = elements.chordContainer;
+      const cell = cont && cont.querySelector('.chord-cell[data-index="' + idx + '"]');
+      if (!cell) return;
+      // Scroll the STRIP's own horizontal scroller by explicit scrollLeft math
+      // — never scrollIntoView, which on iOS nudges ancestor scrollers (the
+      // document) when the target is clipped and rides the whole shell up.
+      const target = cell.offsetLeft - (cont.clientWidth - cell.offsetWidth) / 2;
+      const left = Math.max(0, target);
       const reduced = typeof window.matchMedia === 'function' &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      try {
-        cell.scrollIntoView({ inline: 'center', block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
-      } catch (e) { /* environments without scroll options */ }
+      if (typeof cont.scrollTo === 'function') {
+        try { cont.scrollTo({ left, behavior: reduced ? 'auto' : 'smooth' }); return; }
+        catch (e) { /* fall through to direct assignment */ }
+      }
+      cont.scrollLeft = left;
     }
 
     function renderLibrary() {
