@@ -5,6 +5,10 @@ the lighter-weight list of cleanup, polish, content gaps, and parked ideas that
 don't yet warrant a full spec. Check here before starting a "clean up the app"
 session.
 
+> **Current roadmap order (2026-07-18):** `chordflow-spec-v5.md` (holistic
+> voicing model, Stages A→B→C) runs FIRST; then the reduced v4 Phases 2–3,
+> Phase 4 any time, 5–7 after. See v5's impact table.
+
 Status legend: **[ ]** open · **[~]** in progress · **[x]** done · **[paused]**
 started then deliberately shelved.
 
