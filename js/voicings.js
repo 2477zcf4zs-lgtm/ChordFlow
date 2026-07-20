@@ -93,7 +93,13 @@
           { left: ['R'], right: ['b3', '5', 'b7', '9'], name: 'Type A: 3-5-7-9', type: 'A', tiers: ['jazz'] },
           { left: ['R'], right: ['b7', '9', 'b3', '5'], name: 'Type B: 7-9-3-5', type: 'B', tiers: ['jazz'] },
           // Quartal (So What / McCoy): RH stacked in 4ths — C + F-Bb-Eb, keeps guide tones
-          { left: ['R'], right: ['11', 'b7', 'b3'], name: 'Quartal: R | 11-7-3 in 4ths', type: null, tiers: ['jazz'] }
+          { left: ['R'], right: ['11', 'b7', 'b3'], name: 'Quartal: R | 11-7-3 in 4ths', type: null, tiers: ['jazz'] },
+          // So What (Evans/Davis): the 5-note quartal cluster (9-5-R-11-13),
+          // three 4ths + a 3rd, sitting in ONE mid-register zone. An ANCHORED
+          // voicing (v5 holistic model): realized as one contiguous stack and
+          // split where the hands fall — inexpressible in the old low-LH/high-RH
+          // model without a hack. Manual-select only (a colour you reach for).
+          { left: ['9', '5'], right: ['R', '11', '13'], anchor: 48, name: 'So What (quartal cluster)', type: null, tiers: ['jazz'] }
         ]
       },
       
@@ -877,6 +883,16 @@
      *                voicing itself is yours to comp on a real instrument
      */
     function realizeVoicing(rootNote, voicing, octaveShift = 0, leftHandMode = 'roots', quality = null, lhIndex = 0) {
+      // Anchored voicing (v5 holistic model): a COMPLETE two-hand sonority
+      // realized as one contiguous stack from a mid `anchor` and split at
+      // splitAfter — "one sonority, split where the hands fall" (e.g. So What,
+      // which sits entirely in the middle register). It IS both hands, so the
+      // LH mode does not override it. Kept out of the auto-optimizer
+      // (buildVoicingCandidates), so it appears only on manual selection.
+      if (voicing.anchor != null && voicing.stack) {
+        const whole = realizeHand(rootNote, voicing.stack, voicing.anchor + octaveShift);
+        return { left: whole.slice(0, voicing.splitAfter), right: whole.slice(voicing.splitAfter) };
+      }
       // RH first: mixed places its LH strictly below the REALIZED right hand
       // (window shifts can pull the RH low — the LH follows down, never crosses).
       const right = leftHandMode === 'bassonly' ? [] : realizeHand(rootNote, voicingRh(voicing), RH_BASE + octaveShift);
@@ -1002,6 +1018,11 @@
       // register-penalty loser, so it isn't offered.
       const shifts = range ? [-24, -12, 0, 12] : [-12, 0, 12];
       voicingsFor(chord.quality, complexity).forEach((voicing, vIndex) => {
+        // Anchored voicings (So What etc.) are complete two-hand statements a
+        // player reaches for deliberately — never auto-comped by the optimizer.
+        // Skipping keeps every existing DP choice byte-identical; they remain
+        // reachable via manual voicing cycling.
+        if (voicing.anchor != null) return;
         // Untagged voicings are native to the selected tier (cost 0). The tier
         // cost now carries the "prefer fuller voicings" preference, so the raw
         // sparsity weight is small (0.4) rather than the old 1.0.
