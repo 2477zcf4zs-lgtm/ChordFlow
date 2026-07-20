@@ -79,6 +79,15 @@
     // ============================================
 
     function setupEventListeners() {
+      // Scroll-lock guard (belt-and-suspenders to the CSS position:fixed body).
+      // If anything ever scrolls the document — an iOS tap/focus nudge, a
+      // toolbar resize — snap it straight back so the fixed-height shell can
+      // never ride up under the Dynamic Island. The strip and .panel-area do
+      // their own internal scrolling, which this does not touch.
+      window.addEventListener('scroll', () => {
+        if (window.pageYOffset || window.pageXOffset) window.scrollTo(0, 0);
+      }, { passive: true });
+
       // Transport controls
       elements.playBtn.addEventListener('click', () => { togglePlayback(); elements.playBtn.blur(); });
       elements.prevChordBtn.addEventListener('click', () => { stepChord(-1); elements.prevChordBtn.blur(); });

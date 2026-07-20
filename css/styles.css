@@ -46,7 +46,17 @@
     }
 
     body {
-      overflow: hidden; /* the page never scrolls; .panel-area scrolls internally */
+      /* The page NEVER scrolls — only .panel-area scrolls internally. On iOS
+         Safari `overflow: hidden` alone is not a reliable lock (tap/focus
+         auto-scroll and toolbar resize can still shift the document, which
+         with viewport-fit=cover slides the whole 100dvh shell up under the
+         Dynamic Island and opens dead space below the transport). Pinning the
+         body with position:fixed is the robust lock; a JS scrollTop guard in
+         app.js is the belt-and-suspenders. */
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      overscroll-behavior: none;
     }
 
     .app {
@@ -92,7 +102,10 @@
       display: flex;
       align-items: stretch;
       gap: 6px;
-      padding: 8px 12px 0;
+      /* viewport-fit=cover extends the layout behind the Dynamic Island / notch;
+         every top-anchored bar must clear the top inset, not just the bottom
+         transport. Without this the tabs render under the island. */
+      padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 0;
     }
 
     .tab-set {
@@ -457,7 +470,11 @@
       background: var(--bg-secondary);
       border: 1px solid var(--border-soft);
       border-radius: 0 0 var(--radius-md) var(--radius-md);
-      padding: 16px 16px 18px;
+      /* Vertical budget (Phase 1c): trimmed from 16/18 so the panel — chord
+         name, hands, piano, legend, sounding line, wrapped sub tray — fits a
+         short viewport (Safari toolbar up) without internal scrolling. The
+         piano still soaks spare height on tall screens (no gap). */
+      padding: 10px 16px 12px;
       display: none;
     }
 
@@ -481,7 +498,7 @@
     .hand-section {
       flex: 1;
       text-align: center;
-      padding: 10px 20px;
+      padding: 6px 20px;
     }
 
     .hand-divider {
@@ -506,7 +523,7 @@
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      margin-bottom: 12px;
+      margin-bottom: 6px;
     }
 
     .voicing-notes {
@@ -519,7 +536,7 @@
     .voicing-description {
       font-size: 0.85rem;
       color: var(--text-secondary);
-      margin-top: 10px;
+      margin-top: 6px;
     }
 
     /* Controls (rows inside the Settings tab panel) */
@@ -1568,8 +1585,8 @@
     /* Reference links */
     /* Piano keyboard visualization */
     .piano-container {
-      margin: 16px 0 4px;
-      padding: 14px 14px 10px;
+      margin: 8px 0 2px;
+      padding: 8px 12px 6px;
       background: var(--bg-primary);
       border: 1px solid var(--border-softer);
       border-radius: var(--radius-sm);
@@ -1593,7 +1610,7 @@
       display: flex;
       gap: 18px;
       justify-content: center;
-      margin-top: 10px;
+      margin-top: 6px;
       font-size: 11px;
       color: var(--text-secondary);
     }

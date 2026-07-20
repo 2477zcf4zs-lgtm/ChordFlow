@@ -1,3 +1,6 @@
 node_modules/
 npm-debug.log*
 .DS_Store
+
+# layout_check.js screenshots (regenerated on each run)
+shot-*.png
