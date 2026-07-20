@@ -14,6 +14,15 @@ prior context. Before executing any phase, read:
 Execute **one phase per session**: complete its acceptance checklist, run
 `npm test` (green before starting, green at every commit), commit, stop.
 
+> **SEQUENCING CHANGE (owner, 2026-07-18): `chordflow-spec-v5.md` (the
+> holistic voicing model) executes BEFORE Phases 2 and 3 of this spec.**
+> v5 supersedes Phase 3's lhBase/rhBase override mechanism (never build it)
+> and absorbs Phase 2's enforcement mechanics into its distribution solver
+> — Phase 2 here shrinks to the Settings-UI half. Phases 1/1b/1c are done;
+> Phase 4 may still run any time; Phases 5–7 follow v5 (the user guide
+> should document the post-v5 language). See v5's "Impact on the v4
+> roadmap" table.
+
 ---
 
 ## Design philosophy (owner's direction — this is the north star)
