@@ -13,7 +13,7 @@ function loadTheoryCore() {
   // touches live inside functions this suite never calls.
   const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/audio.js', 'js/state.js'];
   const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
-  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, realizeMixedCandidateBelow, bestMixedLhForRh };');
+  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, realizeMixedCandidateBelow, bestMixedLhForRh, formatChordSymbol, soundingChord };');
   return fn();
 }
 const T = loadTheoryCore();
@@ -1135,6 +1135,59 @@ console.log('\nTest 18: mixed left hand (joint voice-led comping — the app def
     const lhLow = T.realizeMixedCandidateBelow('B', 'min13', ciLow, Math.min(...rhLow)).map(n => n.midi);
     check(Math.max(...lhLow) < Math.min(...rhLow), 'manual-cycle recoordination clears a window-lowered RH');
   }
+}
+
+console.log('\nTest 19: sounding chord (chart symbol vs what the voicing actually plays)');
+{
+  // The display teaches the gap between the page (Fmaj7) and the hands
+  // (Fmaj9). Assert the naming across the canon, the suppression rule (page
+  // and hands agree -> null), and LH-mode sensitivity (evans adds LH color).
+  const sounding = (q, nameFrag, opts) => {
+    const vs = T.voicingsFor(q, 'seventh');
+    const i = vs.findIndex(v => v.name.indexOf(nameFrag) !== -1);
+    check(i !== -1, `sounding: voicing '${nameFrag}' exists in ${q}`);
+    if (i === -1) return undefined;
+    return T.getChordNotesAtIndex('C', q, 'seventh', i, 0, opts || {}).sounding;
+  };
+  const sym = s => (s ? s.symbol : null);
+
+  // The motivating case: an Fmaj7 chart symbol voiced with the 9 IS a maj9.
+  check(sym(sounding('maj7', 'Type A: 3-5-7-9')) === 'Cmaj9', 'maj7 Type A sounds as Cmaj9');
+  check(sym(sounding('maj7', 'RSP (13)')) === 'Cmaj13', 'maj7 RSP(13) sounds as Cmaj13');
+  check(sym(sounding('maj7', 'RSP (#11)')) === 'Cmaj7(#11)', 'maj7 RSP(#11) keeps base, colors in parens');
+  check(sym(sounding('dom7', 'Type A: 3-13-7-9')) === 'C13', 'dom7 voiced with 13+9 sounds as C13 (13 consumes the 9)');
+  check(sym(sounding('min7', 'Quartal')) === 'Cm11', 'min7 quartal sounds as Cm11');
+  check(sym(sounding('dom7sus4', 'Slash')) === 'C9sus4', 'sus slash sounds as C9sus4');
+  // Conservative families keep the written symbol + parens (no fake upgrades).
+  check(sym(sounding('m7b5', 'RSP (11)')) === T.formatChordSymbol('C', 'm7b5') + '(11)',
+    'm7b5 RSP(11) stays m7b5 with the 11 in parens');
+  // Suppression: a strict voicing IS the page — nothing to teach.
+  check(sounding('maj7', 'Shell: R | 3-7') === null, 'strict shell shows nothing (page and hands agree)');
+  // LH-mode sensitivity: evans' LH rootless shape adds its own color (the 9)
+  // and drops the root — the sounding name follows the WHOLE texture.
+  const ev = sounding('min7', 'Shell: R | 3-7', { leftHandMode: 'evans', lhIndex: 0 });
+  check(ev && ev.symbol === 'Cm9' && ev.rootImplied === true,
+    `evans two-hand texture on a m7 shell sounds as Cm9, root implied (got ${ev && ev.symbol})`);
+  check(sounding('maj7', 'Type A: 3-5-7-9').rootImplied === false, 'roots mode: root sounds, not implied');
+
+  // Whole-canon sweep: every quality x voicing x LH mode names cleanly or
+  // stays silent — never a crash, never an empty/garbage symbol; and every
+  // strict-tier voicing in roots mode is silent (strict = chord tones only).
+  let bad = 0, strictNoisy = 0;
+  for (const q of Object.keys(T.KEYBOARD_VOICINGS)) {
+    const vs = T.voicingsFor(q, 'seventh');
+    vs.forEach((v, i) => {
+      for (const mode of ['roots', 'shells', 'rootless', 'mixed', 'evans']) {
+        const s = T.getChordNotesAtIndex('C', q, 'seventh', i, 0, { leftHandMode: mode }).sounding;
+        if (s !== null && (!s.symbol || typeof s.symbol !== 'string' || s.symbol.indexOf('undefined') !== -1)) bad++;
+      }
+      if (v.tiers && v.tiers.indexOf('strict') !== -1) {
+        if (T.getChordNotesAtIndex('C', q, 'seventh', i, 0).sounding !== null) strictNoisy++;
+      }
+    });
+  }
+  check(bad === 0, `sounding names are always clean strings or null (${bad} bad)`);
+  check(strictNoisy === 0, `strict-tier voicings never claim extra color (${strictNoisy} noisy)`);
 }
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));

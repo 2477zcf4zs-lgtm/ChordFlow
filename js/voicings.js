@@ -1097,6 +1097,86 @@
       return best;
     }
 
+    // ============== Sounding chord (the chart symbol vs what you play) ==============
+    // A chart symbol is a contract, not a transcription: the app (like a real
+    // player) may voice an Fmaj7 with the 9 in it. These helpers name what a
+    // realized voicing ACTUALLY sounds like ("Fmaj9") so the display can teach
+    // the gap between the page and the hands. Display-only — nothing here
+    // feeds playback or the optimizers.
+
+    /** Interval names the LH contributes under a given mode (mirrors realizeVoicing). */
+    function lhIntervalNamesFor(leftHandMode, quality, voicing, lhIndex) {
+      if (leftHandMode === 'rootless') return [];
+      if (leftHandMode === 'bassonly') return ['R'];
+      if (leftHandMode === 'shells') return guideToneIntervals(quality);
+      if (leftHandMode === 'mixed') {
+        const cands = lhMixedCandidateIntervals(quality);
+        return cands[((lhIndex || 0) % cands.length + cands.length) % cands.length];
+      }
+      if (leftHandMode === 'evans') {
+        const shapes = lhRootlessShapesFor(quality);
+        return shapes[((lhIndex || 0) % shapes.length + shapes.length) % shapes.length];
+      }
+      return voicing.left; // roots
+    }
+
+    // Qualities whose symbol conventionally upgrades when a natural extension
+    // sounds (a dom7 voiced with the 13 IS a 13th chord). Everything else —
+    // altered dominants, m7b5, dim, minMaj — keeps its written symbol and takes
+    // the color in parentheses: the conservative, smallest honest name.
+    const SOUNDING_LADDERS = {
+      maj7: { '9': 'maj9', '13': 'maj13' },
+      maj9: { '13': 'maj13' },
+      dom7: { '9': '9', '13': '13' },
+      dom9: { '13': '13' },
+      min7: { '9': 'm9', '11': 'm11', '13': 'm13' },
+      min9: { '11': 'm11', '13': 'm13' },
+      min11: { '13': 'm13' },
+      dom7sus4: { '9': '9sus4', '13': '13sus4' },
+      '6': { '9': '6/9' },
+      m6: { '9': 'm6/9' },
+      maj: { '9': 'add9' },
+      min: { '9': 'm(add9)' }
+    };
+    // Conventional display order inside the parentheses.
+    const SOUNDING_COLOR_ORDER = ['b9', '9', '#9', '11', '#11', 'b13', '13', 'b5', '#5', '6', '2', '4'];
+
+    /**
+     * Name what a voicing actually sounds like, or null when it carries no
+     * pitch class beyond the written chord's degree set (then the page and the
+     * hands agree — nothing to teach). Returns { symbol, rootImplied }.
+     */
+    function soundingChord(rootNote, quality, chordInfo, voicing, leftHandMode, lhIndex) {
+      if (leftHandMode === 'bassonly') return null; // only the root sounds
+      const names = new Set(
+        lhIntervalNamesFor(leftHandMode, quality, voicing, lhIndex).concat(voicing.right));
+      const writtenPcs = new Set(chordInfo.intervals.map(s => ((s % 12) + 12) % 12));
+      let extras = [];
+      for (const iv of names) {
+        const def = INTERVALS[iv];
+        if (def && !writtenPcs.has(((def.semitones % 12) + 12) % 12)) extras.push(iv);
+      }
+      if (!extras.length) return null;
+
+      let suffix = chordInfo.symbol;
+      const ladder = SOUNDING_LADDERS[quality];
+      if (ladder) {
+        // Highest natural extension the family upgrades on; upgrading to a 13
+        // (or 11) consumes the naturals below it, per convention.
+        const natural = ['13', '11', '9'].find(n => ladder[n] && extras.indexOf(n) !== -1);
+        if (natural) {
+          suffix = ladder[natural];
+          const consumed = ['9', '11', '13'].slice(0, ['9', '11', '13'].indexOf(natural) + 1);
+          extras = extras.filter(iv => consumed.indexOf(iv) === -1);
+        }
+      }
+      if (extras.length) {
+        extras.sort((a, b) => SOUNDING_COLOR_ORDER.indexOf(a) - SOUNDING_COLOR_ORDER.indexOf(b));
+        suffix += '(' + extras.join(',') + ')';
+      }
+      return { symbol: formatNoteDisplay(rootNote) + suffix, rootImplied: !names.has('R') };
+    }
+
     /**
      * Get a specific voicing by index, realized in register.
      * Pure function: no hidden state, safe to call from any UI path.
@@ -1137,7 +1217,8 @@
         name: chordInfo.name,
         voicingName: voicing.name,
         voicingIndex: safeIndex,
-        octaveShift: shift
+        octaveShift: shift,
+        sounding: soundingChord(rootNote, quality, chordInfo, voicing, leftHandMode, lhIndex)
       };
     }
 

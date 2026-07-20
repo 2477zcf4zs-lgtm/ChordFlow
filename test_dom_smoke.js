@@ -195,6 +195,15 @@ async function main() {
     trayGroove.value = 'charleston';
     trayGroove.dispatchEvent(new window.Event('change'));
     window.eval('var __audReal = synthNote; var __audCount = 0; synthNote = function(m,t,d,v,g){ __audCount++; return __audReal(m,t,d,v,g); };');
+    { // Flake instrumentation (backlog: contention flake): dump state if the
+      // chip is missing so the next occurrence is diagnosable, not silent.
+      const dbg = tray.querySelector('.sub-chip[data-key="tritone"]');
+      if (!dbg) console.log('  FLAKE DUMP: sel=' + st().selectedChordIndex
+        + ' prog=' + st().progression.map(c => c.root + c.quality).join(',')
+        + ' keys=' + Array.from(tray.querySelectorAll('.sub-chip')).map(c => c.dataset.key).join('|')
+        + ' subs=' + JSON.stringify(st().substitutions)
+        + ' subBase1=' + JSON.stringify((st().subBase && st().subBase[1]) || null));
+    }
     tray.querySelector('.sub-chip[data-key="tritone"]').click();
     check(engine().auditionGain !== null, 'chip tap auditions through auditionGain (never sessionGain)');
     // 3 chords x (LH + 2 charleston hits x >=2 RH notes) lands well above 9
@@ -867,6 +876,32 @@ async function main() {
       'mixed mode: a per-chord LH decision is computed for every chord');
     check(document.getElementById('voicingDescription').textContent.indexOf('LH mixed') !== -1,
       'mixed names its per-chord LH decision in the description');
+
+    // --- Sounding chord (chart symbol vs what the voicing plays) ---
+    // Force a known case: Cmaj7 voiced Type A (3-5-7-9) sounds as Cmaj9 -> the
+    // line shows; a strict shell agrees with the page -> the line hides.
+    {
+      const soundEl = document.getElementById('soundingChord');
+      check(!!soundEl, 'sounding-chord element exists under the piano');
+      const savedChord = st().progression[0];
+      const savedVIdx = st().voicingIndices[0];
+      const savedShift = st().voicingShifts[0];
+      st().progression[0] = { root: 'C', quality: 'maj7', degree: 'I' };
+      const mvs = window.voicingsFor('maj7', st().complexity);
+      st().voicingIndices[0] = mvs.findIndex(v => v.name.indexOf('Type A: 3-5-7-9') !== -1);
+      st().voicingShifts[0] = 0;
+      st().selectedChordIndex = 0;
+      window.renderVoicing();
+      check(soundEl.hidden === false && soundEl.textContent.indexOf('Cmaj9') !== -1,
+        `sounding line shows Cmaj9 for a 9-colored maj7 voicing (got "${soundEl.textContent}")`);
+      st().voicingIndices[0] = mvs.findIndex(v => v.name.indexOf('Shell: R | 3-7') !== -1);
+      window.renderVoicing();
+      check(soundEl.hidden === true, 'sounding line hides when the voicing matches the chart symbol');
+      st().progression[0] = savedChord;
+      st().voicingIndices[0] = savedVIdx;
+      st().voicingShifts[0] = savedShift;
+      window.renderVoicing();
+    }
 
     // --- Two-hand rootless (evans) + backing bass ---
     lhSelect.value = 'evans';
