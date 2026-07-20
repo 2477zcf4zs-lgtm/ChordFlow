@@ -758,9 +758,16 @@
       let lhNote = LH_MODE_NOTES[state.leftHand] || '';
       if (state.leftHand === 'mixed') {
         // Name the per-chord LH the joint optimizer chose (teaches the "why").
-        const MIX_LABEL = ['lone root', 'shell (R-3-7)', 'root + 3rd', 'root + 7th'];
+        // Derive the label from the candidate's REAL intervals — 'R-b3-b7' on a
+        // m7, 'root + 4' on a sus — never a hardcoded 'R-3-7' that misstates
+        // the quality (this app teaches; wrong interval names miseducate).
         const ci = (state.lhVoicingIndices && state.lhVoicingIndices[chordIndex]) || 0;
-        lhNote = ' • LH mixed → ' + (MIX_LABEL[ci] || 'lone root') + ' (voice-led)';
+        const cands = lhMixedCandidateIntervals(chord.quality);
+        const ivs = cands[((ci % cands.length) + cands.length) % cands.length] || ['R'];
+        const label = ivs.length === 1 ? 'lone root'
+          : ivs.length === 3 ? 'shell (R-' + ivs[1] + '-' + ivs[2] + ')'
+          : 'root + ' + ivs[1];
+        lhNote = ' • LH mixed → ' + label + ' (voice-led)';
       }
       const rangeNote = state.range === 'reface' ? ' • 3-octave window' : '';
       elements.voicingDescription.textContent = `${chordData.name} • ${chordData.voicingName}${lhNote}${rangeNote}`;

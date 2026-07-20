@@ -661,6 +661,49 @@
       return realizeHand(rootNote, cands[safe], LH_COMP_BASE);
     }
 
+    // LH placement bases, highest (home) first. The octave drops exist for the
+    // range-window case: under reface the RH legally shifts down to fit C2-C5,
+    // and a C3-pinned LH would CROSS it (the reface hand-crossing bug). When
+    // the RH sits low the idiomatic move is "play lower, play less" — never
+    // over the top of the RH.
+    const MIX_LH_BASES = [LH_COMP_BASE, LH_COMP_BASE - 12, LH_COMP_BASE - 24];
+
+    // Register price per octave the LH is displaced below its home zone. High
+    // enough that at full range the DP never trades the C3 comping register
+    // for a low texture (the pre-fix behavior stays the ear-approved norm),
+    // low enough that under a window a drop always beats MIX_COLLISION.
+    const MIX_LH_DROP_COST = 6;
+
+    /**
+     * Place mixed candidate `candIndex` in the highest base that keeps the
+     * whole LH STRICTLY below rhBottom. A pure function of (root, quality,
+     * candIndex, rhBottom): the joint DP, the manual-cycle picker and
+     * realizeVoicing all derive the same placement, so no extra register state
+     * is stored. Returns { notes, dropOctaves } — dropOctaves prices the
+     * displacement (0 at home). With no RH constraint (Infinity) this is the
+     * home-zone realization, byte-identical to realizeMixedCandidate. The lone
+     * root always clears any real window's RH by the lowest base; if nothing
+     * clears (unreachable with real windows) the home realization returns and
+     * the caller's collision cost keeps that node from winning.
+     */
+    function mixedLhPlacement(rootNote, quality, candIndex, rhBottom) {
+      const home = realizeMixedCandidate(rootNote, quality, candIndex);
+      if (!(rhBottom < Infinity) || Math.max(...home.map(n => n.midi)) < rhBottom)
+        return { notes: home, dropOctaves: 0 };
+      const cands = lhMixedCandidateIntervals(quality);
+      const safe = ((candIndex || 0) % cands.length + cands.length) % cands.length;
+      for (let b = 1; b < MIX_LH_BASES.length; b++) {
+        const low = realizeHand(rootNote, cands[safe], MIX_LH_BASES[b]);
+        if (Math.max(...low.map(n => n.midi)) < rhBottom) return { notes: low, dropOctaves: b };
+      }
+      return { notes: home, dropOctaves: 0 };
+    }
+
+    /** Notes-only view of mixedLhPlacement (realizeVoicing + tests). */
+    function realizeMixedCandidateBelow(rootNote, quality, candIndex, rhBottom) {
+      return mixedLhPlacement(rootNote, quality, candIndex, rhBottom).notes;
+    }
+
     /**
      * The pitch classes a mixed voicing MUST carry across its two hands: the
      * 3rd (or the sus tone) always, plus a real 7th when the quality has one.
@@ -686,6 +729,10 @@
       let c = Math.abs(mean - MIX_LH_CENTER) * 0.1;             // soft centering
       c += (2 - Math.min(2, midis.length - 1)) * 0.4;          // thinness: root .8, half .4, full 0
       if (candIndex === 1 && MIX_PLAIN_TRIADS.indexOf(quality) !== -1) c += 1.0;
+      // Mud: guide tones dropped below A2 (a window-forced low placement) turn
+      // to mush — bias low placements toward the lone root ("play lower, play
+      // less"). A lone root is exempt: a low bass root is a legitimate color.
+      if (midis.length > 1) for (const m of midis) if (m < LH_SOFT_LOW) c += (LH_SOFT_LOW - m) * 0.06;
       return c;
     }
 
@@ -704,21 +751,26 @@
 
       const layers = progression.map(chord => {
         const rhCands = buildVoicingCandidates(chord, complexity, range);
-        const lhCands = lhMixedCandidateIntervals(chord.quality).map((ivs, ci) => ({
-          ci, midis: realizeMixedCandidate(chord.root, chord.quality, ci).map(n => n.midi)
-        }));
+        const nLh = lhMixedCandidateIntervals(chord.quality).length;
         const gtPcs = essentialGuideTonePcs(chord.root, chord.quality);
         const nodes = [];
         for (const rc of rhCands) {
           const rhBottom = rc.rhMidis.length ? Math.min(...rc.rhMidis) : Infinity;
           const rhPcs = new Set(rc.rhMidis.map(m => m % 12));
-          for (const lc of lhCands) {
-            const lhPcs = new Set(lc.midis.map(m => m % 12));
-            let local = rc.localCost + mixedLhIntrinsicCost(chord.quality, lc.ci, lc.midis);
-            if (Math.max(...lc.midis) >= rhBottom) local += MIX_COLLISION;
+          for (let ci = 0; ci < nLh; ci++) {
+            // Placement is RH-dependent: the candidate realizes in the highest
+            // octave that clears THIS RH (the reface fix), so lhMidis differ
+            // across RH candidates and the DP sees true registers. Drops pay
+            // MIX_LH_DROP_COST/octave — home zone stays the full-range norm.
+            const placed = mixedLhPlacement(chord.root, chord.quality, ci, rhBottom);
+            const midis = placed.notes.map(n => n.midi);
+            const lhPcs = new Set(midis.map(m => m % 12));
+            let local = rc.localCost + mixedLhIntrinsicCost(chord.quality, ci, midis)
+              + placed.dropOctaves * MIX_LH_DROP_COST;
+            if (Math.max(...midis) >= rhBottom) local += MIX_COLLISION;
             for (const pc of gtPcs) if (!rhPcs.has(pc) && !lhPcs.has(pc)) local += MIX_INCOMPLETE;
             nodes.push({ rhVIndex: rc.vIndex, rhShift: rc.shift, rhMidis: rc.rhMidis,
-              lhCi: lc.ci, lhMidis: lc.midis, localCost: local });
+              lhCi: ci, lhMidis: midis, localCost: local });
           }
         }
         return nodes;
@@ -766,9 +818,11 @@
       const gtPcs = essentialGuideTonePcs(rootNote, quality);
       let bestCi = 0, bestCost = Infinity;
       lhMixedCandidateIntervals(quality).forEach((ivs, ci) => {
-        const midis = realizeMixedCandidate(rootNote, quality, ci).map(n => n.midi);
+        // Same RH-aware placement + drop pricing as the DP (the reface fix).
+        const placed = mixedLhPlacement(rootNote, quality, ci, rhBottom);
+        const midis = placed.notes.map(n => n.midi);
         const lhPcs = new Set(midis.map(m => m % 12));
-        let c = mixedLhIntrinsicCost(quality, ci, midis);
+        let c = mixedLhIntrinsicCost(quality, ci, midis) + placed.dropOctaves * MIX_LH_DROP_COST;
         if (Math.max(...midis) >= rhBottom) c += MIX_COLLISION;
         for (const pc of gtPcs) if (!rhPcs.has(pc) && !lhPcs.has(pc)) c += MIX_INCOMPLETE;
         if (c < bestCost) { bestCost = c; bestCi = ci; }
@@ -796,9 +850,13 @@
      *                voicing itself is yours to comp on a real instrument
      */
     function realizeVoicing(rootNote, voicing, octaveShift = 0, leftHandMode = 'roots', quality = null, lhIndex = 0) {
+      // RH first: mixed places its LH strictly below the REALIZED right hand
+      // (window shifts can pull the RH low — the LH follows down, never crosses).
+      const right = leftHandMode === 'bassonly' ? [] : realizeHand(rootNote, voicing.right, RH_BASE + octaveShift);
+      const rhBottom = right.length ? Math.min(...right.map(n => n.midi)) : Infinity;
       let left;
       if (leftHandMode === 'rootless') left = [];
-      else if (leftHandMode === 'mixed') left = realizeMixedCandidate(rootNote, quality, lhIndex);
+      else if (leftHandMode === 'mixed') left = realizeMixedCandidateBelow(rootNote, quality, lhIndex, rhBottom);
       else if (leftHandMode === 'shells') left = realizeShellHand(rootNote, quality);
       else if (leftHandMode === 'evans') {
         const shapes = lhRootlessShapesFor(quality);
@@ -815,10 +873,7 @@
         const base = voicing.left.length > 1 ? LH_BASE : LH_COMP_BASE;
         left = realizeHand(rootNote, voicing.left, base);
       }
-      return {
-        left,
-        right: leftHandMode === 'bassonly' ? [] : realizeHand(rootNote, voicing.right, RH_BASE + octaveShift)
-      };
+      return { left, right };
     }
 
     /**
