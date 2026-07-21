@@ -88,31 +88,42 @@ rejects nothing new.
 full texture (met); proof sheet clean (sound-frozen — no owner ear needed);
 both suites + `layout_check.js` green. Commit. Stop.
 
-## Stage 1b — split solver + mixed-LH placement retirement (the v5 payoff)
-*(deferred out of Stage 1; ear-gated capability add — run when ready)*
+## Stage 1b — split solver + mixed-LH placement retirement — **NOT BUILT (ear-gate, 2026-07-21)**
+*(the v5 payoff; investigated, failed the ear gate — kept here as the record)*
 
 Discovered while executing Stage 1: `mixedLhPlacement`'s base ladder is
 **not** window logic — it is RH-aware collision placement (the LH ducks under
 a relocated RH). Retiring it needs a *replacement* placer, and the only
-sound-improving replacement is the split solver itself: realize a voicing as
-ONE ascending stack and choose the split index `k` (and octave) so both
-hands fit their reach and register with no crossing by construction. That is
-the v5 payoff the Stage-1 text called optional — and the ladder retirement is
-coupled to it (you cannot delete the ladder without the thing that replaces
-it). So they ship together here, not in Stage 1.
+candidate is the split solver: realize a voicing as ONE ascending stack and
+choose the split index `k` (and octave) so both hands fit with no crossing by
+construction. The ladder retirement is coupled to it — you cannot delete the
+ladder without the thing that replaces it.
 
-1. Split-choice: the solver may pick `k ≠ splitAfter` on the unified stack,
-   priced by per-hand reach/register and split stability across the
-   progression (voice leading). No-crossing is structural.
-2. Mixed mode consumes the solver's placement; `mixedLhPlacement` /
-   `MIX_LH_BASES` / `MIX_LH_DROP_COST` and `realizeMixedCandidateBelow`
-   retire, their tests migrating to the split solver check-for-check.
-3. Ear gate: this WILL change sound (that is the point) — proof sheets per
-   affected texture; `optimizer_surface.js` + `full_surface.js` diffs
-   attached; goldens regenerated only for owner-approved changes.
+**Why it wasn't built — the split solver is a sound REGRESSION, not a payoff.**
+Prototyped and A/B'd on a ii-V-I (2026-07-21). No-crossing-by-construction
+requires ONE ascending stack from one base, which forces a **compact
+close-position** texture: an LH close triad (R-3-5, *not* the guide-tone
+shell) under a thin 2-note RH, everything crammed inside a 9th. That
+*replaces* the app's signature **spread two-handed jazz-piano comping** (LH
+guide-tone shell low, rootless RH up top) with something thinner and less
+idiomatic. Three findings:
 
-**Acceptance:** ladder retired; split solver ear-approved; suites + layout
-check green. Commit. Stop.
+1. It is not an improvement — it is a different, less characteristic texture.
+   The current spread guide-tone comping is the more standard jazz-piano sound.
+2. The ladder it retires is a working, ear-approved mechanism, not debt.
+   Retiring it *requires* accepting the regression (no sound-preserving path —
+   confirmed in Stage 1).
+3. The compact close-position sound it would add is already in the app — that
+   is essentially the **LH inversion comp (Stage 3b)**, one hand instead of two.
+
+Architectural elegance (no-crossing by construction) at the cost of the app's
+signature comping voice, to gain a texture we already have. **Recommendation
+stands: do not build.** If a future owner wants the compact texture as an
+*added* choice (not a replacement), add it as a new `close-comp` Ensemble mode
+so the signature comping is untouched — but note the Stage-3b overlap first.
+
+**Consequence for Stage 4:** the ladder legitimately stays, so Stage 4's
+wrapper retirement has almost nothing to retire (see Stage 4).
 
 ## Stage 2 — hand span, both halves — **DEFERRED (owner, 2026-07-21)**
 *(merges v5 Stage B-2 mechanics + v4 Phase 2 UI)*
@@ -236,19 +247,25 @@ isn't blocked). Ear gate: proof sheet in ≥4 keys before wiring.
 **Acceptance:** owner ear approval on the proof sheet; economy test green;
 both suites + layout probe green. Commit. Stop.
 
-## Stage 4 — retire the wrappers and the authored `{left,right}` form
-*(supersedes v5 Stage B-4)*
+## Stage 4 — retire the wrappers and the authored `{left,right}` form — **MOOT (2026-07-21)**
+*(supersedes v5 Stage B-4; premise removed by the Stage 1b ear-gate decision)*
 
-Once Stages 1–3 leave nothing calling them: delete `realizeShellHand` /
-`lhMixedCandidateIntervals` / `realizeMixedCandidateBelow` (and kin) as
-separate code paths; migrate their tests to stack calls **check-for-check
-(name each in the commit)**; optionally migrate `KEYBOARD_VOICINGS` authored
-`{left,right}` to authored `{stack, splitAfter}` (mechanical; `toStack`
-then becomes a no-op to delete). `scripts/full_surface.js` before/after diff
-must be EMPTY — this stage is Stage-A-style sound-frozen.
+Stage 4's premise was "once Stages 1–3 leave nothing calling the wrappers."
+They don't. `realizeShellHand` (shells mode + `realizeMixedCandidate`),
+`lhMixedCandidateIntervals` (mixed LH vocabulary), `mixedLhPlacement` /
+`realizeMixedCandidateBelow` (the LH-placement ladder) are all **live,
+legitimate mechanisms** — not dead paths. The only thing that would strand
+them is the split solver, and Stage 1b decided (ear gate) not to build it
+because it regresses the signature comping. So there is nothing to retire.
 
-**Acceptance:** empty oracle diff; zero test-check loss (inventory the
-`ok:`/`check` lines before/after); both suites green. Commit. Stop.
+What remains is **optional and low-value**: migrating `KEYBOARD_VOICINGS`
+authored `{left, right}` → authored `{stack, splitAfter}` so `toStack` (a
+five-line load-time adapter) can be deleted. That is a large mechanical
+re-authoring of every voicing entry for a tiny cleanup, with snapshot risk if
+a hand-typed stack drifts — **not worth doing** unless a future change needs
+authored stacks for another reason. Left here as a note, not a task.
+
+**Status:** no action. The "wrappers" are the architecture, not debt to pay down.
 
 ## Stage 5 — language & surfaces (Ensemble)
 *(v5 Stage C, unchanged in intent)*
@@ -297,15 +314,16 @@ documents the Ensemble language, not the LH-mode language it replaces.
 
 ## Ordering & interleave rules
 
-Core line: **1 → ~~2~~ → 3 → 3b → 4 → 5**, then 9. **Stage 2 is deferred**
-(inert on today's voicing set — see its section) until Stage 1b/3 create
-width to cap. **Stage 1b** (the split solver + mixed-LH ladder retirement)
-is an ear-gated capability add that can land any time after Stage 1 — it is
-not on the blocking path (Stages 3–5 do not depend on it). Stages 6–8 are
-independent of the core line and may interleave at any point (except 6's
-LH-cycle-chip item, which waits for 5). Rationale: 1 deletes the per-hand
-window seam before 3 grows the vocabulary on top of it; 3b adds its texture
-before 4 strands the wrappers; 5 renames what 1–4 stabilized.
+Core line: **1 ✅ → ~~2~~ → 3 ✅ → 3b ✅ → ~~4~~ → 5 ✅**, then 9.
+Resolved: **Stage 2 deferred** (inert on today's voicings); **Stage 1b NOT
+built** (ear gate — the split solver regresses the signature comping);
+**Stage 4 moot** (nothing to retire once 1b is off the table — the wrappers
+are the architecture). What's LEFT of the core line: **Stage 9** (user guide,
+after Stage 5 — done). Independent, still open: **Stage 6** (Settings IA
+regroup — the owner flagged this; the LH-cycle-chip item there is now
+unblocked by Stage 5), **Stage 7** (desktop UI), **Stage 8** (loop region +
+tap tempo), plus the open **Stage 3** vocabulary tail (slash-chord family;
+LH octave roots item 5).
 
 ## Known traps (inherit v4 + v5 lists; these are new since)
 
