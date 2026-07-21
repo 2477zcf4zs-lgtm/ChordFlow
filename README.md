@@ -54,11 +54,14 @@ live in `INVARIANTS.md`.
   numerals).
 - **Pads** — a tap-to-play performance surface, one pad per chord, one-shot or
   press-and-hold triggering, polyphonic.
-- **Bassist mode** — a Left Hand setting: **Roots** (default), **Shells** (root +
-  guide tones), **Two-hand rootless** (a second rootless voicing in the tenor
-  range with its own voice-leading pass — the Evans-trio texture), or **Rootless**
-  (LH silent, for playing over a bassist or backing track), plus an optional
-  sustained backing-bass root when the LH plays no roots.
+- **Ensemble** — who's in the band, grouped by role. *App plays both hands:*
+  **Auto** (default — the app voice-leads the left hand per chord), **Bass root**,
+  **Shells** (root + guide tones), **Two-hand rootless** (the Evans-trio texture).
+  *App plays the left hand, you play the right:* **LH comp — inversions** (close
+  voicings voice-led through inversions for economy of motion). *You comp, the app
+  supports:* **With a bassist** (LH silent, play over a bass line) or **App plays
+  bass** (the app holds the roots). An optional sustained backing-bass root fills
+  in when the left hand plays no roots.
 - **3-octave mode** — a Range setting that constrains every realized note to one
   37-key C-to-C window (C2–C5) so everything fits a Yamaha Reface or other mini
   keyboard.
