@@ -133,10 +133,12 @@ async function main() {
     check(!!pianoSvg, 'piano keyboard SVG rendered');
     // Both hands must be highlighted. Count per hand rather than a total: the
     // quality pool's rare triad floor can legitimately produce 4 total keys
-    // (LH root + RH triad), which made a >=5 total check flaky (~3%).
+    // (LH root + RH triad), and a mixed-dealt Powell shell is a 3-note LH +
+    // 2-note RH (9-13) — both real voicings — so assert each hand is present
+    // (LH >= 1, RH >= 2) rather than a fixed RH count.
     const lhKeys = (pianoSvg ? pianoSvg.innerHTML.match(/var\(--accent-coral\)/g) : []) || [];
     const rhKeys = (pianoSvg ? pianoSvg.innerHTML.match(/var\(--accent-blue\)/g) : []) || [];
-    check(lhKeys.length >= 1 && rhKeys.length >= 3,
+    check(lhKeys.length >= 1 && rhKeys.length >= 2 && lhKeys.length + rhKeys.length >= 4,
       'piano highlights both hands (LH ' + lhKeys.length + ', RH ' + rhKeys.length + ')');
     check(/\d/.test(document.getElementById('rightHandNotes').textContent), 'right hand shows octave numbers');
 
@@ -847,6 +849,17 @@ async function main() {
     check(!!rootlessSvg && (rootlessSvg.innerHTML.match(/var\(--accent-coral\)/g) || []).length >= 3 &&
       (rootlessSvg.innerHTML.match(/var\(--accent-blue\)/g) || []).length === 0,
       'piano highlights the rootless voicing in the LH color');
+
+    // LH comp (inversions): the LEFT hand alone plays a close voicing, RH
+    // silent. Selecting it recomputes (mode-specific inversion DP) and shows
+    // the LH notes.
+    lhSelect.value = 'lhcomp';
+    lhSelect.dispatchEvent(new window.Event('change'));
+    check(st().leftHand === 'lhcomp' && /\d/.test(lhNotesEl.textContent),
+      'LH comp drives state and shows the left-hand inversion (notes with octaves)');
+    // Back to rootless for the playback/audition checks below.
+    lhSelect.value = 'rootless';
+    lhSelect.dispatchEvent(new window.Event('change'));
 
     // Playback, audition and pads all flow through chordPitchesAt and must
     // schedule cleanly with an empty LH.

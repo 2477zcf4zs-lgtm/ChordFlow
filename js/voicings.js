@@ -659,6 +659,92 @@
       return { indices };
     }
 
+    // ============== LH comp — close voicings through inversions ==============
+    // A LEFT-HAND-ONLY comping texture: the LH alone plays a close-position
+    // four-note voicing and voice-leads it through INVERSIONS for maximum
+    // economy of motion (root present but rarely in the bass); the RH is
+    // silent (you play melody / solo over it). Swing/pre-bop LH comping,
+    // classical keyboard-style four-part writing, Barry Harris close position.
+    // (Owner request; v6 Stage 3b.)
+
+    const INVERSION_BASE = 48; // C3: the inversions live in one tenor octave
+
+    /** The chord's basic interval semitones (extensions included). */
+    function chordIntervalsFor(quality) {
+      for (const lvl of ['simple', 'seventh', 'extended', 'altered'])
+        if (CHORD_TYPES[lvl] && CHORD_TYPES[lvl][quality]) return CHORD_TYPES[lvl][quality].intervals;
+      return [0, 4, 7, 11];
+    }
+
+    /**
+     * The close-position CORE chord tones (R + 3rd + 5th + 7th family) as
+     * interval names — extensions dropped (they are the player's RH job). The
+     * 3rd/7th come correctly spelled from guideToneIntervals; the 5th maps
+     * unambiguously from the chord's fifth-class semitone (6/7/8 → b5/5/#5).
+     * Triads yield three tones (three rotations); dedup handles the guide-tone
+     * fallback that repeats the 5th on a triad.
+     */
+    function coreChordTones(quality) {
+      const gt = guideToneIntervals(quality);            // ['R', third, seventh-or-fallback]
+      const fifthSemi = chordIntervalsFor(quality).find(s => s >= 6 && s <= 8);
+      const fifth = { 6: 'b5', 7: '5', 8: '#5' }[fifthSemi];
+      const out = [];
+      for (const iv of ['R', gt[1], fifth, gt[2]]) if (iv && out.indexOf(iv) === -1) out.push(iv);
+      return out;
+    }
+
+    /** The rotations (inversions) of a quality's core, as interval-name stacks. */
+    function inversionShapesFor(quality) {
+      const c = coreChordTones(quality);
+      return c.map((_, k) => c.slice(k).concat(c.slice(0, k)));
+    }
+
+    /** Realize one inversion, octave-normalized so the whole voicing sits in
+     *  [INVERSION_BASE, +12) — every inversion in the same tenor octave. */
+    function realizeInversionShape(rootNote, shape) {
+      const notes = realizeHand(rootNote, shape, INVERSION_BASE);
+      const lo = Math.min(...notes.map(n => n.midi)); // always >= INVERSION_BASE
+      const drop = lo >= INVERSION_BASE + 12 ? 12 * Math.floor((lo - INVERSION_BASE) / 12) : 0;
+      return drop ? notes.map(n => ({ name: n.name, octave: n.octave - drop / 12, midi: n.midi - drop })) : notes;
+    }
+
+    /**
+     * Choose an inversion for every chord at once, minimizing LH voice movement
+     * + a light register cost — the economy-of-motion comp. Same DP shape as
+     * computeLeftHandVoicings; the inversion choice is the source of the smooth
+     * voice leading (no octave shifts — realizeInversionShape pins the tenor
+     * octave). Returns { indices: [...] } into inversionShapesFor(quality).
+     */
+    function computeInversionComp(progression) {
+      const indices = [];
+      if (!progression || !progression.length) return { indices };
+      const layers = progression.map(chord =>
+        inversionShapesFor(chord.quality).map((sh, vIndex) => {
+          const midis = realizeInversionShape(chord.root, sh).map(n => n.midi);
+          return { vIndex, midis, localCost: lhRegisterPenalty(midis) };
+        }));
+      let costs = layers[0].map(c => c.localCost);
+      const back = [layers[0].map(() => -1)];
+      for (let i = 1; i < layers.length; i++) {
+        const nextCosts = [], pointers = [];
+        for (let j = 0; j < layers[i].length; j++) {
+          let best = Infinity, bestK = 0;
+          for (let k = 0; k < layers[i - 1].length; k++) {
+            const c = costs[k] + voiceMovementCost(layers[i - 1][k].midis, layers[i][j].midis);
+            if (c < best) { best = c; bestK = k; }
+          }
+          nextCosts.push(best + layers[i][j].localCost);
+          pointers.push(bestK);
+        }
+        costs = nextCosts;
+        back.push(pointers);
+      }
+      let j = 0;
+      for (let k = 1; k < costs.length; k++) if (costs[k] < costs[j]) j = k;
+      for (let i = layers.length - 1; i >= 0; i--) { indices[i] = layers[i][j].vIndex; j = back[i][j]; }
+      return { indices };
+    }
+
     // ============== Mixed comping (voice-led, JOINT left + right) ==============
     // The app default: instead of one fixed LH formula with a fixed RH, the
     // engine chooses each chord's RH voicing AND its LH shape (lone root / full
@@ -915,6 +1001,15 @@
      *                voicing itself is yours to comp on a real instrument
      */
     function realizeVoicing(rootNote, voicing, octaveShift = 0, leftHandMode = 'roots', quality = null, lhIndex = 0) {
+      // LH comp (v6 Stage 3b): the LEFT hand alone plays a close-position
+      // inversion chosen by the economy-of-motion DP (lhIndex indexes
+      // inversionShapesFor); the RH is silent (you play over it). Self-
+      // contained — the selected `voicing` and octaveShift are ignored.
+      if (leftHandMode === 'lhcomp') {
+        const shapes = inversionShapesFor(quality);
+        const safe = ((lhIndex || 0) % shapes.length + shapes.length) % shapes.length;
+        return { left: realizeInversionShape(rootNote, shapes[safe]), right: [] };
+      }
       // Anchored voicing (v5 holistic model): a COMPLETE two-hand sonority
       // realized as one contiguous stack from a mid `anchor` and split at
       // splitAfter — "one sonority, split where the hands fall" (e.g. So What,
@@ -1206,10 +1301,15 @@
       const result = computeProgressionVoicings(state.progression, state.complexity, range);
       state.voicingIndices = result.indices;
       state.voicingShifts = result.shifts;
-      // LH shapes for two-hand rootless: cheap (few shapes, no shifts), so
-      // always kept in step with the progression rather than invalidated
-      // lazily when the LH mode changes.
-      state.lhVoicingIndices = computeLeftHandVoicings(state.progression).indices;
+      // Per-chord LH indices. lhcomp reads the inversion DP (the economy-of-
+      // motion comp); every other non-mixed mode reads the two-hand-rootless
+      // shapes. Both are cheap (few shapes, no shifts) and kept in step with the
+      // progression. (The unused one is harmless — the realizer reads whichever
+      // the active mode wants; lhcomp/mixed recompute on switch-in so the field
+      // matches the mode. See the leftHandSelect handler.)
+      state.lhVoicingIndices = state.leftHand === 'lhcomp'
+        ? computeInversionComp(state.progression).indices
+        : computeLeftHandVoicings(state.progression).indices;
     }
 
     /**
@@ -1292,6 +1392,7 @@
      */
     function soundingChord(rootNote, quality, chordInfo, voicing, leftHandMode, lhIndex) {
       if (leftHandMode === 'bassonly') return null; // only the root sounds
+      if (leftHandMode === 'lhcomp') return null;   // plain chord tones, no color
       const names = new Set(
         lhIntervalNamesFor(leftHandMode, quality, voicing, lhIndex).concat(voicingRh(voicing)));
       const writtenPcs = new Set(chordInfo.intervals.map(s => ((s % 12) + 12) % 12));

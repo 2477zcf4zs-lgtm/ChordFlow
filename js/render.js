@@ -753,7 +753,8 @@
         shells: ' • LH shells: root + guide tones (3 & 7)',
         evans: ' • Two-hand rootless: LH color voicing — the bass stays with the bassist',
         rootless: ' • Rootless: LH comps the voicing over a bassist or track',
-        bassonly: ' • Roots only: the app is your bassist — comp the changes yourself'
+        bassonly: ' • Roots only: the app is your bassist — comp the changes yourself',
+        lhcomp: ' • LH comp: close voicings voice-led through inversions (you play the RH)'
       };
       let lhNote = LH_MODE_NOTES[state.leftHand] || '';
       if (chordData.anchored && state.leftHand !== 'bassonly') {

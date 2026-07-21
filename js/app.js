@@ -194,6 +194,11 @@
       // voicing panel just needs a re-render to show the new LH.
       elements.leftHandSelect.addEventListener('change', (e) => {
         state.leftHand = e.target.value;
+        // LH comp derives its per-chord LH from a mode-specific DP (the
+        // inversion voice-leading), so switching INTO it must recompute to
+        // repopulate lhVoicingIndices for this mode. The per-hand modes read
+        // indices that stay valid, so they don't (preserving manual cycling).
+        if (state.leftHand === 'lhcomp') recomputeProgressionVoicings();
         renderVoicing();
       });
       // Range (3-octave mode): unlike the Left Hand modes, the window changes
