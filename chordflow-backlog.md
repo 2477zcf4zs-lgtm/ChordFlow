@@ -183,6 +183,13 @@ started then deliberately shelved.
     Test 15 snapshot + goldens will move for any template fix (use
     `scripts/gen_voicing_snapshot.js`).
 
+- [ ] **LH octave roots** *(owner suggestion 2026-07-21; specced:
+  `chordflow-spec-v6.md` Stage 3 item 5.)* A default-off Sound setting that
+  realizes a lone LH root as an octave (`['R','R']` — free under the stack
+  model). Standard solo/stride/gospel practice for when no bassist owns the
+  low end. bassonly + backing bass stay single notes (they emulate a
+  bassist). Proof-sheet the register (C2–C3 vs C3–C4) before wiring.
+
 ## C. Parked features (deferred, owner-confirmed)
 
 Consolidated here from the note that was inside `chordflow-spec-v3.md`.
