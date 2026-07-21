@@ -190,6 +190,17 @@ started then deliberately shelved.
   low end. bassonly + backing bass stay single notes (they emulate a
   bassist). Proof-sheet the register (C2–C3 vs C3–C4) before wiring.
 
+- [ ] **LH-only comping through inversions** *(owner suggestion 2026-07-21;
+  specced: `chordflow-spec-v6.md` Stage 3b.)* A new ensemble texture: the LH
+  alone comps close-position four-note voicings voice-led through inversions
+  (rotated stacks — the holistic model's native move), root present but
+  rarely in the bass, RH free for melody/soloing. Owner's example (Dmaj7
+  `F#-A-C#-D` → Bmin7 `F#-A-B-D` → Gmaj7 `F#-G-B-D` → A7 `G-A-C#-E`) shows
+  the economy: 3 common tones per change. Provenance: swing/pre-bop LH,
+  keyboard-style four-part writing, Barry Harris close position. Verified
+  the existing `realizeHand` + `voiceMovementCost` DP already finds such
+  paths — reuse the evans DP pattern, don't fork it.
+
 ## C. Parked features (deferred, owner-confirmed)
 
 Consolidated here from the note that was inside `chordflow-spec-v3.md`.
