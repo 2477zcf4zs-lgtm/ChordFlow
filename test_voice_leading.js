@@ -13,7 +13,7 @@ function loadTheoryCore() {
   // touches live inside functions this suite never calls.
   const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/audio.js', 'js/state.js'];
   const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
-  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, realizeMixedCandidateBelow, bestMixedLhForRh, formatChordSymbol, soundingChord };');
+  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, realizeMixedCandidateBelow, bestMixedLhForRh, formatChordSymbol, soundingChord, computeInversionComp, coreChordTones, inversionShapesFor };');
   return fn();
 }
 const T = loadTheoryCore();
@@ -1374,6 +1374,58 @@ console.log('\nTest 22: anchored voicing optimizer policy (Powell mixed-eligible
   check(rhOnlyAnchored === 0, `RH-only optimizer never deals an anchored voicing (${rhOnlyAnchored} dealt)`);
   check(mixedPowell > 0, `mixed comping DOES deal Powell shells (owner: mixed-eligible) — picked ${mixedPowell}x`);
   check(mixedSoWhat === 0, 'mixed comping still never deals So What (guide-tone-free stays manual-only)');
+}
+
+console.log('\nTest 23: LH comp — close voicings through inversions (v6 Stage 3b)');
+{
+  const nm = p => p.name + p.octave;
+  // Core derivation: extensions drop to the seventh-chord core (the RH's job).
+  check(JSON.stringify(T.coreChordTones('maj7')) === JSON.stringify(['R', '3', '5', '7']), 'maj7 core = R-3-5-7');
+  check(JSON.stringify(T.coreChordTones('dom13')) === JSON.stringify(['R', '3', '5', 'b7']), 'dom13 core reduces to R-3-5-b7 (no extensions)');
+  check(JSON.stringify(T.coreChordTones('dom7alt')) === JSON.stringify(['R', '3', '#5', 'b7']), 'dom7alt core = R-3-#5-b7');
+  check(T.inversionShapesFor('maj7').length === 4, 'a seventh chord has four inversions');
+  check(T.inversionShapesFor('maj').length === 3, 'a triad has three inversions');
+
+  // Realization: LH-only (RH silent), full chord tones, one tenor octave.
+  let lhOnly = true, oneOctave = true, complete = true;
+  for (const root of ['C', 'Eb', 'F#', 'A', 'B']) {
+    for (const q of ['maj7', 'min7', 'dom7', 'm7b5', 'dom13', 'min11']) {
+      for (let inv = 0; inv < 4; inv++) {
+        const d = T.getChordNotesAtIndex(root, q, 'seventh', 0, 0, { leftHandMode: 'lhcomp', lhIndex: inv });
+        if (d.rightHandPitches.length !== 0) lhOnly = false;
+        const m = d.leftHandPitches.map(p => p.midi);
+        if (m.length !== 4) complete = false;                       // all four core tones present
+        if (Math.max(...m) - Math.min(...m) >= 12) oneOctave = false; // close position, within an octave
+      }
+    }
+  }
+  check(lhOnly, 'LH comp plays the LEFT hand only (RH silent — you play over it)');
+  check(complete, 'every inversion carries all four core chord tones');
+  check(oneOctave, 'every inversion is close position (spans < an octave)');
+
+  // Economy of motion: on the owner's D-major example, the DP holds common
+  // tones and moves the rest by step — no voice jumps more than a whole tone.
+  const prog = [['D', 'maj7'], ['B', 'min7'], ['G', 'maj7'], ['A', 'dom7']].map(([root, quality]) => ({ root, quality }));
+  const inv = T.computeInversionComp(prog);
+  const voiced = prog.map((c, i) => T.getChordNotesAtIndex(c.root, c.quality, 'seventh', 0, 0, { leftHandMode: 'lhcomp', lhIndex: inv.indices[i] }).leftHandPitches.map(p => p.midi));
+  let worstMove = 0, minCommon = 4;
+  for (let i = 1; i < voiced.length; i++) {
+    // nearest-neighbour move for each voice + count exact common tones
+    for (const n of voiced[i]) worstMove = Math.max(worstMove, Math.min(...voiced[i - 1].map(p => Math.abs(p - n))));
+    minCommon = Math.min(minCommon, voiced[i].filter(n => voiced[i - 1].includes(n)).length);
+  }
+  check(worstMove <= 2, `economy of motion: no voice moves more than a whole tone (worst ${worstMove} st)`);
+  check(minCommon >= 1, `common tones held across every change (min ${minCommon})`);
+
+  // Spells cleanly across all twelve roots (no NaN / undefined).
+  let clean = true;
+  for (const root of ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']) {
+    for (let inv = 0; inv < 4; inv++) {
+      const d = T.getChordNotesAtIndex(root, 'min7', 'seventh', 0, 0, { leftHandMode: 'lhcomp', lhIndex: inv });
+      for (const p of d.leftHandPitches) if (!p.name || p.name.includes('undefined') || !Number.isFinite(p.midi)) clean = false;
+    }
+  }
+  check(clean, 'LH comp inversions spell cleanly across all twelve roots');
 }
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));
