@@ -138,11 +138,14 @@ started then deliberately shelved.
     `dom13` shell + 13♯11, `dom13b9` US VI, `dom7sus4` slash, and both `dom7alt`
     USTs (US ♭VI/♭V, shell reordered `R-b7-3` to float the 3rd out of the mud).
     Each has pitch-class tests (Test 16) + snapshot coverage (Test 15).
-    **Still open — the major/minor "Powell hand" shells** (`maj7`/`maj13`
-    `left:['R','3','7']` + RH triad; `min11` `left:['R','b3','b7']` + RH upper)
-    and the **slash-chord family for major/minor** (`maj9#11` D/C,
-    `dom11` F/G — some overlap with what shipped). Proof-sheet + build these
-    next when picking the initiative back up.
+    **Powell-hand shells DONE** (v6 Stage 3, PR #53): the LH guide-tone shell
+    + RH upper-structure voicings for `maj7` (Powell 13 + Powell Lydian),
+    `dom7` (Powell 13), `min7` (Powell 9), as ANCHORED stacks (compact C3
+    comping zone) — guide-tone-complete, so **mixed-eligible** but excluded
+    from the RH-only optimizer (invariant 1b). Test 16 + Test 22 cover them.
+    **Still open — the slash-chord family for major/minor** (`maj9#11` D/C,
+    `dom11` F/G reframe — some overlap with what shipped): `chordflow-spec-v6.md`
+    Stage 3 item 2. And optional maj13/min11 Powell members if wanted.
 
 - [~] **Quartal voicings** (the So What / McCoy Tyner sound).
   *(Remainder specced: `chordflow-spec-v6.md` Stage 3.)* **Shipped:** the
