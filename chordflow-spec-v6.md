@@ -62,24 +62,57 @@ texture**, and the window constrains the texture, not a hand.
    truth-costing special case into the general path). Window-check the whole
    texture for everyone (documented today as an RH-only simplification —
    that simplification is *wrong* for mid-register textures; delete it).
-2. The solver owns placement: the mixed DP consumes textures instead of
-   re-deriving LH placement per RH candidate; `mixedLhPlacement`'s base
-   ladder retires in favor of solver placement. Split choice beyond
-   `splitAfter` (the v5 payoff) may land here or be deferred to a later
-   stage — but the *representation* (texture-carrying candidates) must land
-   now.
-3. Sound is ear-gated: any realized-note change appears on a proof sheet
+2. Sound is ear-gated: any realized-note change appears on a proof sheet
    first (full-range output should be near-identical; window-active output
    may legitimately improve). `scripts/full_surface.js` before/after diff
    attached to the PR; goldens regenerated only for owner-approved changes.
-4. Tests: Test 18's window assertions keep passing; Test 20's DP-matches-
+3. Tests: Test 18's window assertions keep passing; Test 20's DP-matches-
    reality and whole-texture-window checks generalize from So What to a
    sweep over every voicing (they become cheap once candidates carry
    textures).
 
-**Acceptance:** no per-hand window logic left; `mixedLhPlacement` ladder
-retired; proof sheet approved for any sound change; both suites +
-`layout_check.js` green. Commit. Stop.
+**Status (2026-07-21, DONE — PR pending):** a shared `realizeCandidateTexture`
+helper is the one realization path; `buildVoicingCandidates` and
+`bestShiftForVoicing` both read it and window the whole texture; candidates
+carry `lhMidis` + `rhMidis`; the anchored special-cases at both sites are
+gone; Test 21 sweeps every voicing (candidate texture == roots-mode
+realization; reface window holds for the whole texture). Provably
+**sound-frozen**: the fixed-index oracle AND the new
+`scripts/optimizer_surface.js` (optimizer *selection* under full-range +
+reface, ×7 progressions ×5 modes) are both byte-identical before/after — as
+predicted, because in full range the window is inert and under reface a
+normal voicing's LH already sits inside C2–C5, so whole-texture windowing
+rejects nothing new.
+
+**Acceptance:** no per-hand window logic left (met); candidates carry their
+full texture (met); proof sheet clean (sound-frozen — no owner ear needed);
+both suites + `layout_check.js` green. Commit. Stop.
+
+## Stage 1b — split solver + mixed-LH placement retirement (the v5 payoff)
+*(deferred out of Stage 1; ear-gated capability add — run when ready)*
+
+Discovered while executing Stage 1: `mixedLhPlacement`'s base ladder is
+**not** window logic — it is RH-aware collision placement (the LH ducks under
+a relocated RH). Retiring it needs a *replacement* placer, and the only
+sound-improving replacement is the split solver itself: realize a voicing as
+ONE ascending stack and choose the split index `k` (and octave) so both
+hands fit their reach and register with no crossing by construction. That is
+the v5 payoff the Stage-1 text called optional — and the ladder retirement is
+coupled to it (you cannot delete the ladder without the thing that replaces
+it). So they ship together here, not in Stage 1.
+
+1. Split-choice: the solver may pick `k ≠ splitAfter` on the unified stack,
+   priced by per-hand reach/register and split stability across the
+   progression (voice leading). No-crossing is structural.
+2. Mixed mode consumes the solver's placement; `mixedLhPlacement` /
+   `MIX_LH_BASES` / `MIX_LH_DROP_COST` and `realizeMixedCandidateBelow`
+   retire, their tests migrating to the split solver check-for-check.
+3. Ear gate: this WILL change sound (that is the point) — proof sheets per
+   affected texture; `optimizer_surface.js` + `full_surface.js` diffs
+   attached; goldens regenerated only for owner-approved changes.
+
+**Acceptance:** ladder retired; split solver ear-approved; suites + layout
+check green. Commit. Stop.
 
 ## Stage 2 — hand span, both halves
 *(merges v5 Stage B-2 mechanics + v4 Phase 2 UI)*
@@ -255,11 +288,14 @@ documents the Ensemble language, not the LH-mode language it replaces.
 
 ## Ordering & interleave rules
 
-Core line: **1 → 2 → 3 → 3b → 4 → 5**, then 9. Stages 6–8 are independent
-of the core line and may interleave at any point (except 6's LH-cycle-chip
-item, which waits for 5). Rationale: 1 deletes the seam class before 3
-grows the vocabulary on top of it; 2 rides on 1's textures; 3b adds its
-texture before 4 strands the wrappers; 5 renames what 1–4 stabilized.
+Core line: **1 → 2 → 3 → 3b → 4 → 5**, then 9. **Stage 1b** (the split
+solver + mixed-LH ladder retirement) is an ear-gated capability add that can
+land any time after Stage 1 — it is not on the blocking path (Stages 2–5 do
+not depend on it). Stages 6–8 are independent of the core line and may
+interleave at any point (except 6's LH-cycle-chip item, which waits for 5).
+Rationale: 1 deletes the per-hand window seam before 3 grows the vocabulary
+on top of it; 2 rides on 1's textures; 3b adds its texture before 4 strands
+the wrappers; 5 renames what 1–4 stabilized.
 
 ## Known traps (inherit v4 + v5 lists; these are new since)
 
@@ -270,10 +306,12 @@ texture before 4 strands the wrappers; 5 renames what 1–4 stabilized.
 2. **Invariant 1b is an owner decision, not a smell.** Do not "helpfully"
    make anchored voicings mixed-DP-eligible again; the pre-review ~22% pick
    rate was an artifact of a costing bug, not a design.
-3. **The oracle is the cheap insurance.** `node scripts/full_surface.js`
-   before and after any voicings.js change; an unexpected non-empty diff is
-   a stop-and-look, even when tests are green (fixed-index dumps miss
-   optimizer-choice changes; Tests 13/18 cover those).
+3. **The oracles are the cheap insurance.** `node scripts/full_surface.js`
+   (fixed-index realization) AND `node scripts/optimizer_surface.js`
+   (optimizer *selection* under full-range + reface) before and after any
+   voicings.js change; an unexpected non-empty diff is a stop-and-look, even
+   when tests are green. full_surface misses optimizer-choice changes on its
+   own — optimizer_surface (added in Stage 1) is what catches them.
 4. **`impliedGuideTones` is part of the teaching contract.** New voicings
    that omit the 3rd/7th must surface it; a sounding name that overstates
    the harmony miseducates (core purpose #2).
