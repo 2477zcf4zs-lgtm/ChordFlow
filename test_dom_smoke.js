@@ -887,8 +887,8 @@ async function main() {
     check(st().leftHand === 'mixed' && Array.isArray(st().lhVoicingIndices) &&
       st().lhVoicingIndices.length === st().progression.length,
       'mixed mode: a per-chord LH decision is computed for every chord');
-    check(document.getElementById('voicingDescription').textContent.indexOf('LH mixed') !== -1,
-      'mixed names its per-chord LH decision in the description');
+    check(/Auto: left hand plays .*voice-led/.test(document.getElementById('voicingDescription').textContent),
+      'Auto mode names its per-chord LH decision in the description');
 
     // --- Sounding chord (chart symbol vs what the voicing plays) ---
     // Force a known case: Cmaj7 voiced Type A (3-5-7-9) sounds as Cmaj9 -> the

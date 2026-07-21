@@ -215,7 +215,7 @@
               <option value="simple">Simple Triads</option>
               <option value="seventh-strict">7th Chords (Strict)</option>
               <option value="rsp">Root-Shell-Pretty</option>
-              <option value="seventh" selected>Jazz Rootless (7ths)</option>
+              <option value="seventh" selected>Jazz 7ths</option>
               <option value="extended">Extended (9, 11, 13)</option>
               <option value="altered">Altered & Complex</option>
             </select>
@@ -254,15 +254,21 @@
             </button>
           </div>
           <div class="control-row">
-            <label for="leftHandSelect">Left hand</label>
-            <select id="leftHandSelect" title="What the left hand plays: Mixed lets the app comp by voice leading (root/shell chosen per chord); or fix it to roots, guide-tone shells, a second rootless voicing (Evans two-hand), or nothing (play over a bassist or backing track)">
-              <option value="mixed" selected>Mixed (auto)</option>
-              <option value="roots">Roots</option>
-              <option value="shells">Shells (3 &amp; 7)</option>
-              <option value="evans">Two-hand rootless</option>
-              <option value="lhcomp">LH comp (inversions)</option>
-              <option value="rootless">Rootless (bassist mode)</option>
-              <option value="bassonly">Roots only (you comp)</option>
+            <label for="leftHandSelect">Ensemble</label>
+            <select id="leftHandSelect" title="Who's in the band: the app can voice both hands (Auto voice-leads the left hand per chord), play just the left hand while you take the melody, or hold the low end while you comp">
+              <optgroup label="App plays both hands">
+                <option value="mixed" selected>Auto</option>
+                <option value="roots">Bass root</option>
+                <option value="shells">Shells</option>
+                <option value="evans">Two-hand rootless</option>
+              </optgroup>
+              <optgroup label="App plays left hand — you play right">
+                <option value="lhcomp">LH comp — inversions</option>
+              </optgroup>
+              <optgroup label="You comp — app supports">
+                <option value="rootless">With a bassist</option>
+                <option value="bassonly">App plays bass</option>
+              </optgroup>
             </select>
           </div>
           <div class="control-row">

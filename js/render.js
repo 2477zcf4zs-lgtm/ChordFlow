@@ -750,10 +750,10 @@
       // The teaching moment for bassist mode: name what the LH is doing when
       // it departs from the written voicing.
       const LH_MODE_NOTES = {
-        shells: ' • LH shells: root + guide tones (3 & 7)',
+        shells: ' • Shells: root + guide tones (3 & 7) in the left hand',
         evans: ' • Two-hand rootless: LH color voicing — the bass stays with the bassist',
-        rootless: ' • Rootless: LH comps the voicing over a bassist or track',
-        bassonly: ' • Roots only: the app is your bassist — comp the changes yourself',
+        rootless: ' • With a bassist: you comp this voicing in the LH over a bass line',
+        bassonly: ' • App plays bass: the app holds the roots — you comp the changes',
         lhcomp: ' • LH comp: close voicings voice-led through inversions (you play the RH)'
       };
       let lhNote = LH_MODE_NOTES[state.leftHand] || '';
@@ -777,7 +777,7 @@
         const label = ivs.length === 1 ? 'lone root'
           : ivs.length === 3 ? 'shell (R-' + ivs[1] + '-' + ivs[2] + ')'
           : 'root + ' + ivs[1];
-        lhNote = ' • LH mixed → ' + label + ' (voice-led)';
+        lhNote = ' • Auto: left hand plays ' + label + ' (voice-led)';
       }
       const rangeNote = state.range === 'reface' ? ' • 3-octave window' : '';
       elements.voicingDescription.textContent = `${chordData.name} • ${chordData.voicingName}${lhNote}${rangeNote}`;
