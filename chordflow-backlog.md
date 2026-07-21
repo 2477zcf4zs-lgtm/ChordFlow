@@ -5,9 +5,10 @@ the lighter-weight list of cleanup, polish, content gaps, and parked ideas that
 don't yet warrant a full spec. Check here before starting a "clean up the app"
 session.
 
-> **Current roadmap order (2026-07-18):** `chordflow-spec-v5.md` (holistic
-> voicing model, Stages A→B→C) runs FIRST; then the reduced v4 Phases 2–3,
-> Phase 4 any time, 5–7 after. See v5's impact table.
+> **Current roadmap order (2026-07-21):** `chordflow-spec-v6.md` — the
+> consolidated remainder — supersedes v4 Phases 2–7 and v5 Stages
+> B-1/B-2/B-4/C as written. Core line: v6 Stages 1→2→3→4→5, then 9; Stages
+> 6–8 interleave. (v5 Stage A and B-3/So What are done and merged.)
 
 Status legend: **[ ]** open · **[~]** in progress · **[x]** done · **[paused]**
 started then deliberately shelved.
@@ -144,17 +145,15 @@ started then deliberately shelved.
     next when picking the initiative back up.
 
 - [~] **Quartal voicings** (the So What / McCoy Tyner sound).
-  *(Completion specced: `chordflow-spec-v4.md` Phase 3, incl. the lhBase/rhBase
-  register-override mechanism for the So What cluster.)* **Started**
-  (PR #28): the "LH root + RH 4th-stack" shapes shipped for `min7`/`min11`
-  (`R | F-Bb-Eb` = 11-♭7-♭3) and `maj7` (`R | B-E-A` = Lydian quartal).
-  **Still open:** the tight 5-note **"So What" cluster** (Dm7 = `E–A–D–G–B` =
-  9-5-R-11-13) can't be faithfully expressed in the current LH-low / RH-mid
-  realization split — all five notes want to sit close together in the middle
-  register, which needs register special-casing (a `voicing.lhBase`-style
-  override or a dedicated quartal realizer). Also open: quartal for `dom7sus`
-  and modal/`m7b5`. Note the quartal stack is deliberately quality-ambiguous
-  (one shape reads over several chords), which the display should tolerate.
+  *(Remainder specced: `chordflow-spec-v6.md` Stage 3.)* **Shipped:** the
+  "LH root + RH 4th-stack" shapes for `min7`/`min11` and `maj7` (PR #28), and
+  the tight 5-note **So What cluster** on `min7` (`E–A–D–G–B` = 9-5-R-11-13,
+  split 3/2) as an **anchored stack** under the v5 holistic model (v5 Stage
+  B-3 + PR #47 contract/honesty fixes) — the old lhBase/rhBase override idea
+  was never built; anchored stacks replaced it. **Still open:** quartal for
+  `dom7sus4` (citation-gated) and `m7b5` (skip unless a traditional citation
+  exists). Note the quartal stack is deliberately quality-ambiguous (one
+  shape reads over several chords), which the display should tolerate.
 
 - [ ] **Hand-span playability audit — several voicings exceed a physical
   single-hand stretch** *(Specced: `chordflow-spec-v4.md` Phase 1 fixes the

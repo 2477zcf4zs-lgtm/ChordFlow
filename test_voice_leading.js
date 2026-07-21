@@ -1248,6 +1248,29 @@ console.log('\nTest 20: So What (anchored quartal cluster — v5 holistic distri
   const cand = T.buildVoicingCandidates({ root: 'D', quality: 'min7' }, 'seventh', null);
   check(cand.some(c => c.vIndex === i && c.anchored === true),
     'So What stays an eligible (anchored) optimizer candidate');
+
+  // The optimizer must see anchored voicings where they REALLY sound: the DP's
+  // rhMidis must equal the realized RH at that shift for every root (a fresh
+  // RH-slice realization at RH_BASE lands an octave off for some roots — G/Ab/A
+  // regressed this way), and under the reface window no candidate may survive
+  // whose WHOLE texture (LH cluster included) escapes the window.
+  let dpMismatch = 0, windowEscapes = 0;
+  const reface = T.RANGE_WINDOWS.reface;
+  for (const root of ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']) {
+    for (const c of T.buildVoicingCandidates({ root, quality: 'min7' }, 'seventh', null)) {
+      if (c.vIndex !== i) continue;
+      const real = T.getChordNotesAtIndex(root, 'min7', 'seventh', i, c.shift).rightHandPitches.map(p => p.midi);
+      if (real.join(',') !== c.rhMidis.join(',')) dpMismatch++;
+    }
+    for (const c of T.buildVoicingCandidates({ root, quality: 'min7' }, 'seventh', reface)) {
+      if (c.vIndex !== i) continue;
+      const d = T.getChordNotesAtIndex(root, 'min7', 'seventh', i, c.shift);
+      const all = d.leftHandPitches.concat(d.rightHandPitches).map(p => p.midi);
+      if (T.windowOverflow(all, reface) > 0) windowEscapes++;
+    }
+  }
+  check(dpMismatch === 0, `DP candidates match realized So What RH across 12 roots (${dpMismatch} octave-off)`);
+  check(windowEscapes === 0, `reface window holds for the WHOLE So What texture (${windowEscapes} escapes)`);
   const mixVamp = T.computeMixedVoicing(Array.from({ length: 4 }, () => ({ root: 'D', quality: 'min7' })), 'seventh', null);
   check(mixVamp.rhIndices.every(x => x !== i),
     'mixed comping never auto-picks So What (manual-only in mixed — always covers 3 & 7)');
