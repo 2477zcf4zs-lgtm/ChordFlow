@@ -155,11 +155,16 @@ started then deliberately shelved.
   exists). Note the quartal stack is deliberately quality-ambiguous (one
   shape reads over several chords), which the display should tolerate.
 
-- [ ] **Hand-span playability audit — several voicings exceed a physical
-  single-hand stretch** *(Specced: `chordflow-spec-v4.md` Phase 1 fixes the
-  templates + register doctrine; Phase 2 adds the Hand span setting.)* (owner report: "required my hand to stretch to
+- [x] **Hand-span playability audit — several voicings exceed a physical
+  single-hand stretch** — **RESOLVED at the template level** (v4 Phase 1
+  re-stacked every offender; Test 17 guards ≤ 14 st). Re-measured 2026-07-21:
+  max RH span 14 st, max LH 10 st, everything ≤ a 9th. The **Hand span
+  *setting*** (v6 Stage 2) is therefore **DEFERRED** — a 9th/10th cap filters
+  nothing on today's voicings; revisit once Stage 1b/3 create wider hands
+  (see `chordflow-spec-v6.md` Stage 2). Original audit kept below for history.
+  *(owner report: "required my hand to stretch to
   something like a 13th… I can barely do a 9th"). Verified by audit
-  (2026-07-17, spans in semitones; a 9th = 14, a 10th = 16):
+  (2026-07-17, spans in semitones; a 9th = 14, a 10th = 16):*
   - **Worst, bassist-mode `shells` LH: 22–23 st (a 13th/14th)** — root at
     C2 + guide tones at C3+ (`C2 E3 Bb3`) is physically a two-hand spread.
     Cause: `realizeShellHand` splits root (LH_BASE) and tones

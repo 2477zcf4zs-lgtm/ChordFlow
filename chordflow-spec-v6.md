@@ -114,25 +114,34 @@ it). So they ship together here, not in Stage 1.
 **Acceptance:** ladder retired; split solver ear-approved; suites + layout
 check green. Commit. Stop.
 
-## Stage 2 — hand span, both halves
+## Stage 2 — hand span, both halves — **DEFERRED (owner, 2026-07-21)**
 *(merges v5 Stage B-2 mechanics + v4 Phase 2 UI)*
 
-1. Mechanics: `state.handSpan: 'unlimited' | 14 | 16` as a per-hand reach
-   cap in the Stage-1 solver — a hard candidate filter with least-violating
-   fallback (mirror the window's pattern). With textures in candidates,
-   per-hand span is directly measurable; no RH-only proxy.
-2. UI: Settings `<select>` "Hand span" (Unlimited / 9th / 10th) next to
-   Range; classified like Range per invariant 11 — changes **must** call
-   `recomputeProgressionVoicings()`.
-3. Explicit user choices bypass the cap (dictionary taps, manual cycling
-   still play what was asked — the cap governs what the app *deals*).
-4. Tests: cap 14 sweep never selects a >14 st hand; 'unlimited' output
-   byte-identical (regression); fallback never empties a layer; smoke test
-   for the select + recompute + restore-default. Test 17's span guard keeps
-   its role as the template-level cap; note in the PR how the two relate.
+**Why deferred — the feature is inert on today's voicing set.** Measured
+2026-07-21 (per-hand spans over every candidate the optimizer deals, both
+hands, all shifts, via the Stage-1 `lhMidis`/`rhMidis`): **max RH span 14
+st (a 9th), max LH span 10 st — everything is ≤ 14 st.** Only 6 voicings
+even reach 14 (the 11/#11 RH stretches: maj7/min7/m7b5 `RSP(11/#11)`,
+`min11 Type A`, `dom7s11`, `dom13s11`). v4 Phase 1 already re-stacked every
+voicing to ≤ a 9th and Test 17 guards it. So the specced caps **9th (14)
+and 10th (16) would filter nothing** — all three `<select>` options
+(Unlimited/9th/10th) produce byte-identical output. A cap only bites below
+13 st, which would drop standard #11 voicings.
 
-**Acceptance:** v4 Phase 2's acceptance verbatim, plus per-hand (not
-RH-only) enforcement. Commit. Stop.
+The owner (who "can barely do a 9th") is already served by the built-in
+9th ceiling, so the setting only helps *smaller-handed* players and only if
+its options go tighter than a 9th. Deferred until there is width to cap —
+i.e. after **Stage 1b** (the split solver can place hands wider) or **Stage
+3** (new vocabulary may exceed a 9th). Revisit then; if built, its options
+must be tighter than the current ceiling (e.g. Octave 12 st / 7th 10 st) to
+do anything, and it should be re-measured first (stale-facts trap).
+
+The mechanics remain sound and cheap when revived: `state.handSpan` cap
+threaded like `range` into `buildVoicingCandidates`, a hard filter on the
+now-measurable per-hand span with the window's least-violating fallback;
+UI mirrors the Range `<select>`; recompute on change (invariant 11);
+explicit user picks bypass the cap. Tests: cap sweep never selects a hand
+past the cap; 'unlimited' byte-identical; fallback never empties a layer.
 
 ## Stage 3 — vocabulary completion (traditional canon only, as stack data)
 *(supersedes v4 Phase 3's remainder; the lhBase/rhBase mechanism is dead —
@@ -288,14 +297,15 @@ documents the Ensemble language, not the LH-mode language it replaces.
 
 ## Ordering & interleave rules
 
-Core line: **1 → 2 → 3 → 3b → 4 → 5**, then 9. **Stage 1b** (the split
-solver + mixed-LH ladder retirement) is an ear-gated capability add that can
-land any time after Stage 1 — it is not on the blocking path (Stages 2–5 do
-not depend on it). Stages 6–8 are independent of the core line and may
-interleave at any point (except 6's LH-cycle-chip item, which waits for 5).
-Rationale: 1 deletes the per-hand window seam before 3 grows the vocabulary
-on top of it; 2 rides on 1's textures; 3b adds its texture before 4 strands
-the wrappers; 5 renames what 1–4 stabilized.
+Core line: **1 → ~~2~~ → 3 → 3b → 4 → 5**, then 9. **Stage 2 is deferred**
+(inert on today's voicing set — see its section) until Stage 1b/3 create
+width to cap. **Stage 1b** (the split solver + mixed-LH ladder retirement)
+is an ear-gated capability add that can land any time after Stage 1 — it is
+not on the blocking path (Stages 3–5 do not depend on it). Stages 6–8 are
+independent of the core line and may interleave at any point (except 6's
+LH-cycle-chip item, which waits for 5). Rationale: 1 deletes the per-hand
+window seam before 3 grows the vocabulary on top of it; 3b adds its texture
+before 4 strands the wrappers; 5 renames what 1–4 stabilized.
 
 ## Known traps (inherit v4 + v5 lists; these are new since)
 
