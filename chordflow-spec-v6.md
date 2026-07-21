@@ -148,6 +148,52 @@ compliance. Sounding display: any guide-tone-free entry must show
 **Acceptance:** per-family ear approval; provenance present; Tests 15/16/17
 green; both suites green. Commit per family or per stage. Stop.
 
+## Stage 3b — LH-only comping through inversions
+*(owner request, 2026-07-21)*
+
+A new ensemble texture: the LH alone comps **close-position four-note
+voicings voice-led through inversions** — root present but rarely in the
+bass — while the RH stays free (the player solos or plays the melody).
+Owner's example in D: Dmaj7 `F#-A-C#-D` (3-5-7-R), Bmin7 `F#-A-B-D`,
+Gmaj7 `F#-G-B-D`, A7 `G-A-C#-E` — three common tones per change, nothing
+moving more than a step. Provenance: swing/pre-bop LH comping, classical
+keyboard-style four-part writing, Barry Harris close-position practice —
+squarely standard keyboard playing.
+
+Mechanics (verified 2026-07-21: a scratch DP over rotation × octave using
+the existing `realizeHand` + `voiceMovementCost` already finds a minimal-
+movement inversion path for the example progression — no new machinery):
+
+1. **An inversion is a rotated stack** — the same sonority, redistributed;
+   this is the holistic model's native move. Candidates: the 4 rotations of
+   the quality's seventh-chord **core** (R-3-5-7 family; extended qualities
+   reduce to their core four — close-position 9ths/13ths cluster and are
+   not this idiom; triads use their 3 rotations), realized at tenor-zone
+   bases. Proof sheet picks the floor (~E3; the owner's example bottoms at
+   F#3/G3; close 3rds mud below that) and whether the DP gets an idiom
+   prior (e.g. a slight cost against root-in-bass rotations).
+2. **DP over rotation × octave** minimizing `voiceMovementCost` + a
+   register term — the `computeLeftHandVoicings` (evans) pattern, reused
+   not forked. Invariant-11 classification: same as evans.
+3. **Mode contract:** LH plays the inversion; **RH silent** (the player
+   owns it). Sounding line needs no caveats — root and both guide tones
+   are present in every rotation.
+4. **Backing bass interplay:** with the backing bass on, the app's low
+   root + LH inversions is the fuller duo texture — that's the ensemble
+   answer to "the root is never in the bass" (the bass supplies it). Say
+   so in the mode's teaching label.
+5. **Surfaces:** joins the LH/Ensemble select (Stage 5 names it on the
+   mock — e.g. "LH comp (inversions)"); `full_surface.js` gains the mode;
+   new mode assertions plus a voice-leading economy test (common tones
+   preserved across the owner's D-major progression).
+
+Runs after Stage 3, before Stage 4 (it benefits from Stage 1's solver but
+does not require it; its code must use stack calls so wrapper retirement
+isn't blocked). Ear gate: proof sheet in ≥4 keys before wiring.
+
+**Acceptance:** owner ear approval on the proof sheet; economy test green;
+both suites + layout probe green. Commit. Stop.
+
 ## Stage 4 — retire the wrappers and the authored `{left,right}` form
 *(supersedes v5 Stage B-4)*
 
@@ -167,8 +213,9 @@ must be EMPTY — this stage is Stage-A-style sound-frozen.
 
 1. The "Left hand" select becomes **Ensemble** (or keeps its label with
    reframed options) — **owner picks on a mock before wiring**: Full /
-   Shells / With bassist / App bass / Duo. Same state machinery; smoke
-   default assertions updated by name.
+   Shells / With bassist / App bass / Duo / LH comp (Stage 3b's inversion
+   texture). Same state machinery; smoke default assertions updated by
+   name.
 2. Voicing panel + dictionary show the stack with its live split; the
    "LH mixed → …" label becomes a distribution label. The sounding-chord
    line (with its implied-tones honesty) is unchanged.
@@ -208,11 +255,11 @@ documents the Ensemble language, not the LH-mode language it replaces.
 
 ## Ordering & interleave rules
 
-Core line: **1 → 2 → 3 → 4 → 5**, then 9. Stages 6–8 are independent of the
-core line and may interleave at any point (except 6's LH-cycle-chip item,
-which waits for 5). Rationale: 1 deletes the seam class before 3 grows the
-vocabulary on top of it; 2 rides on 1's textures; 4 needs 1–3 to strand the
-wrappers; 5 renames what 1–4 stabilized.
+Core line: **1 → 2 → 3 → 3b → 4 → 5**, then 9. Stages 6–8 are independent
+of the core line and may interleave at any point (except 6's LH-cycle-chip
+item, which waits for 5). Rationale: 1 deletes the seam class before 3
+grows the vocabulary on top of it; 2 rides on 1's textures; 3b adds its
+texture before 4 strands the wrappers; 5 renames what 1–4 stabilized.
 
 ## Known traps (inherit v4 + v5 lists; these are new since)
 
