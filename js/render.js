@@ -757,13 +757,14 @@
       };
       let lhNote = LH_MODE_NOTES[state.leftHand] || '';
       if (chordData.anchored && state.leftHand !== 'bassonly') {
-        // Anchored voicings (So What) are a complete cluster the full-texture
-        // modes split across both hands; in rootless the bassist owns the root
-        // so the cluster comps above it. bassonly keeps its own note (the app is
-        // the bassist — the cluster isn't sounded), so it's excluded here.
+        // Anchored voicings (So What quartal cluster, Powell shells) are one
+        // complete sonority the full-texture modes split across both hands; the
+        // voicing NAME carries the specifics. In rootless the bassist owns the
+        // root so the sonority comps above it. bassonly keeps its own note (the
+        // app is the bassist — the voicing isn't sounded), so it's excluded.
         lhNote = state.leftHand === 'rootless'
-          ? ' • quartal cluster (rootless) — comp the color above the bassist'
-          : ' • quartal cluster — one sonority split across the hands';
+          ? ' • one sonority (rootless) — comp the color above the bassist'
+          : ' • one sonority split across both hands';
       } else if (state.leftHand === 'mixed') {
         // Name the per-chord LH the joint optimizer chose (teaches the "why").
         // Derive the label from the candidate's REAL intervals — 'R-b3-b7' on a

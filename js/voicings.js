@@ -73,10 +73,18 @@
           { left: ['R'], right: ['7', '9', '3', '5'], name: 'Type B: 7-9-3-5', type: 'B', tiers: ['jazz'] },
           { left: ['R'], right: ['3', '5', '6', '9'], name: '6/9 color: 3-5-6-9', type: 'A', tiers: ['jazz'] },
           // Quartal (Lydian): RH stacked in 4ths — C + B-E-A = maj13 color
-          { left: ['R'], right: ['7', '3', '13'], name: 'Quartal (Lydian): R | 7-3-13 in 4ths', type: null, tiers: ['jazz'] }
+          { left: ['R'], right: ['7', '3', '13'], name: 'Quartal (Lydian): R | 7-3-13 in 4ths', type: null, tiers: ['jazz'] },
+          // Powell hand (bebop LH shell + RH upper structure): the root + guide
+          // tones sit CLOSE in the LH comping zone (C3), the RH adds an upper-
+          // structure triad just above — the "other half" of comping that the
+          // app's rootless-RH vocabulary omits. ANCHORED (like So What) so the
+          // whole sonority sits mid-register instead of spreading root-low /
+          // triad-high. Guide-tone-complete, so mixed comping may deal it.
+          { left: ['R', '3', '7'], right: ['9', '13'], anchor: 48, name: 'Powell 13: R-3-7 | 9-13', type: null, tiers: ['jazz'] },
+          { left: ['R', '3', '7'], right: ['9', '#11', '13'], anchor: 48, name: 'Powell Lydian: R-3-7 | 9-#11-13', type: null, tiers: ['jazz'] }
         ]
       },
-      
+
       // Minor 7 - iim7 chord (most common as ii in ii-V-I)
       // Type A: 3-5-7-9 (F-A-C-E for Dm7)
       // Type B: 7-9-3-5 (C-E-F-A for Dm7)
@@ -100,10 +108,14 @@
           // split where the hands fall — inexpressible in the old low-LH/high-RH
           // model without a hack. Split 3/2 = the signature LH quartal (E-A-D)
           // with the 4th+3rd (G-B) on top.
-          { left: ['9', '5', 'R'], right: ['11', '13'], anchor: 48, name: 'So What (quartal cluster)', type: null, tiers: ['jazz'] }
+          { left: ['9', '5', 'R'], right: ['11', '13'], anchor: 48, name: 'So What (quartal cluster)', type: null, tiers: ['jazz'] },
+          // Powell hand (bebop LH shell + RH color): R-b3-b7 close in the LH
+          // comping zone, RH adds 9 + 5 just above. Anchored, mid-register;
+          // guide-tone-complete, so mixed comping may deal it (unlike So What).
+          { left: ['R', 'b3', 'b7'], right: ['9', '5'], anchor: 48, name: 'Powell 9: R-3-7 | 9-5', type: null, tiers: ['jazz'] }
         ]
       },
-      
+
       // Dominant 7 - V7 chord
       // Type A: 3-13-7-9 (B-E-F-A for G7) - uses 13 instead of 5
       // Type B: 7-9-3-13 (F-A-B-E for G7)
@@ -118,10 +130,14 @@
           { left: ['R'], right: ['3', 'b7', '9'], name: 'RSP (9): R | 3-7-9', type: null, tiers: ['rsp'] },
           // Jazz rootless (Bill Evans A/B -- 13 replaces the 5)
           { left: ['R'], right: ['3', '13', 'b7', '9'], name: 'Type A: 3-13-7-9', type: 'A', tiers: ['jazz'] },
-          { left: ['R'], right: ['b7', '9', '3', '13'], name: 'Type B: 7-9-3-13', type: 'B', tiers: ['jazz'] }
+          { left: ['R'], right: ['b7', '9', '3', '13'], name: 'Type B: 7-9-3-13', type: 'B', tiers: ['jazz'] },
+          // Powell hand (bebop LH shell + RH color): R-3-b7 close in the LH
+          // comping zone, RH adds 9 + 13 just above = a compact 13th. Anchored,
+          // mid-register; guide-tone-complete, so mixed comping may deal it.
+          { left: ['R', '3', 'b7'], right: ['9', '13'], anchor: 48, name: 'Powell 13: R-3-7 | 9-13', type: null, tiers: ['jazz'] }
         ]
       },
-      
+
       // Diminished 7
       dim7: {
         voicings: [
@@ -788,14 +804,21 @@
         const gtPcs = essentialGuideTonePcs(chord.root, chord.quality);
         const nodes = [];
         for (const rc of rhCands) {
-          // Anchored voicings (So What) are a COMPLETE guide-tone-free cluster,
-          // structurally at odds with mixed comping's contract that every chord
-          // covers the 3rd & 7th. They stay MANUAL-ONLY in mixed mode: not a
-          // comping-DP candidate here (the user still reaches them by cycling
-          // voicings; realizeVoicing renders the cluster directly). This also
-          // sidesteps the phantom-LH mis-costing — realizeVoicing ignores lhCi
-          // for anchored voicings, so there is no honest LH candidate to cost.
-          if (rc.anchored) continue;
+          // Anchored voicings are complete two-hand sonorities with a FIXED LH
+          // (realizeVoicing renders the whole stack, ignoring lhCi). Whether
+          // they belong in mixed comping turns on the completeness contract:
+          //   - guide-tone-COMPLETE (Powell shells): mixed-ELIGIBLE (owner
+          //     decision) — emit ONE node with the real fixed LH (no phantom
+          //     placement to cost), so the DP voice-leads them honestly.
+          //   - guide-tone-FREE (So What): would break "every chord covers 3 &
+          //     7", so MANUAL-ONLY — skipped here (still reachable by cycling).
+          if (rc.anchored) {
+            const allPcs = new Set(rc.lhMidis.concat(rc.rhMidis).map(m => m % 12));
+            if (!gtPcs.every(pc => allPcs.has(pc))) continue; // incomplete → manual-only
+            nodes.push({ rhVIndex: rc.vIndex, rhShift: rc.shift, rhMidis: rc.rhMidis,
+              lhCi: 0, lhMidis: rc.lhMidis, localCost: rc.localCost });
+            continue;
+          }
           const rhBottom = rc.rhMidis.length ? Math.min(...rc.rhMidis) : Infinity;
           const rhPcs = new Set(rc.rhMidis.map(m => m % 12));
           for (let ci = 0; ci < nLh; ci++) {
@@ -1112,7 +1135,18 @@
       const shifts = [];
       if (!progression || !progression.length) return { indices, shifts };
 
-      const layers = progression.map(chord => buildVoicingCandidates(chord, complexity, range));
+      // Anchored voicings are COMPLETE two-hand sonorities (So What, Powell
+      // shells): their guide tones live in the LH and their RH slice is only
+      // color. The RH-only optimizer costs and voice-leads the RH slice alone,
+      // so it cannot evaluate them honestly (it would drop the guide tones and
+      // roughen RH voice leading). They belong to the mixed DP (which sees both
+      // hands) and to manual selection — never dealt here. (Non-anchored
+      // candidates always exist, so a layer never empties; guard anyway.)
+      const layers = progression.map(chord => {
+        const cands = buildVoicingCandidates(chord, complexity, range);
+        const nonAnchored = cands.filter(c => !c.anchored);
+        return nonAnchored.length ? nonAnchored : cands;
+      });
 
       // Forward pass
       let costs = layers[0].map(c => c.localCost);
