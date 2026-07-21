@@ -1285,6 +1285,43 @@ console.log('\nTest 20: So What (anchored quartal cluster — v5 holistic distri
   check(clean, 'So What spells cleanly across roots');
 }
 
+console.log('\nTest 21: candidate textures (v6 Stage 1 — one realization path, whole-texture window)');
+{
+  // Every candidate carries its full realized texture, and it must match what
+  // the app actually plays in roots mode (the default distribution) — this is
+  // the So What DP-matches-reality check generalized to every voicing, and it
+  // also validates the new lhMidis the hand-span solver (Stage 2) will read.
+  const reface = T.RANGE_WINDOWS.reface;
+  const roots = ['C', 'Eb', 'F#', 'A', 'B'];
+  let rhBad = 0, lhBad = 0, escapes = 0, checked = 0;
+  for (const q of Object.keys(T.KEYBOARD_VOICINGS)) {
+    for (const root of roots) {
+      // Full range: candidate rhMidis/lhMidis == roots-mode realization at that shift.
+      for (const c of T.buildVoicingCandidates({ root, quality: q }, 'seventh', null)) {
+        const d = T.getChordNotesAtIndex(root, q, 'seventh', c.vIndex, c.shift, { leftHandMode: 'roots' });
+        if (d.rightHandPitches.map(p => p.midi).join(',') !== (c.rhMidis || []).join(',')) rhBad++;
+        if (d.leftHandPitches.map(p => p.midi).join(',') !== (c.lhMidis || []).join(',')) lhBad++;
+        checked++;
+      }
+      // Reface: no SURVIVING candidate's whole texture escapes the window
+      // (a candidate only escapes when it is the forced least-violating
+      // fallback — i.e. nothing fits at all, so no fitting candidate exists).
+      const cands = T.buildVoicingCandidates({ root, quality: q }, 'seventh', reface);
+      const over = cands.map(c => {
+        const d = T.getChordNotesAtIndex(root, q, 'seventh', c.vIndex, c.shift, { leftHandMode: 'roots' });
+        return T.windowOverflow(d.leftHandPitches.concat(d.rightHandPitches).map(p => p.midi), reface);
+      });
+      const fitting = over.filter(o => o === 0).length;
+      const escaping = over.filter(o => o > 0).length;
+      if (escaping > 0 && fitting > 0) escapes++; // an escaper survived alongside a fit
+    }
+  }
+  check(checked > 100, `swept a real candidate set (${checked} candidates)`);
+  check(rhBad === 0, `every candidate's rhMidis matches roots-mode realization (${rhBad} off)`);
+  check(lhBad === 0, `every candidate's lhMidis matches roots-mode realization (${lhBad} off)`);
+  check(escapes === 0, `reface window holds for the whole texture of every voicing (${escapes} escaped-but-survived)`);
+}
+
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));
 // Fail the build on any failure. Without this the process exits 0 even when
 // checks fail, so `npm test` and CI would go green on a broken voicing engine.

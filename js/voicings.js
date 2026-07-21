@@ -1021,10 +1021,34 @@
     }
 
     /**
+     * The canonical realized TEXTURE of a candidate (voicing at an octave
+     * shift), as ascending midi arrays: `{ lhMidis, rhMidis, whole }`. This is
+     * the ONE place candidate realization lives — both optimizers and the
+     * placement/window logic read it, so the anchored vs normal split is
+     * handled once here instead of special-cased at each call site (v6 Stage
+     * 1). It mirrors realizeVoicing's default distribution: anchored voicings
+     * are one contiguous stack from their mid anchor; normal voicings put the
+     * RH at RH_BASE+shift and the default-split LH at its low base (shift-
+     * independent, exactly as roots mode realizes it). `whole` is what the
+     * range window constrains — the WHOLE texture, never one hand.
+     */
+    function realizeCandidateTexture(rootNote, voicing, shift) {
+      if (voicing.anchor != null) {
+        const whole = realizeHand(rootNote, voicing.stack, voicing.anchor + shift).map(n => n.midi);
+        return { lhMidis: whole.slice(0, voicing.splitAfter), rhMidis: whole.slice(voicing.splitAfter), whole };
+      }
+      const rhMidis = realizeHand(rootNote, voicingRh(voicing), RH_BASE + shift).map(n => n.midi);
+      const lh = voicingLh(voicing);
+      const lhMidis = lh.length ? realizeHand(rootNote, lh, lh.length > 1 ? LH_BASE : LH_COMP_BASE).map(n => n.midi) : [];
+      return { lhMidis, rhMidis, whole: lhMidis.concat(rhMidis) };
+    }
+
+    /**
      * All candidate realizations of a chord: every voicing at three octave
      * placements. Local cost favors staying in register and (mildly) fuller
      * voicings, so shells remain available for manual selection but aren't
-     * the automatic default.
+     * the automatic default. Each candidate carries its full realized texture
+     * (`lhMidis` + `rhMidis`); the window constrains the whole texture.
      */
     function buildVoicingCandidates(chord, complexity, range = null) {
       const cands = [];
@@ -1047,31 +1071,24 @@
           : 0;
         // An anchored voicing (So What) is a full cluster whose LH carries most
         // of the notes; costing it by its RH slice alone must not treat it as
-        // "sparse" (it isn't). The flag also lets computeMixedVoicing give it a
-        // single node with its real fixed LH instead of phantom LH candidates.
+        // "sparse" (it isn't). The flag also lets computeMixedVoicing keep it
+        // manual-only (no phantom LH candidates for it).
         const anchored = voicing.anchor != null;
         for (const shift of shifts) {
-          // Anchored voicings realize as ONE stack from their anchor: the RH
-          // slice realized fresh at RH_BASE can land an octave away from where
-          // those notes sit IN the stack (the notes beneath push them up), so
-          // cost the truth — slice the real stack — and window the WHOLE
-          // texture (its LH lives mid-register, not at a safe low base).
-          let rhMidis, overflow;
-          if (anchored) {
-            const whole = realizeHand(chord.root, voicing.stack, voicing.anchor + shift).map(n => n.midi);
-            rhMidis = whole.slice(voicing.splitAfter);
-            overflow = windowOverflow(whole, range);
-          } else {
-            rhMidis = realizeHand(chord.root, voicingRh(voicing), RH_BASE + shift).map(n => n.midi);
-            overflow = windowOverflow(rhMidis, range);
-          }
+          // One realization path for both anchored and normal voicings: the
+          // window constrains the WHOLE texture (an anchored LH lives mid-
+          // register, not at a safe low base — RH-only windowing let it escape).
+          const tex = realizeCandidateTexture(chord.root, voicing, shift);
+          const rhMidis = tex.rhMidis;
+          const overflow = windowOverflow(tex.whole, range);
           const sparsity = anchored ? 0 : Math.max(0, 4 - rhMidis.length);
           const localCost = registerPenalty(rhMidis) + sparsity * 0.4 + tierCost;
+          const cand = { vIndex, shift, rhMidis, lhMidis: tex.lhMidis, localCost, anchored };
           if (overflow > 0) {
-            spill.push({ overflow, cand: { vIndex, shift, rhMidis, localCost, anchored } });
+            spill.push({ overflow, cand });
             continue;
           }
-          cands.push({ vIndex, shift, rhMidis, localCost, anchored });
+          cands.push(cand);
         }
       });
       // Hard window, safe DP: if no candidate fits at all, keep the least-
@@ -1170,20 +1187,13 @@
       let bestCost = Infinity;
       const shifts = range ? [-24, -12, 0, 12] : [-12, 0, 12];
       for (const shift of shifts) {
-        // Anchored voicings: same truth-costing as buildVoicingCandidates —
-        // slice the real stack, window the whole texture.
-        let rhMidis, over;
-        if (voicing.anchor != null) {
-          const whole = realizeHand(rootNote, voicing.stack, voicing.anchor + shift).map(n => n.midi);
-          rhMidis = whole.slice(voicing.splitAfter);
-          over = windowOverflow(whole, range);
-        } else {
-          rhMidis = realizeHand(rootNote, voicingRh(voicing), RH_BASE + shift).map(n => n.midi);
-          over = windowOverflow(rhMidis, range);
-        }
+        // Same realized texture the DP costs (v6 Stage 1): window the whole
+        // texture, cost/voice-lead on the RH slice.
+        const tex = realizeCandidateTexture(rootNote, voicing, shift);
+        const rhMidis = tex.rhMidis;
         // Out-of-window placements only win when nothing fits at all.
         const c = registerPenalty(rhMidis) + voiceMovementCost(prevRhMidis, rhMidis)
-          + over * 1000;
+          + windowOverflow(tex.whole, range) * 1000;
         if (c < bestCost) { bestCost = c; best = shift; }
       }
       return best;
