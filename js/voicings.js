@@ -1051,10 +1051,22 @@
         // single node with its real fixed LH instead of phantom LH candidates.
         const anchored = voicing.anchor != null;
         for (const shift of shifts) {
-          const rhMidis = realizeHand(chord.root, voicingRh(voicing), RH_BASE + shift).map(n => n.midi);
+          // Anchored voicings realize as ONE stack from their anchor: the RH
+          // slice realized fresh at RH_BASE can land an octave away from where
+          // those notes sit IN the stack (the notes beneath push them up), so
+          // cost the truth — slice the real stack — and window the WHOLE
+          // texture (its LH lives mid-register, not at a safe low base).
+          let rhMidis, overflow;
+          if (anchored) {
+            const whole = realizeHand(chord.root, voicing.stack, voicing.anchor + shift).map(n => n.midi);
+            rhMidis = whole.slice(voicing.splitAfter);
+            overflow = windowOverflow(whole, range);
+          } else {
+            rhMidis = realizeHand(chord.root, voicingRh(voicing), RH_BASE + shift).map(n => n.midi);
+            overflow = windowOverflow(rhMidis, range);
+          }
           const sparsity = anchored ? 0 : Math.max(0, 4 - rhMidis.length);
           const localCost = registerPenalty(rhMidis) + sparsity * 0.4 + tierCost;
-          const overflow = windowOverflow(rhMidis, range);
           if (overflow > 0) {
             spill.push({ overflow, cand: { vIndex, shift, rhMidis, localCost, anchored } });
             continue;
@@ -1158,10 +1170,20 @@
       let bestCost = Infinity;
       const shifts = range ? [-24, -12, 0, 12] : [-12, 0, 12];
       for (const shift of shifts) {
-        const rhMidis = realizeHand(rootNote, voicingRh(voicing), RH_BASE + shift).map(n => n.midi);
+        // Anchored voicings: same truth-costing as buildVoicingCandidates —
+        // slice the real stack, window the whole texture.
+        let rhMidis, over;
+        if (voicing.anchor != null) {
+          const whole = realizeHand(rootNote, voicing.stack, voicing.anchor + shift).map(n => n.midi);
+          rhMidis = whole.slice(voicing.splitAfter);
+          over = windowOverflow(whole, range);
+        } else {
+          rhMidis = realizeHand(rootNote, voicingRh(voicing), RH_BASE + shift).map(n => n.midi);
+          over = windowOverflow(rhMidis, range);
+        }
         // Out-of-window placements only win when nothing fits at all.
         const c = registerPenalty(rhMidis) + voiceMovementCost(prevRhMidis, rhMidis)
-          + windowOverflow(rhMidis, range) * 1000;
+          + over * 1000;
         if (c < bestCost) { bestCost = c; best = shift; }
       }
       return best;
