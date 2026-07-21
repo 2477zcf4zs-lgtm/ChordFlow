@@ -857,6 +857,17 @@ async function main() {
     lhSelect.dispatchEvent(new window.Event('change'));
     check(st().leftHand === 'lhcomp' && /\d/.test(lhNotesEl.textContent),
       'LH comp drives state and shows the left-hand inversion (notes with octaves)');
+    // Regression (#1): lhVoicingIndices is mode-specific (evans shapes vs
+    // inversions), and switching must REFRESH it for the new mode — not leave
+    // the previous mode's indices in the field for the realizer to misread.
+    check(JSON.stringify(st().lhVoicingIndices) ===
+      JSON.stringify(window.computeInversionComp(st().progression).indices),
+      'lhcomp: lhVoicingIndices holds the inversion DP result');
+    lhSelect.value = 'evans';
+    lhSelect.dispatchEvent(new window.Event('change'));
+    check(JSON.stringify(st().lhVoicingIndices) ===
+      JSON.stringify(window.computeLeftHandVoicings(st().progression).indices),
+      'switching lhcomp -> evans refreshes lhVoicingIndices to evans shapes (not stale inversions)');
     // Back to rootless for the playback/audition checks below.
     lhSelect.value = 'rootless';
     lhSelect.dispatchEvent(new window.Event('change'));
