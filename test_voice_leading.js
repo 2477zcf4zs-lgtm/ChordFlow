@@ -853,9 +853,9 @@ console.log('\nTest 15: voicing characterization snapshot (regression guard for 
       'aug': 'C3 | E4 G#4 C5 || C2 G#2 | C4 E4 || F#3 | A#4 C##5 F#5 || F#2 C##3 | F#4 A#4',
       'sus4': 'C3 | F4 G4 C5 || C2 G2 | C4 F4 || F#3 | B4 C#5 F#5 || F#2 C#3 | F#4 B4',
       'sus2': 'C3 | D4 G4 C5 || C2 G2 | C4 D4 || F#3 | G#4 C#5 F#5 || F#2 C#3 | F#4 G#4',
-      'maj7': 'C3 | E4 G4 B4 || C2 G2 | B4 E5 || C3 | E4 B4 || C3 | E4 B4 D5 || C3 | E4 A4 B4 || C3 | E4 B4 F#5 || C3 | E4 G4 B4 D5 || C3 | B4 D5 E5 G5 || C3 | E4 G4 A4 D5 || C3 | B4 E5 A5 || F#3 | A#4 C#5 E#5 || F#2 C#3 | E#4 A#4 || F#3 | A#4 E#5 || F#3 | A#4 E#5 G#5 || F#3 | A#4 D#5 E#5 || F#3 | A#4 E#5 B#5 || F#3 | A#4 C#5 E#5 G#5 || F#3 | E#4 G#4 A#4 C#5 || F#3 | A#4 C#5 D#5 G#5 || F#3 | E#4 A#4 D#5',
-      'min7': 'C3 | Eb4 G4 Bb4 || C2 G2 | Bb4 Eb5 || C3 | Eb4 Bb4 || C3 | Eb4 Bb4 D5 || C3 | Eb4 Bb4 F5 || C3 | Eb4 G4 Bb4 D5 || C3 | Bb4 D5 Eb5 G5 || C3 | F4 Bb4 Eb5 || D3 G3 C4 | F4 A4 || F#3 | A4 C#5 E5 || F#2 C#3 | E4 A4 || F#3 | A4 E5 || F#3 | A4 E5 G#5 || F#3 | A4 E5 B5 || F#3 | A4 C#5 E5 G#5 || F#3 | E4 G#4 A4 C#5 || F#3 | B4 E5 A5 || G#3 C#4 F#4 | B4 D#5',
-      'dom7': 'C3 | E4 G4 Bb4 || C2 G2 | Bb4 E5 || C3 | E4 Bb4 || C3 | E4 A4 Bb4 || C3 | E4 Bb4 D5 || C3 | E4 A4 Bb4 D5 || C3 | Bb4 D5 E5 A5 || F#3 | A#4 C#5 E5 || F#2 C#3 | E4 A#4 || F#3 | A#4 E5 || F#3 | A#4 D#5 E5 || F#3 | A#4 E5 G#5 || F#3 | A#4 D#5 E5 G#5 || F#3 | E4 G#4 A#4 D#5',
+      'maj7': 'C3 | E4 G4 B4 || C2 G2 | B4 E5 || C3 | E4 B4 || C3 | E4 B4 D5 || C3 | E4 A4 B4 || C3 | E4 B4 F#5 || C3 | E4 G4 B4 D5 || C3 | B4 D5 E5 G5 || C3 | E4 G4 A4 D5 || C3 | B4 E5 A5 || C3 E3 B3 | D4 A4 || C3 E3 B3 | D4 F#4 A4 || F#3 | A#4 C#5 E#5 || F#2 C#3 | E#4 A#4 || F#3 | A#4 E#5 || F#3 | A#4 E#5 G#5 || F#3 | A#4 D#5 E#5 || F#3 | A#4 E#5 B#5 || F#3 | A#4 C#5 E#5 G#5 || F#3 | E#4 G#4 A#4 C#5 || F#3 | A#4 C#5 D#5 G#5 || F#3 | E#4 A#4 D#5 || F#3 A#3 E#4 | G#4 D#5 || F#3 A#3 E#4 | G#4 B#4 D#5',
+      'min7': 'C3 | Eb4 G4 Bb4 || C2 G2 | Bb4 Eb5 || C3 | Eb4 Bb4 || C3 | Eb4 Bb4 D5 || C3 | Eb4 Bb4 F5 || C3 | Eb4 G4 Bb4 D5 || C3 | Bb4 D5 Eb5 G5 || C3 | F4 Bb4 Eb5 || D3 G3 C4 | F4 A4 || C3 Eb3 Bb3 | D4 G4 || F#3 | A4 C#5 E5 || F#2 C#3 | E4 A4 || F#3 | A4 E5 || F#3 | A4 E5 G#5 || F#3 | A4 E5 B5 || F#3 | A4 C#5 E5 G#5 || F#3 | E4 G#4 A4 C#5 || F#3 | B4 E5 A5 || G#3 C#4 F#4 | B4 D#5 || F#3 A3 E4 | G#4 C#5',
+      'dom7': 'C3 | E4 G4 Bb4 || C2 G2 | Bb4 E5 || C3 | E4 Bb4 || C3 | E4 A4 Bb4 || C3 | E4 Bb4 D5 || C3 | E4 A4 Bb4 D5 || C3 | Bb4 D5 E5 A5 || C3 E3 Bb3 | D4 A4 || F#3 | A#4 C#5 E5 || F#2 C#3 | E4 A#4 || F#3 | A#4 E5 || F#3 | A#4 D#5 E5 || F#3 | A#4 E5 G#5 || F#3 | A#4 D#5 E5 G#5 || F#3 | E4 G#4 A#4 D#5 || F#3 A#3 E4 | G#4 D#5',
       'dim7': 'C3 | Eb4 Gb4 Bbb4 || C2 Gb2 | Bbb4 Eb5 || F#3 | A4 C5 Eb5 || F#2 C3 | Eb4 A4',
       'm7b5': 'C3 | Eb4 Gb4 Bb4 || C2 Gb2 | Bb4 Eb5 || C3 | Eb4 Bb4 || C3 | Eb4 Bb4 F5 || C3 | Eb4 Ab4 Bb4 || C3 | Eb4 Gb4 Bb4 C5 || C3 | Bb4 C5 Eb5 Gb5 || C3 | Eb4 Gb4 Bb4 D5 || F#3 | A4 C5 E5 || F#2 C3 | E4 A4 || F#3 | A4 E5 || F#3 | A4 E5 B5 || F#3 | A4 D5 E5 || F#3 | A4 C5 E5 F#5 || F#3 | E4 F#4 A4 C5 || F#3 | A4 C5 E5 G#5',
       'minMaj7': 'C3 | Eb4 G4 B4 || C2 G2 | B4 Eb5 || C3 | Eb4 B4 || C3 | Eb4 B4 D5 || C3 | Eb4 G4 B4 D5 || C3 | B4 D5 Eb5 G5 || F#3 | A4 C#5 E#5 || F#2 C#3 | E#4 A4 || F#3 | A4 E#5 || F#3 | A4 E#5 G#5 || F#3 | A4 C#5 E#5 G#5 || F#3 | E#4 G#4 A4 C#5',
@@ -979,11 +979,31 @@ console.log('\nTest 16: LH-shell upper-structure + quartal voicings (new vocabul
     const m = q.d.rightHandPitches.map(p => p.midi);
     check(m[1] - m[0] === 5 && m[2] - m[1] === 5, 'min7 quartal RH is two stacked perfect 4ths');
   }
+  // Powell-hand shells (v6 Stage 3): LH guide-tone shell, RH color/upper triad
+  // — the inverse distribution of the rootless vocabulary. Anchored (compact
+  // C3), guide-tone-COMPLETE (so mixed comping may deal them).
+  v = find('maj7', 'Powell 13');
+  if (v) check(eq(v.lh, [0, 4, 11]) && eq(v.rh, [2, 9]), 'maj7 Powell 13 = LH {C,E,B} RH {D,A}');
+  v = find('maj7', 'Powell Lydian');
+  if (v) check(eq(v.lh, [0, 4, 11]) && eq(v.rh, [2, 6, 9]), 'maj7 Powell Lydian = LH {C,E,B} RH {D,F#,A}');
+  v = find('dom7', 'Powell 13');
+  if (v) check(eq(v.lh, [0, 4, 10]) && eq(v.rh, [2, 9]), 'dom7 Powell 13 = LH {C,E,Bb} RH {D,A}');
+  v = find('min7', 'Powell 9');
+  if (v) check(eq(v.lh, [0, 3, 10]) && eq(v.rh, [2, 7]), 'min7 Powell 9 = LH {C,Eb,Bb} RH {D,G}');
+  // They carry BOTH guide tones (3 & 7) across the two hands — the property
+  // that makes them mixed-eligible (unlike the guide-tone-free So What).
+  for (const [quality, frag, third, sev] of [['maj7','Powell 13',4,11],['dom7','Powell 13',4,10],['min7','Powell 9',3,10]]) {
+    const w = find(quality, frag);
+    if (w) check(w.lh.concat(w.rh).includes(third) && w.lh.concat(w.rh).includes(sev),
+      `${quality} ${frag} carries both guide tones across the hands`);
+  }
+
   // Every new voicing spells cleanly across a spread of roots (no undefined/NaN)
   let bad = 0;
   for (const [quality, frag] of [['dom7s11','US II'],['dom13','US II'],['dom13b9','US VI'],
       ['dom7sus4','Slash'],['min7','Quartal'],['maj7','Quartal'],
-      ['dom7alt','US bVI'],['dom7alt','US bV:']]) {
+      ['dom7alt','US bVI'],['dom7alt','US bV:'],
+      ['maj7','Powell 13'],['maj7','Powell Lydian'],['dom7','Powell 13'],['min7','Powell 9']]) {
     // Same filtered index space getChordNotesAtIndex resolves against, and a
     // hard -1 guard: an unmatched fragment must FAIL, not wrap (safeIndex
     // modulo turns -1 into the last voicing) and silently test the wrong one.
@@ -1320,6 +1340,40 @@ console.log('\nTest 21: candidate textures (v6 Stage 1 — one realization path,
   check(rhBad === 0, `every candidate's rhMidis matches roots-mode realization (${rhBad} off)`);
   check(lhBad === 0, `every candidate's lhMidis matches roots-mode realization (${lhBad} off)`);
   check(escapes === 0, `reface window holds for the whole texture of every voicing (${escapes} escaped-but-survived)`);
+}
+
+console.log('\nTest 22: anchored voicing optimizer policy (Powell mixed-eligible; So What manual-only)');
+{
+  const pickedName = (q, idx) => { const v = T.voicingsFor(q, 'seventh')[idx]; return v ? v.name : ''; };
+
+  // Anchored voicings are complete two-hand sonorities — NEVER dealt by the
+  // RH-only optimizer (it costs the RH slice alone and would drop the guide
+  // tones / roughen voice leading). Sweep progressions that would otherwise
+  // favor them; none may appear. The mixed DP, which sees both hands, DOES
+  // deal the guide-tone-complete Powell shells (owner: mixed-eligible) but
+  // still never the guide-tone-free So What.
+  const progs = [
+    [['C', 'maj7'], ['A', 'dom7'], ['D', 'min7'], ['G', 'dom7']],
+    [['D', 'maj7'], ['B', 'min7'], ['G', 'maj7'], ['A', 'dom7']],
+    [['E', 'min7'], ['A', 'dom7'], ['D', 'maj7'], ['D', 'maj7']]
+  ].map(p => p.map(([root, quality]) => ({ root, quality })));
+  let rhOnlyAnchored = 0, mixedPowell = 0, mixedSoWhat = 0;
+  for (const prog of progs) {
+    const rh = T.computeProgressionVoicings(prog, 'seventh', null);
+    prog.forEach((c, i) => {
+      const v = T.voicingsFor(c.quality, 'seventh')[rh.indices[i]];
+      if (v && v.anchor != null) rhOnlyAnchored++;
+    });
+    const mx = T.computeMixedVoicing(prog, 'seventh', null);
+    prog.forEach((c, i) => {
+      const name = pickedName(c.quality, mx.rhIndices[i]);
+      if (/Powell/.test(name)) mixedPowell++;
+      if (/So What/.test(name)) mixedSoWhat++;
+    });
+  }
+  check(rhOnlyAnchored === 0, `RH-only optimizer never deals an anchored voicing (${rhOnlyAnchored} dealt)`);
+  check(mixedPowell > 0, `mixed comping DOES deal Powell shells (owner: mixed-eligible) — picked ${mixedPowell}x`);
+  check(mixedSoWhat === 0, 'mixed comping still never deals So What (guide-tone-free stays manual-only)');
 }
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));

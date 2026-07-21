@@ -36,11 +36,18 @@ you whether a new change is allowed to touch it.
    **bassonly** plays only the root at `LH_BASE` (the app is the bassist),
    **rootless** drops the cluster's root layer (an external bassist owns it).
    `lhIntervalNamesFor` mirrors this exactly (it is the sounding-name's view of
-   the LH). Because a guide-tone-free cluster is structurally at odds with mixed
-   comping's "every chord covers the 3rd & 7th" contract (invariant via
-   `MIX_INCOMPLETE`), anchored voicings are **manual-only in mixed mode** —
-   `computeMixedVoicing` never emits them as candidates (owner decision), though
-   they stay eligible in the RH-only optimizer and reachable by manual cycling.
+   the LH).
+
+   **Auto-optimizer policy (v6 Stage 3).** An anchored voicing is a complete
+   two-hand sonority whose guide tones live in the LH and whose RH slice is only
+   color, so the **RH-only optimizer never deals one** — it costs/voice-leads
+   the RH slice alone and would drop the guide tones and roughen voice leading
+   (`computeProgressionVoicings` filters `c.anchored` out; they stay reachable by
+   manual cycling in every mode). The **mixed DP** (which sees both hands) deals
+   them by completeness: a guide-tone-COMPLETE anchored voicing (Powell shells)
+   is **mixed-eligible** — emitted as one node with its real fixed LH (owner
+   decision); a guide-tone-FREE one (So What) would break mixed's "every chord
+   covers the 3rd & 7th" contract and stays **manual-only** (skipped).
 
 2. **Recompute on every harmonic mutation.** `recomputeProgressionVoicings()`
    runs on every path that mutates progression, key, or complexity.
