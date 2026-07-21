@@ -194,11 +194,15 @@
       // voicing panel just needs a re-render to show the new LH.
       elements.leftHandSelect.addEventListener('change', (e) => {
         state.leftHand = e.target.value;
-        // LH comp derives its per-chord LH from a mode-specific DP (the
-        // inversion voice-leading), so switching INTO it must recompute to
-        // repopulate lhVoicingIndices for this mode. The per-hand modes read
-        // indices that stay valid, so they don't (preserving manual cycling).
-        if (state.leftHand === 'lhcomp') recomputeProgressionVoicings();
+        // state.lhVoicingIndices is mode-specific (evans shapes / lhcomp
+        // inversions / mixed's joint LH), so switching into a mode that READS it
+        // must refresh it — otherwise the realizer reads the previous mode's
+        // indices (wrong LH until the next harmonic mutation). Mixed also
+        // re-picks the RH jointly (full recompute); evans/lhcomp refresh only
+        // the LH (manual RH cycling preserved); roots/shells/rootless/bassonly
+        // ignore the field, so nothing to do.
+        if (state.leftHand === 'mixed') recomputeProgressionVoicings();
+        else if (state.leftHand === 'evans' || state.leftHand === 'lhcomp') recomputeLhIndices();
         renderVoicing();
       });
       // Range (3-octave mode): unlike the Left Hand modes, the window changes

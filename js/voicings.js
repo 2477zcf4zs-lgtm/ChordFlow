@@ -612,33 +612,25 @@
     }
 
     /**
-     * Choose an LH rootless shape for every chord at once (two-hand rootless
-     * mode), minimizing LH voice movement + register cost — the same DP as
-     * computeProgressionVoicings, over the LH shape sets. No octave shifts:
-     * realizeHand already pins each shape inside the tenor octave, and the
-     * A/B choice is the classic source of smooth rootless voice leading.
-     * Returns { indices: [...] }.
+     * Min-total-cost path through layered candidate nodes — the voice-leading
+     * DP shared by every optimizer (RH voicings, two-hand rootless, mixed comp,
+     * inversion comp). Each `layers[i]` is an array of nodes carrying a numeric
+     * `.localCost`; `move(prev, cur)` is the transition cost between consecutive
+     * CHOSEN nodes. Returns the chosen node per layer (`path`) and `totalCost`.
+     * Tie-break: lowest index wins (strict `<`), matching every caller's prior
+     * hand-rolled loop — so factoring this out is byte-for-byte identical.
      */
-    function computeLeftHandVoicings(progression) {
-      const indices = [];
-      if (!progression || !progression.length) return { indices };
-
-      const layers = progression.map(chord =>
-        lhRootlessShapesFor(chord.quality).map((ivs, vIndex) => {
-          const midis = realizeHand(chord.root, ivs, LH_ROOTLESS_BASE).map(n => n.midi);
-          return { vIndex, midis, localCost: lhRegisterPenalty(midis) };
-        }));
-
-      let costs = layers[0].map(c => c.localCost);
+    function dpMinPath(layers, move) {
+      const path = [];
+      if (!layers.length) return { path, totalCost: 0 };
+      let costs = layers[0].map(n => n.localCost);
       const back = [layers[0].map(() => -1)];
       for (let i = 1; i < layers.length; i++) {
-        const nextCosts = [];
-        const pointers = [];
+        const nextCosts = [], pointers = [];
         for (let j = 0; j < layers[i].length; j++) {
-          let best = Infinity;
-          let bestK = 0;
+          let best = Infinity, bestK = 0;
           for (let k = 0; k < layers[i - 1].length; k++) {
-            const c = costs[k] + voiceMovementCost(layers[i - 1][k].midis, layers[i][j].midis);
+            const c = costs[k] + move(layers[i - 1][k], layers[i][j]);
             if (c < best) { best = c; bestK = k; }
           }
           nextCosts.push(best + layers[i][j].localCost);
@@ -647,15 +639,30 @@
         costs = nextCosts;
         back.push(pointers);
       }
-
       let j = 0;
-      for (let k = 1; k < costs.length; k++) {
-        if (costs[k] < costs[j]) j = k;
-      }
-      for (let i = layers.length - 1; i >= 0; i--) {
-        indices[i] = layers[i][j].vIndex;
-        j = back[i][j];
-      }
+      for (let k = 1; k < costs.length; k++) if (costs[k] < costs[j]) j = k;
+      const totalCost = costs[j];
+      for (let i = layers.length - 1; i >= 0; i--) { path[i] = layers[i][j]; j = back[i][j]; }
+      return { path, totalCost };
+    }
+
+    /**
+     * Choose an LH rootless shape for every chord at once (two-hand rootless
+     * mode), minimizing LH voice movement + register cost — over the LH shape
+     * sets. No octave shifts: realizeHand already pins each shape inside the
+     * tenor octave, and the A/B choice is the classic source of smooth rootless
+     * voice leading. Returns { indices: [...] }.
+     */
+    function computeLeftHandVoicings(progression) {
+      const indices = [];
+      if (!progression || !progression.length) return { indices };
+      const layers = progression.map(chord =>
+        lhRootlessShapesFor(chord.quality).map((ivs, vIndex) => {
+          const midis = realizeHand(chord.root, ivs, LH_ROOTLESS_BASE).map(n => n.midi);
+          return { vIndex, midis, localCost: lhRegisterPenalty(midis) };
+        }));
+      dpMinPath(layers, (a, b) => voiceMovementCost(a.midis, b.midis))
+        .path.forEach((n, i) => { indices[i] = n.vIndex; });
       return { indices };
     }
 
@@ -699,8 +706,9 @@
       return c.map((_, k) => c.slice(k).concat(c.slice(0, k)));
     }
 
-    /** Realize one inversion, octave-normalized so the whole voicing sits in
-     *  [INVERSION_BASE, +12) — every inversion in the same tenor octave. */
+    /** Realize one inversion, octave-normalized so its LOWEST note sits in
+     *  [INVERSION_BASE, +12) — every inversion anchored to the same tenor
+     *  octave (the voicing itself then rises ~a 7th above that floor). */
     function realizeInversionShape(rootNote, shape) {
       const notes = realizeHand(rootNote, shape, INVERSION_BASE);
       const lo = Math.min(...notes.map(n => n.midi)); // always >= INVERSION_BASE
@@ -723,25 +731,8 @@
           const midis = realizeInversionShape(chord.root, sh).map(n => n.midi);
           return { vIndex, midis, localCost: lhRegisterPenalty(midis) };
         }));
-      let costs = layers[0].map(c => c.localCost);
-      const back = [layers[0].map(() => -1)];
-      for (let i = 1; i < layers.length; i++) {
-        const nextCosts = [], pointers = [];
-        for (let j = 0; j < layers[i].length; j++) {
-          let best = Infinity, bestK = 0;
-          for (let k = 0; k < layers[i - 1].length; k++) {
-            const c = costs[k] + voiceMovementCost(layers[i - 1][k].midis, layers[i][j].midis);
-            if (c < best) { best = c; bestK = k; }
-          }
-          nextCosts.push(best + layers[i][j].localCost);
-          pointers.push(bestK);
-        }
-        costs = nextCosts;
-        back.push(pointers);
-      }
-      let j = 0;
-      for (let k = 1; k < costs.length; k++) if (costs[k] < costs[j]) j = k;
-      for (let i = layers.length - 1; i >= 0; i--) { indices[i] = layers[i][j].vIndex; j = back[i][j]; }
+      dpMinPath(layers, (a, b) => voiceMovementCost(a.midis, b.midis))
+        .path.forEach((n, i) => { indices[i] = n.vIndex; });
       return { indices };
     }
 
@@ -926,33 +917,9 @@
         return nodes;
       });
 
-      let costs = layers[0].map(n => n.localCost);
-      const back = [layers[0].map(() => -1)];
-      for (let i = 1; i < layers.length; i++) {
-        const nextCosts = [], pointers = [];
-        for (let j = 0; j < layers[i].length; j++) {
-          let best = Infinity, bestK = 0;
-          for (let k = 0; k < layers[i - 1].length; k++) {
-            const c = costs[k]
-              + voiceMovementCost(layers[i - 1][k].rhMidis, layers[i][j].rhMidis)
-              + voiceMovementCost(layers[i - 1][k].lhMidis, layers[i][j].lhMidis);
-            if (c < best) { best = c; bestK = k; }
-          }
-          nextCosts.push(best + layers[i][j].localCost);
-          pointers.push(bestK);
-        }
-        costs = nextCosts;
-        back.push(pointers);
-      }
-
-      let j = 0;
-      for (let k = 1; k < costs.length; k++) if (costs[k] < costs[j]) j = k;
-      const totalCost = costs[j];
-      for (let i = layers.length - 1; i >= 0; i--) {
-        const n = layers[i][j];
-        rhIndices[i] = n.rhVIndex; rhShifts[i] = n.rhShift; lhIndices[i] = n.lhCi;
-        j = back[i][j];
-      }
+      const { path, totalCost } = dpMinPath(layers, (a, b) =>
+        voiceMovementCost(a.rhMidis, b.rhMidis) + voiceMovementCost(a.lhMidis, b.lhMidis));
+      path.forEach((n, i) => { rhIndices[i] = n.rhVIndex; rhShifts[i] = n.rhShift; lhIndices[i] = n.lhCi; });
       return { rhIndices, rhShifts, lhIndices, totalCost };
     }
 
@@ -1243,38 +1210,8 @@
         return nonAnchored.length ? nonAnchored : cands;
       });
 
-      // Forward pass
-      let costs = layers[0].map(c => c.localCost);
-      const back = [layers[0].map(() => -1)];
-
-      for (let i = 1; i < layers.length; i++) {
-        const nextCosts = [];
-        const pointers = [];
-        for (let j = 0; j < layers[i].length; j++) {
-          let best = Infinity;
-          let bestK = 0;
-          for (let k = 0; k < layers[i - 1].length; k++) {
-            const c = costs[k] + voiceMovementCost(layers[i - 1][k].rhMidis, layers[i][j].rhMidis);
-            if (c < best) { best = c; bestK = k; }
-          }
-          nextCosts.push(best + layers[i][j].localCost);
-          pointers.push(bestK);
-        }
-        costs = nextCosts;
-        back.push(pointers);
-      }
-
-      // Backtrack from the cheapest final state
-      let j = 0;
-      for (let k = 1; k < costs.length; k++) {
-        if (costs[k] < costs[j]) j = k;
-      }
-      for (let i = layers.length - 1; i >= 0; i--) {
-        indices[i] = layers[i][j].vIndex;
-        shifts[i] = layers[i][j].shift;
-        j = back[i][j];
-      }
-
+      dpMinPath(layers, (a, b) => voiceMovementCost(a.rhMidis, b.rhMidis))
+        .path.forEach((n, i) => { indices[i] = n.vIndex; shifts[i] = n.shift; });
       return { indices, shifts };
     }
 
@@ -1301,12 +1238,20 @@
       const result = computeProgressionVoicings(state.progression, state.complexity, range);
       state.voicingIndices = result.indices;
       state.voicingShifts = result.shifts;
-      // Per-chord LH indices. lhcomp reads the inversion DP (the economy-of-
-      // motion comp); every other non-mixed mode reads the two-hand-rootless
-      // shapes. Both are cheap (few shapes, no shifts) and kept in step with the
-      // progression. (The unused one is harmless — the realizer reads whichever
-      // the active mode wants; lhcomp/mixed recompute on switch-in so the field
-      // matches the mode. See the leftHandSelect handler.)
+      recomputeLhIndices();
+    }
+
+    /**
+     * Refresh ONLY the per-chord LH index field for the current mode, leaving
+     * the RH voicing selection (and any manual cycling) intact. `lhVoicingIndices`
+     * is mode-specific — lhcomp reads the inversion DP, every other non-mixed
+     * mode reads the two-hand-rootless shapes — so switching between modes that
+     * READ this field (evans, lhcomp) must refresh it, or the realizer would
+     * read the previous mode's indices (an evans shape index used as an inversion
+     * index, or vice versa). Cheap: a few shapes, no octave shifts. Mixed is not
+     * handled here — its RH is chosen jointly, so it needs the full recompute.
+     */
+    function recomputeLhIndices() {
       state.lhVoicingIndices = state.leftHand === 'lhcomp'
         ? computeInversionComp(state.progression).indices
         : computeLeftHandVoicings(state.progression).indices;
@@ -1467,13 +1412,24 @@
 
       const realized = realizeVoicing(rootNote, voicing, shift, leftHandMode, quality, lhIndex);
 
+      // LH comp ignores the selected `voicing` and plays a DP-chosen inversion,
+      // so name what actually sounds (the inversion position) rather than the
+      // RH-optimizer's voicing — otherwise the label (and voicing cycling)
+      // would show a voicing the mode isn't playing.
+      let voicingName = voicing.name;
+      if (leftHandMode === 'lhcomp') {
+        const nInv = inversionShapesFor(quality).length;
+        const pos = ((lhIndex % nInv) + nInv) % nInv;
+        voicingName = (['Root position', '1st inversion', '2nd inversion', '3rd inversion'][pos] || 'Inversion') + ' — close comp';
+      }
+
       return {
         leftHand: realized.left.map(n => n.name),
         rightHand: realized.right.map(n => n.name),
         leftHandPitches: realized.left,
         rightHandPitches: realized.right,
         name: chordInfo.name,
-        voicingName: voicing.name,
+        voicingName,
         voicingIndex: safeIndex,
         anchored: voicing.anchor != null,
         octaveShift: shift,
