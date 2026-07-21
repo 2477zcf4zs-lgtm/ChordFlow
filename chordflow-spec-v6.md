@@ -127,6 +127,23 @@ compliance. Sounding display: any guide-tone-free entry must show
    (manual-only in mixed) — if the owner wants a different mixed policy for
    a guide-tone-carrying anchored voicing, that is an owner decision to ask
    for, not to assume.
+5. **LH octave roots** *(owner request, 2026-07-21)*. A Sound setting
+   (default **off**): when the LH deals a **lone root** — roots mode's
+   single-note LH and the mixed DP's "lone root" candidate — realize it as
+   an octave (`['R','R']`; `realizeHand`'s stack-above semantics make the
+   doubling free). This is standard solo/stride/gospel practice: the octave
+   fills the texture when no bassist owns the low end. Contracts:
+   **bassonly and the backing bass stay single notes** (they emulate a
+   bassist, and bassists play single notes); rootless/evans unaffected (no
+   root dealt); multi-note shell LHs unaffected (they already carry width).
+   Span is 12 st — inside every hand-span cap. Invariant-11 classification:
+   LH-only, **no recompute** today; under Stage 1's whole-texture windowing
+   the octave participates in the window check (account for it there —
+   e.g. C2+C3 sits inside the reface window with no headroom below).
+   Ear gate: proof sheet picks the register (root octave C2–C3 vs the
+   comping-zone C3–C4) before wiring. Default-off keeps the snapshot
+   untouched; add Test 11-style mode assertions for the on-state and a
+   smoke check for the toggle.
 
 **Acceptance:** per-family ear approval; provenance present; Tests 15/16/17
 green; both suites green. Commit per family or per stage. Stop.
