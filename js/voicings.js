@@ -1390,7 +1390,7 @@
      * is not supplied) — a stored shift was already chosen window-aware.
      */
     function getChordNotesAtIndex(rootNote, quality, complexity, index, octaveShift, opts = {}) {
-      const { leftHandMode = 'roots', lhIndex = 0, range = null } = opts;
+      const { leftHandMode = 'roots', lhIndex = 0, range = null, octaveRoots = false } = opts;
       let chordInfo;
       for (const level of ['simple', 'seventh', 'extended', 'altered']) {
         if (CHORD_TYPES[level][quality]) {
@@ -1411,6 +1411,18 @@
       }
 
       const realized = realizeVoicing(rootNote, voicing, shift, leftHandMode, quality, lhIndex);
+
+      // Octave roots (Sound setting): double a LONE bass root an octave DOWN —
+      // the stride/gospel/solo bass octave. Keeps the existing root on top (so
+      // it never crowds the RH) and adds depth below, only when that octave stays
+      // at/above C2 (respects the reface floor; a root already that low isn't
+      // deepened). bassonly is exempt — it emulates a single-note bassist. Applies
+      // wherever the LH is a lone root (roots mode; mixed's lone-root moments),
+      // added post-realization so no optimizer/DP costing changes (invariant 11).
+      if (octaveRoots && leftHandMode !== 'bassonly' && realized.left.length === 1) {
+        const top = realized.left[0];
+        if (top.midi - 12 >= 36) realized.left = [{ name: top.name, octave: top.octave - 1, midi: top.midi - 12 }, top];
+      }
 
       // LH comp ignores the selected `voicing` and plays a DP-chosen inversion,
       // so name what actually sounds (the inversion position) rather than the

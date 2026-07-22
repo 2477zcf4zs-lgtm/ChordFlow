@@ -890,6 +890,19 @@ async function main() {
     check(st().leftHand === 'roots' && lhNotesEl.textContent === rootsLhText,
       'roots mode restores the original LH');
 
+    // Octave roots: doubling the lone bass root re-renders the LH (opt-in, no
+    // recompute). In roots mode chord 1's LH is a lone root, so it doubles.
+    const octBtn = document.getElementById('octaveRootsBtn');
+    check(!!octBtn && st().octaveRoots === false, 'octave roots starts off');
+    octBtn.click();
+    check(st().octaveRoots === true &&
+      octBtn.querySelector('.btn-label').textContent === 'Octaves: On' &&
+      lhNotesEl.textContent !== rootsLhText,
+      'octave roots toggles on and doubles the lone LH root (panel re-renders)');
+    octBtn.click();
+    check(st().octaveRoots === false && lhNotesEl.textContent === rootsLhText,
+      'octave roots toggles back off, restoring the single root');
+
     // Mixed (the app default): the app picks the LH per chord AND the RH
     // jointly, so it owns a full per-chord lhVoicingIndices array and names
     // its decision. (RH may differ from the fixed modes — that's the point.)
