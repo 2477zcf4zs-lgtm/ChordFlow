@@ -710,10 +710,10 @@
         const shift = state.voicingShifts ? state.voicingShifts[chordIndex] : undefined;
         const lhIndex = (state.lhVoicingIndices && state.lhVoicingIndices[chordIndex]) || 0;
         chordData = getChordNotesAtIndex(chord.root, chord.quality, state.complexity, state.voicingIndices[chordIndex], shift,
-          { leftHandMode: state.leftHand, lhIndex, range: activeRangeWindow() });
+          { leftHandMode: state.leftHand, lhIndex, range: activeRangeWindow(), octaveRoots: state.octaveRoots });
       } else {
         chordData = getChordNotes(chord.root, chord.quality, state.complexity,
-          { leftHandMode: state.leftHand, range: activeRangeWindow() });
+          { leftHandMode: state.leftHand, range: activeRangeWindow(), octaveRoots: state.octaveRoots });
         if (state.voicingIndices) {
           state.voicingIndices[chordIndex] = chordData.voicingIndex || 0;
           if (state.voicingShifts) state.voicingShifts[chordIndex] = chordData.octaveShift || 0;

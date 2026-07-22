@@ -129,7 +129,7 @@
         ? state.voicingShifts[index] : undefined;
       const lhIndex = (state.lhVoicingIndices && state.lhVoicingIndices[index]) || 0;
       return getChordNotesAtIndex(chord.root, chord.quality, state.complexity, vIndex, shift,
-        { leftHandMode: state.leftHand, lhIndex, range: activeRangeWindow() });
+        { leftHandMode: state.leftHand, lhIndex, range: activeRangeWindow(), octaveRoots: state.octaveRoots });
     }
 
     // ============================================
@@ -686,7 +686,7 @@
       const start = ctx.currentTime + 0.02;
       slice.forEach((chord, i) => {
         const d = getChordNotesAtIndex(chord.root, chord.quality, state.complexity, indices[i], shifts[i],
-          { leftHandMode: state.leftHand, lhIndex: lhIdx[i] || 0, range });
+          { leftHandMode: state.leftHand, lhIndex: lhIdx[i] || 0, range, octaveRoots: state.octaveRoots });
         scheduleChordSpan(chord, d, start + i * beats * secPerBeat, secPerBeat, beats, g);
       });
     }

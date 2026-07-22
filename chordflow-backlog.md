@@ -191,12 +191,13 @@ started then deliberately shelved.
     Test 15 snapshot + goldens will move for any template fix (use
     `scripts/gen_voicing_snapshot.js`).
 
-- [ ] **LH octave roots** *(owner suggestion 2026-07-21; specced:
-  `chordflow-spec-v6.md` Stage 3 item 5.)* A default-off Sound setting that
-  realizes a lone LH root as an octave (`['R','R']` — free under the stack
-  model). Standard solo/stride/gospel practice for when no bassist owns the
-  low end. bassonly + backing bass stay single notes (they emulate a
-  bassist). Proof-sheet the register (C2–C3 vs C3–C4) before wiring.
+- [x] **LH octave roots** — DONE (v6 Stage 3, PR #59). A default-off Sound
+  setting ("Octave roots" toggle) that doubles a lone LH bass root an octave
+  DOWN (owner-approved register: keeps the comping-zone root on top, adds the
+  stride/gospel depth below, never crowds the RH). Applies wherever the LH is a
+  lone root (roots mode; mixed's lone-root moments), added post-realization so
+  no DP/optimizer costing changes (invariant 11 — no recompute). bassonly and
+  the backing bass stay single notes. Test 24 + smoke-toggle coverage.
 
 - [ ] **LH-only comping through inversions** *(owner suggestion 2026-07-21;
   specced: `chordflow-spec-v6.md` Stage 3b.)* A new ensemble texture: the LH

@@ -1428,6 +1428,40 @@ console.log('\nTest 23: LH comp — close voicings through inversions (v6 Stage 
   check(clean, 'LH comp inversions spell cleanly across all twelve roots');
 }
 
+console.log('\nTest 24: octave roots (v6 Stage 3 — stride/gospel bass octave, opt-in)');
+{
+  const midis = d => d.leftHandPitches.map(p => p.midi);
+  // Roots mode: a lone bass root doubles an octave DOWN — same top note, an
+  // added note exactly 12 st below, span a clean octave.
+  let doubled = 0, topKept = 0;
+  for (const root of ['C', 'F', 'A', 'Eb', 'B']) {
+    const off = midis(T.getChordNotesAtIndex(root, 'maj7', 'seventh', 6, 0, { leftHandMode: 'roots' }));
+    const on = midis(T.getChordNotesAtIndex(root, 'maj7', 'seventh', 6, 0, { leftHandMode: 'roots', octaveRoots: true }));
+    if (on.length === 2 && on[1] - on[0] === 12) doubled++;         // exactly an octave
+    if (off.length === 1 && on[on.length - 1] === off[0]) topKept++; // top note unchanged (adds below)
+  }
+  check(doubled === 5, `roots: lone root doubles to a clean octave in every key (${doubled}/5)`);
+  check(topKept === 5, `roots: the octave adds BELOW — the comping-zone root stays on top (${topKept}/5)`);
+
+  // Default OFF changes nothing.
+  const offC = midis(T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'roots' }));
+  check(offC.length === 1, 'default off: lone root stays single');
+
+  // Contract: bassonly (the app is the bassist) stays a single note; multi-note
+  // and empty LHs are untouched (only a LONE root doubles).
+  check(midis(T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'bassonly', octaveRoots: true })).length === 1,
+    'bassonly stays a single bass note (emulates a bassist)');
+  check(midis(T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'shells', octaveRoots: true })).length === 3,
+    'shells (multi-note LH) unaffected by octave roots');
+  check(midis(T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'rootless', octaveRoots: true })).length === 0,
+    'rootless (no LH) unaffected by octave roots');
+
+  // The doubled octave is the same pitch class, so the sounding name is unchanged.
+  const s = T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'roots', octaveRoots: true }).sounding;
+  const sOff = T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'roots' }).sounding;
+  check(JSON.stringify(s) === JSON.stringify(sOff), 'octave root adds no new pitch class — sounding name unchanged');
+}
+
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));
 // Fail the build on any failure. Without this the process exits 0 even when
 // checks fail, so `npm test` and CI would go green on a broken voicing engine.

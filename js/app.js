@@ -24,6 +24,7 @@
       grooveSelect: document.getElementById('grooveSelect'),
       leftHandSelect: document.getElementById('leftHandSelect'),
       bassBackingBtn: document.getElementById('bassBackingBtn'),
+      octaveRootsBtn: document.getElementById('octaveRootsBtn'),
       rangeSelect: document.getElementById('rangeSelect'),
       voicingSubs: document.getElementById('voicingSubs'),
       undoChip: document.getElementById('undoChip'),
@@ -221,6 +222,16 @@
         if (lbl) lbl.textContent = state.bassBacking ? 'Bass: On' : 'Bass: Off';
         elements.bassBackingBtn.classList.toggle('active', state.bassBacking);
         elements.bassBackingBtn.blur();
+      });
+      // Octave roots: a pure LH realization modifier (no recompute — invariant
+      // 11); audio reads it live, the voicing panel just re-renders.
+      elements.octaveRootsBtn.addEventListener('click', () => {
+        state.octaveRoots = !state.octaveRoots;
+        const lbl = elements.octaveRootsBtn.querySelector('.btn-label');
+        if (lbl) lbl.textContent = state.octaveRoots ? 'Octaves: On' : 'Octaves: Off';
+        elements.octaveRootsBtn.classList.toggle('active', state.octaveRoots);
+        elements.octaveRootsBtn.blur();
+        renderVoicing();
       });
       elements.swingBtn.addEventListener('click', () => {
         state.swing = !state.swing;
