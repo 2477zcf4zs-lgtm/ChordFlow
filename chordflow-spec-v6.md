@@ -209,14 +209,19 @@ cluster (`9-5-R-4-7`), guide-tone-complete → mixed-eligible. `m7b5` quartal
 skipped (no citation, per the "no inventions" clause). Item 2 slash family:
 `dom11` reframed as the F-over-G (bVII/I) triad-over-bass (naming only, no
 pitch change). Item 5 (LH octave roots) landed in PR #59.
-**Held for the ear gate:** the `maj9` D/C Lydian slash (`R | 9-#11-13`).
-Unlike every other Stage-3 addition it is guide-tone-**free** *and*
-**non-anchored**, so — with no `manual-only` mechanism for non-anchored
-voicings — the RH-only optimizer could **auto-deal** it (a maj9 chart
-sounding with no 3rd/7th). That is the first auto-dealable guide-tone-free
-voicing in the library and a genuine sound change with no precedent; it
-needs an owner ear decision (wire as-is / anchor it like So What to force
-manual-only / skip) before shipping.
+Item 2 slash family also includes the `maj9` D/C Lydian slash
+(`R | 9-#11-13`, a D major triad over C). It is guide-tone-**free** (no 3,
+no 7), which with no `manual-only` mechanism for *non-anchored* voicings
+would let the RH-only optimizer **auto-deal** it (a maj9 chart sounding with
+no 3rd/7th — a sound change with no precedent). **Owner decision
+(2026-07-22): anchor it like So What** → guide-tone-free + anchored =
+**manual-only** (filtered from the RH-only optimizer, skipped by the mixed
+DP, reachable only by cycling). Landed as an anchored compact Lydian cluster
+(anchor 48); the sounding line flags the implied 3rd & 7th honestly. The
+register trade — the anchored model cannot express the wide root-in-bass
+slash spread — is the accepted price of manual-only. Verified: both oracles
+show the optimizer surface **byte-identical** (never dealt) and full surface
+additions-only.
 
 ## Stage 3b — LH-only comping through inversions
 *(owner request, 2026-07-21)*

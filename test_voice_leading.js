@@ -860,7 +860,7 @@ console.log('\nTest 15: voicing characterization snapshot (regression guard for 
       'm7b5': 'C3 | Eb4 Gb4 Bb4 || C2 Gb2 | Bb4 Eb5 || C3 | Eb4 Bb4 || C3 | Eb4 Bb4 F5 || C3 | Eb4 Ab4 Bb4 || C3 | Eb4 Gb4 Bb4 C5 || C3 | Bb4 C5 Eb5 Gb5 || C3 | Eb4 Gb4 Bb4 D5 || F#3 | A4 C5 E5 || F#2 C3 | E4 A4 || F#3 | A4 E5 || F#3 | A4 E5 B5 || F#3 | A4 D5 E5 || F#3 | A4 C5 E5 F#5 || F#3 | E4 F#4 A4 C5 || F#3 | A4 C5 E5 G#5',
       'minMaj7': 'C3 | Eb4 G4 B4 || C2 G2 | B4 Eb5 || C3 | Eb4 B4 || C3 | Eb4 B4 D5 || C3 | Eb4 G4 B4 D5 || C3 | B4 D5 Eb5 G5 || F#3 | A4 C#5 E#5 || F#2 C#3 | E#4 A4 || F#3 | A4 E#5 || F#3 | A4 E#5 G#5 || F#3 | A4 C#5 E#5 G#5 || F#3 | E#4 G#4 A4 C#5',
       'dom7sus4': 'C3 | F4 G4 Bb4 || C2 G2 | Bb4 F5 || C3 | F4 Bb4 || C3 | F4 Bb4 D5 || C3 | F4 G4 Bb4 D5 || C3 | Bb4 D5 F5 G5 || C3 | Bb4 D5 F5 || D3 G3 C4 | F4 Bb4 || F#3 | B4 C#5 E5 || F#2 C#3 | E4 B4 || F#3 | B4 E5 || F#3 | B4 E5 G#5 || F#3 | B4 C#5 E5 G#5 || F#3 | E4 G#4 B4 C#5 || F#3 | E4 G#4 B4 || G#3 C#4 F#4 | B4 E5',
-      'maj9': 'C3 | E4 G4 B4 D5 || C3 | B4 D5 E5 G5 || C2 G2 | B4 D5 E5 || F#3 | A#4 C#5 E#5 G#5 || F#3 | E#4 G#4 A#4 C#5 || F#2 C#3 | E#4 G#4 A#4',
+      'maj9': 'C3 | E4 G4 B4 D5 || C3 | B4 D5 E5 G5 || C2 G2 | B4 D5 E5 || C3 | D3 F#3 A3 || F#3 | A#4 C#5 E#5 G#5 || F#3 | E#4 G#4 A#4 C#5 || F#2 C#3 | E#4 G#4 A#4 || F#3 | G#3 B#3 D#4',
       'min9': 'C3 | Eb4 G4 Bb4 D5 || C3 | Bb4 D5 Eb5 G5 || C2 G2 | Bb4 D5 Eb5 || F#3 | A4 C#5 E5 G#5 || F#3 | E4 G#4 A4 C#5 || F#2 C#3 | E4 G#4 A4',
       'dom9': 'C3 | E4 A4 Bb4 D5 || C3 | Bb4 D5 E5 A5 || C3 | E4 Bb4 D5 || C2 G2 | Bb4 D5 E5 || F#3 | A#4 D#5 E5 G#5 || F#3 | E4 G#4 A#4 D#5 || F#3 | A#4 E5 G#5 || F#2 C#3 | E4 G#4 A#4',
       'dom11': 'C3 | Bb4 D5 F5 || C3 | F4 Bb4 D5 || C2 G2 | Bb4 D5 F5 || F#3 | E4 G#4 B4 || F#3 | B4 E5 G#5 || F#2 C#3 | E4 G#4 B4',
@@ -1000,6 +1000,9 @@ console.log('\nTest 16: LH-shell upper-structure + quartal voicings (new vocabul
   // anchored mid-register like So What but guide-tone-COMPLETE for a sus (4 & 7).
   v = find('dom7sus4', 'Quartal sus');
   if (v) check(eq(v.lh, [0, 2, 7]) && eq(v.rh, [5, 10]), 'C sus quartal = LH {C,D,G} RH {F,Bb}');
+  // maj9 D/C Lydian slash: a D major triad (9-#11-13) over C, anchored compact.
+  v = find('maj9', 'Slash: D/C');
+  if (v) check(eq(v.lh, [0]) && eq(v.rh, [2, 6, 9]), 'maj9 D/C Lydian slash = LH {C} RH {D,F#,A}');
   // They carry BOTH guide tones (3 & 7) across the two hands — the property
   // that makes them mixed-eligible (unlike the guide-tone-free So What).
   for (const [quality, frag, third, sev] of [['maj7','Powell 13',4,11],['dom7','Powell 13',4,10],['min7','Powell 9',3,10],
@@ -1386,6 +1389,23 @@ console.log('\nTest 22: anchored voicing optimizer policy (Powell mixed-eligible
   check(rhOnlyAnchored === 0, `RH-only optimizer never deals an anchored voicing (${rhOnlyAnchored} dealt)`);
   check(mixedPowell > 0, `mixed comping DOES deal Powell shells (owner: mixed-eligible) — picked ${mixedPowell}x`);
   check(mixedSoWhat === 0, 'mixed comping still never deals So What (guide-tone-free stays manual-only)');
+
+  // maj9 D/C Lydian slash (owner ear gate): anchored AND guide-tone-free, so —
+  // like So What — it must stay manual-only. A maj9-only progression maximally
+  // tempts the optimizers; the slash may appear in NEITHER, full or reface.
+  const slashIdx = T.voicingsFor('maj9', 'seventh').findIndex(v => /Slash: D\/C/.test(v.name));
+  check(slashIdx !== -1, 'maj9 D/C Lydian slash voicing exists');
+  const maj9Prog = ['C', 'F', 'G', 'A', 'D'].map(root => ({ root, quality: 'maj9' }));
+  let slashDealt = 0;
+  for (const range of [null, 'reface']) {
+    if (T.computeProgressionVoicings(maj9Prog, 'extended', range).indices.includes(slashIdx)) slashDealt++;
+    if (T.computeMixedVoicing(maj9Prog, 'extended', range).rhIndices.includes(slashIdx)) slashDealt++;
+  }
+  check(slashDealt === 0, `maj9 Lydian slash stays manual-only (auto-dealt ${slashDealt}x across optimizers/ranges)`);
+  // Guide-tone-free honesty: the sounding line names the implied 3rd & 7th.
+  const slashSound = T.getChordNotesAtIndex('C', 'maj9', 'extended', slashIdx, 0).sounding;
+  check(slashSound && slashSound.impliedGuideTones && slashSound.impliedGuideTones.length === 2,
+    `maj9 slash flags both implied guide tones honestly (${slashSound ? (slashSound.impliedGuideTones || []).join('+') : 'none'})`);
 }
 
 console.log('\nTest 23: LH comp — close voicings through inversions (v6 Stage 3b)');
