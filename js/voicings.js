@@ -193,7 +193,12 @@
           { left: ['R'], right: ['b7', '9', '4', '5'], name: 'Type B: 7-9-4-5', type: 'B', tiers: ['jazz'] },
           // Slash 13sus: bVII major triad in root position over the root (Bb/C) —
           // same tones as RSP(9) but voiced as a recognizable triad-over-bass
-          { left: ['R'], right: ['b7', '9', '11'], name: 'Slash: R | bVII triad (13sus)', type: null, tiers: ['jazz'] }
+          { left: ['R'], right: ['b7', '9', '11'], name: 'Slash: R | bVII triad (13sus)', type: null, tiers: ['jazz'] },
+          // Quartal sus (McCoy Tyner): the whole voicing is stacked 4ths —
+          // 9-5-R-4-7 (D-G-C-F-Bb over C). ANCHORED mid-register like So What;
+          // guide-tone-complete for a sus (the 4 and b7 are both present), so
+          // mixed comping may deal it. The modal sus/quartal sound.
+          { left: ['9', '5', 'R'], right: ['4', 'b7'], anchor: 48, name: 'Quartal sus: 9-5-R-4-7 in 4ths', type: null, tiers: ['jazz'] }
         ]
       },
       
@@ -232,7 +237,11 @@
       // Dominant 11
       dom11: {
         voicings: [
-          { left: ['R'], right: ['b7', '9', '11'], name: 'Sus: 7-9-11 (bVII triad)', type: 'B' },
+          // Triad-over-bass framing (the pedagogy): the bVII major triad in the
+          // RH over the root — for G11 that is F/G (F-A-C over G). The classic
+          // "V11 = IV-over-V" slash sound; same tones as the sus, named for the
+          // shape the hand recognizes.
+          { left: ['R'], right: ['b7', '9', '11'], name: 'Slash: bVII/I — F-over-G (7-9-11)', type: 'B' },
           { left: ['R'], right: ['4', 'b7', '9'], name: 'Sus: 4-7-9', type: 'A' },
           { left: ['R', '5'], right: ['b7', '9', '11'], name: 'R-5 | 7-9-11', type: null }
         ]
@@ -245,19 +254,27 @@
           { left: ['R'], right: ['b7', '9', 'b3', '11'], name: 'Type B: 7-9-3-11', type: 'B' },
           { left: ['R', '5'], right: ['b7', 'b3', '11'], name: 'R-5 | 7-3-11', type: null },
           // Quartal (McCoy): RH stacked in 4ths — its natural home
-          { left: ['R'], right: ['11', 'b7', 'b3'], name: 'Quartal: R | 11-7-3 in 4ths', type: null }
+          { left: ['R'], right: ['11', 'b7', 'b3'], name: 'Quartal: R | 11-7-3 in 4ths', type: null },
+          // Powell hand (bebop LH shell + RH color): R-b3-b7 close in the LH
+          // comping zone, RH adds 9 + 11 just above = a compact min11. Anchored,
+          // mid-register; guide-tone-complete, so mixed comping may deal it.
+          { left: ['R', 'b3', 'b7'], right: ['9', '11'], anchor: 48, name: 'Powell 11: R-3-7 | 9-11', type: null }
         ]
       },
-      
+
       // Major 13
       maj13: {
         voicings: [
           { left: ['R'], right: ['3', '13', '7', '9'], name: 'Type A: 3-13-7-9', type: 'A' },
           { left: ['R'], right: ['7', '9', '3', '13'], name: 'Type B: 7-9-3-13', type: 'B' },
-          { left: ['R'], right: ['7', '9', '13'], name: 'R | 7-9-13', type: null }
+          { left: ['R'], right: ['7', '9', '13'], name: 'R | 7-9-13', type: null },
+          // Powell hand (bebop LH shell + RH color): R-3-7 close in the LH
+          // comping zone, RH adds 9 + 13 just above = a compact 13th. Anchored,
+          // mid-register; guide-tone-complete, so mixed comping may deal it.
+          { left: ['R', '3', '7'], right: ['9', '13'], anchor: 48, name: 'Powell 13: R-3-7 | 9-13', type: null }
         ]
       },
-      
+
       // Dominant 13
       dom13: {
         voicings: [
