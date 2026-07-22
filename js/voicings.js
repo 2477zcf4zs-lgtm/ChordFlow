@@ -211,7 +211,17 @@
         voicings: [
           { left: ['R'], right: ['3', '5', '7', '9'], name: 'Type A: 3-5-7-9', type: 'A' },
           { left: ['R'], right: ['7', '9', '3', '5'], name: 'Type B: 7-9-3-5', type: 'B' },
-          { left: ['R', '5'], right: ['7', '9', '3'], name: 'R-5 | 7-9-3', type: null }
+          { left: ['R', '5'], right: ['7', '9', '3'], name: 'R-5 | 7-9-3', type: null },
+          // D/C Lydian slash (owner ear gate, 2026-07-22): a D major triad
+          // (9-#11-13) over the C root — the classic maj9#11 slash color. It is
+          // guide-tone-FREE (no 3, no 7) and, like So What, ANCHORED — which
+          // makes it MANUAL-ONLY: filtered from the RH-only optimizer and
+          // skipped by the mixed DP (never auto-dealt with the guide tones
+          // absent), reachable only by cycling. The sounding line flags the
+          // implied 3rd & 7th honestly. (Anchor keeps it one compact Lydian
+          // cluster; the wide root-in-bass slash spread is inexpressible in the
+          // anchored model — that register trade is the price of manual-only.)
+          { left: ['R'], right: ['9', '#11', '13'], anchor: 48, name: 'Slash: D/C Lydian (II triad)', type: null }
         ]
       },
       
