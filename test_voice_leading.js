@@ -859,13 +859,13 @@ console.log('\nTest 15: voicing characterization snapshot (regression guard for 
       'dim7': 'C3 | Eb4 Gb4 Bbb4 || C2 Gb2 | Bbb4 Eb5 || F#3 | A4 C5 Eb5 || F#2 C3 | Eb4 A4',
       'm7b5': 'C3 | Eb4 Gb4 Bb4 || C2 Gb2 | Bb4 Eb5 || C3 | Eb4 Bb4 || C3 | Eb4 Bb4 F5 || C3 | Eb4 Ab4 Bb4 || C3 | Eb4 Gb4 Bb4 C5 || C3 | Bb4 C5 Eb5 Gb5 || C3 | Eb4 Gb4 Bb4 D5 || F#3 | A4 C5 E5 || F#2 C3 | E4 A4 || F#3 | A4 E5 || F#3 | A4 E5 B5 || F#3 | A4 D5 E5 || F#3 | A4 C5 E5 F#5 || F#3 | E4 F#4 A4 C5 || F#3 | A4 C5 E5 G#5',
       'minMaj7': 'C3 | Eb4 G4 B4 || C2 G2 | B4 Eb5 || C3 | Eb4 B4 || C3 | Eb4 B4 D5 || C3 | Eb4 G4 B4 D5 || C3 | B4 D5 Eb5 G5 || F#3 | A4 C#5 E#5 || F#2 C#3 | E#4 A4 || F#3 | A4 E#5 || F#3 | A4 E#5 G#5 || F#3 | A4 C#5 E#5 G#5 || F#3 | E#4 G#4 A4 C#5',
-      'dom7sus4': 'C3 | F4 G4 Bb4 || C2 G2 | Bb4 F5 || C3 | F4 Bb4 || C3 | F4 Bb4 D5 || C3 | F4 G4 Bb4 D5 || C3 | Bb4 D5 F5 G5 || C3 | Bb4 D5 F5 || F#3 | B4 C#5 E5 || F#2 C#3 | E4 B4 || F#3 | B4 E5 || F#3 | B4 E5 G#5 || F#3 | B4 C#5 E5 G#5 || F#3 | E4 G#4 B4 C#5 || F#3 | E4 G#4 B4',
+      'dom7sus4': 'C3 | F4 G4 Bb4 || C2 G2 | Bb4 F5 || C3 | F4 Bb4 || C3 | F4 Bb4 D5 || C3 | F4 G4 Bb4 D5 || C3 | Bb4 D5 F5 G5 || C3 | Bb4 D5 F5 || D3 G3 C4 | F4 Bb4 || F#3 | B4 C#5 E5 || F#2 C#3 | E4 B4 || F#3 | B4 E5 || F#3 | B4 E5 G#5 || F#3 | B4 C#5 E5 G#5 || F#3 | E4 G#4 B4 C#5 || F#3 | E4 G#4 B4 || G#3 C#4 F#4 | B4 E5',
       'maj9': 'C3 | E4 G4 B4 D5 || C3 | B4 D5 E5 G5 || C2 G2 | B4 D5 E5 || F#3 | A#4 C#5 E#5 G#5 || F#3 | E#4 G#4 A#4 C#5 || F#2 C#3 | E#4 G#4 A#4',
       'min9': 'C3 | Eb4 G4 Bb4 D5 || C3 | Bb4 D5 Eb5 G5 || C2 G2 | Bb4 D5 Eb5 || F#3 | A4 C#5 E5 G#5 || F#3 | E4 G#4 A4 C#5 || F#2 C#3 | E4 G#4 A4',
       'dom9': 'C3 | E4 A4 Bb4 D5 || C3 | Bb4 D5 E5 A5 || C3 | E4 Bb4 D5 || C2 G2 | Bb4 D5 E5 || F#3 | A#4 D#5 E5 G#5 || F#3 | E4 G#4 A#4 D#5 || F#3 | A#4 E5 G#5 || F#2 C#3 | E4 G#4 A#4',
       'dom11': 'C3 | Bb4 D5 F5 || C3 | F4 Bb4 D5 || C2 G2 | Bb4 D5 F5 || F#3 | E4 G#4 B4 || F#3 | B4 E5 G#5 || F#2 C#3 | E4 G#4 B4',
-      'min11': 'C3 | Eb4 G4 Bb4 F5 || C3 | Bb4 D5 Eb5 F5 || C2 G2 | Bb4 Eb5 F5 || C3 | F4 Bb4 Eb5 || F#3 | A4 C#5 E5 B5 || F#3 | E4 G#4 A4 B4 || F#2 C#3 | E4 A4 B4 || F#3 | B4 E5 A5',
-      'maj13': 'C3 | E4 A4 B4 D5 || C3 | B4 D5 E5 A5 || C3 | B4 D5 A5 || F#3 | A#4 D#5 E#5 G#5 || F#3 | E#4 G#4 A#4 D#5 || F#3 | E#4 G#4 D#5',
+      'min11': 'C3 | Eb4 G4 Bb4 F5 || C3 | Bb4 D5 Eb5 F5 || C2 G2 | Bb4 Eb5 F5 || C3 | F4 Bb4 Eb5 || C3 Eb3 Bb3 | D4 F4 || F#3 | A4 C#5 E5 B5 || F#3 | E4 G#4 A4 B4 || F#2 C#3 | E4 A4 B4 || F#3 | B4 E5 A5 || F#3 A3 E4 | G#4 B4',
+      'maj13': 'C3 | E4 A4 B4 D5 || C3 | B4 D5 E5 A5 || C3 | B4 D5 A5 || C3 E3 B3 | D4 A4 || F#3 | A#4 D#5 E#5 G#5 || F#3 | E#4 G#4 A#4 D#5 || F#3 | E#4 G#4 D#5 || F#3 A#3 E#4 | G#4 D#5',
       'dom13': 'C3 | E4 A4 Bb4 D5 || C3 | Bb4 D5 E5 A5 || C3 | Bb4 D5 A5 || C2 Bb2 | E4 A4 D5 || C2 Bb2 | D4 F#4 A4 || F#3 | A#4 D#5 E5 G#5 || F#3 | E4 G#4 A#4 D#5 || F#3 | E4 G#4 D#5 || F#2 E3 | A#4 D#5 G#5 || F#2 E3 | G#4 B#4 D#5',
       'min13': 'C3 | Eb4 A4 Bb4 D5 || C3 | Bb4 D5 Eb5 A5 || C3 | Bb4 D5 A5 || F#3 | A4 D#5 E5 G#5 || F#3 | E4 G#4 A4 D#5 || F#3 | E4 G#4 D#5',
       'add9': 'C3 | E4 G4 D5 || C2 G2 | D4 E4 || F#3 | A#4 C#5 G#5 || F#2 C#3 | G#4 A#4',
@@ -990,9 +990,20 @@ console.log('\nTest 16: LH-shell upper-structure + quartal voicings (new vocabul
   if (v) check(eq(v.lh, [0, 4, 10]) && eq(v.rh, [2, 9]), 'dom7 Powell 13 = LH {C,E,Bb} RH {D,A}');
   v = find('min7', 'Powell 9');
   if (v) check(eq(v.lh, [0, 3, 10]) && eq(v.rh, [2, 7]), 'min7 Powell 9 = LH {C,Eb,Bb} RH {D,G}');
+  // Extended-quality Powell shells (v6 Stage 3 completion): same anchored
+  // guide-tone shell + RH color, on the 11th/13th qualities.
+  v = find('maj13', 'Powell 13');
+  if (v) check(eq(v.lh, [0, 4, 11]) && eq(v.rh, [2, 9]), 'maj13 Powell 13 = LH {C,E,B} RH {D,A}');
+  v = find('min11', 'Powell 11');
+  if (v) check(eq(v.lh, [0, 3, 10]) && eq(v.rh, [2, 5]), 'min11 Powell 11 = LH {C,Eb,Bb} RH {D,F}');
+  // dom7sus4 quartal (McCoy): the whole voicing is stacked 4ths, 9-5-R-4-7,
+  // anchored mid-register like So What but guide-tone-COMPLETE for a sus (4 & 7).
+  v = find('dom7sus4', 'Quartal sus');
+  if (v) check(eq(v.lh, [0, 2, 7]) && eq(v.rh, [5, 10]), 'C sus quartal = LH {C,D,G} RH {F,Bb}');
   // They carry BOTH guide tones (3 & 7) across the two hands — the property
   // that makes them mixed-eligible (unlike the guide-tone-free So What).
-  for (const [quality, frag, third, sev] of [['maj7','Powell 13',4,11],['dom7','Powell 13',4,10],['min7','Powell 9',3,10]]) {
+  for (const [quality, frag, third, sev] of [['maj7','Powell 13',4,11],['dom7','Powell 13',4,10],['min7','Powell 9',3,10],
+      ['maj13','Powell 13',4,11],['min11','Powell 11',3,10]]) {
     const w = find(quality, frag);
     if (w) check(w.lh.concat(w.rh).includes(third) && w.lh.concat(w.rh).includes(sev),
       `${quality} ${frag} carries both guide tones across the hands`);
@@ -1003,7 +1014,8 @@ console.log('\nTest 16: LH-shell upper-structure + quartal voicings (new vocabul
   for (const [quality, frag] of [['dom7s11','US II'],['dom13','US II'],['dom13b9','US VI'],
       ['dom7sus4','Slash'],['min7','Quartal'],['maj7','Quartal'],
       ['dom7alt','US bVI'],['dom7alt','US bV:'],
-      ['maj7','Powell 13'],['maj7','Powell Lydian'],['dom7','Powell 13'],['min7','Powell 9']]) {
+      ['maj7','Powell 13'],['maj7','Powell Lydian'],['dom7','Powell 13'],['min7','Powell 9'],
+      ['maj13','Powell 13'],['min11','Powell 11'],['dom7sus4','Quartal sus']]) {
     // Same filtered index space getChordNotesAtIndex resolves against, and a
     // hard -1 guard: an unmatched fragment must FAIL, not wrap (safeIndex
     // modulo turns -1 into the last voicing) and silently test the wrong one.

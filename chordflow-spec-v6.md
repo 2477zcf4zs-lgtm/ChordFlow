@@ -201,6 +201,23 @@ compliance. Sounding display: any guide-tone-free entry must show
 **Acceptance:** per-family ear approval; provenance present; Tests 15/16/17
 green; both suites green. Commit per family or per stage. Stop.
 
+**Status (2026-07-22).** Item 1 (Powell shells) — `maj7`/`min7`/`dom7`
+landed in PR #53; the extended qualities `maj13` (Powell 13) and `min11`
+(Powell 11) landed here, same anchored guide-tone-complete pattern.
+Item 3 (`dom7sus4` quartal, McCoy) landed here as an anchored quartal-sus
+cluster (`9-5-R-4-7`), guide-tone-complete → mixed-eligible. `m7b5` quartal
+skipped (no citation, per the "no inventions" clause). Item 2 slash family:
+`dom11` reframed as the F-over-G (bVII/I) triad-over-bass (naming only, no
+pitch change). Item 5 (LH octave roots) landed in PR #59.
+**Held for the ear gate:** the `maj9` D/C Lydian slash (`R | 9-#11-13`).
+Unlike every other Stage-3 addition it is guide-tone-**free** *and*
+**non-anchored**, so — with no `manual-only` mechanism for non-anchored
+voicings — the RH-only optimizer could **auto-deal** it (a maj9 chart
+sounding with no 3rd/7th). That is the first auto-dealable guide-tone-free
+voicing in the library and a genuine sound change with no precedent; it
+needs an owner ear decision (wire as-is / anchor it like So What to force
+manual-only / skip) before shipping.
+
 ## Stage 3b — LH-only comping through inversions
 *(owner request, 2026-07-21)*
 
