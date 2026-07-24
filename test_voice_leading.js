@@ -1018,7 +1018,7 @@ console.log('\nTest 16: LH-shell upper-structure + quartal voicings (new vocabul
       ['dom7sus4','Slash'],['min7','Quartal'],['maj7','Quartal'],
       ['dom7alt','US bVI'],['dom7alt','US bV:'],
       ['maj7','Powell 13'],['maj7','Powell Lydian'],['dom7','Powell 13'],['min7','Powell 9'],
-      ['maj13','Powell 13'],['min11','Powell 11'],['dom7sus4','Quartal sus']]) {
+      ['maj13','Powell 13'],['min11','Powell 11'],['dom7sus4','Quartal sus'],['maj9','Slash: D/C']]) {
     // Same filtered index space getChordNotesAtIndex resolves against, and a
     // hard -1 guard: an unmatched fragment must FAIL, not wrap (safeIndex
     // modulo turns -1 into the last voicing) and silently test the wrong one.
@@ -1198,6 +1198,31 @@ console.log('\nTest 19: sounding chord (chart symbol vs what the voicing actuall
     'm7b5 RSP(11) stays m7b5 with the 11 in parens');
   // Suppression: a strict voicing IS the page — nothing to teach.
   check(sounding('maj7', 'Shell: R | 3-7') === null, 'strict shell shows nothing (page and hands agree)');
+
+  // Honesty about SUBTRACTION with no addition: a voicing can sit entirely
+  // inside the written degree set yet OMIT a chord-defining tone. dom11's
+  // bVII/I slash sounds R-b7-9-11 — all written degrees, but no 3rd — so the
+  // line must appear and say so (it used to return null and stay silent).
+  const noThird = sounding('dom11', 'Slash: bVII/I');
+  check(noThird && noThird.impliedGuideTones.join() === '3rd',
+    `dom11 bVII/I slash flags the missing 3rd (got ${noThird ? noThird.impliedGuideTones.join('+') || 'none' : 'null'})`);
+  const maj13NoThird = sounding('maj13', 'R | 7-9-13');
+  check(maj13NoThird && maj13NoThird.impliedGuideTones.join() === '3rd',
+    `maj13 R|7-9-13 flags the missing 3rd (got ${maj13NoThird ? maj13NoThird.impliedGuideTones.join('+') || 'none' : 'null'})`);
+  // ...but the 7th slot only counts when the quality HAS a real 7th. On plain
+  // triads guideToneIntervals falls back to the 5th (colour, not a guide tone),
+  // so a sus4/add9 triad must never be told it is "missing its 7th".
+  for (const [q, frag] of [['sus4', ''], ['sus2', ''], ['add9', ''], ['madd9', '']]) {
+    const vs = T.voicingsFor(q, 'seventh');
+    let falseFlags = 0;
+    vs.forEach((v, i) => {
+      for (const mode of ['roots', 'rootless', 'mixed']) {
+        const s = T.getChordNotesAtIndex('C', q, 'seventh', i, 0, { leftHandMode: mode }).sounding;
+        if (s && s.impliedGuideTones.indexOf('7th') !== -1) falseFlags++;
+      }
+    });
+    check(falseFlags === 0, `${q} (no real 7th) is never flagged as missing one (${falseFlags} false flags)`);
+  }
   // LH-mode sensitivity: evans' LH rootless shape adds its own color (the 9)
   // and drops the root — the sounding name follows the WHOLE texture.
   const ev = sounding('min7', 'Shell: R | 3-7', { leftHandMode: 'evans', lhIndex: 0 });
@@ -1393,11 +1418,18 @@ console.log('\nTest 22: anchored voicing optimizer policy (Powell mixed-eligible
   // maj9 D/C Lydian slash (owner ear gate): anchored AND guide-tone-free, so —
   // like So What — it must stay manual-only. A maj9-only progression maximally
   // tempts the optimizers; the slash may appear in NEITHER, full or reface.
-  const slashIdx = T.voicingsFor('maj9', 'seventh').findIndex(v => /Slash: D\/C/.test(v.name));
+  // Index space must match the complexity the optimizers are called with —
+  // resolving against 'seventh' and asserting against 'extended' would silently
+  // test a DIFFERENT voicing the moment any maj9 voicing gains a `tiers` tag.
+  const slashIdx = T.voicingsFor('maj9', 'extended').findIndex(v => /Slash: D\/C/.test(v.name));
   check(slashIdx !== -1, 'maj9 D/C Lydian slash voicing exists');
   const maj9Prog = ['C', 'F', 'G', 'A', 'D'].map(root => ({ root, quality: 'maj9' }));
   let slashDealt = 0;
-  for (const range of [null, 'reface']) {
+  // RANGE_WINDOWS.reface, not the string 'reface': windowOverflow reads
+  // range.low/.high, so a bare string is falsy-safe but INERT (overflow always
+  // 0) — the reface arm would assert nothing, including the spill fallback in
+  // buildVoicingCandidates that is the one path able to re-deal an anchored voicing.
+  for (const range of [null, T.RANGE_WINDOWS.reface]) {
     if (T.computeProgressionVoicings(maj9Prog, 'extended', range).indices.includes(slashIdx)) slashDealt++;
     if (T.computeMixedVoicing(maj9Prog, 'extended', range).rhIndices.includes(slashIdx)) slashDealt++;
   }

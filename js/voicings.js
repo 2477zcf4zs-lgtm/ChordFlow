@@ -1373,7 +1373,24 @@
         const def = INTERVALS[iv];
         if (def && !writtenPcs.has(((def.semitones % 12) + 12) % 12)) extras.push(iv);
       }
-      if (!extras.length) return null;
+      // Guide tones the WRITTEN symbol implies but the hands don't sound. This
+      // is computed BEFORE the no-extras early return: a voicing can add no new
+      // pitch class yet still OMIT a chord-defining degree (dom11's bVII/I slash
+      // sounds R-b7-9-11 — every tone inside the written degree set, but no 3rd;
+      // likewise maj13's R | 7-9-13). Returning null there told the learner
+      // "page and hands agree" while the 3rd was missing.
+      const gt = guideToneIntervals(quality); // ['R', third-slot?, seventh-slot?]
+      const impliedGuideTones = [];
+      if (gt[1] && !names.has(gt[1])) impliedGuideTones.push('3rd');
+      // Only a REAL 7th counts. guideToneIntervals fills its 7th slot with a
+      // fallback (the 5th on plain triads, the 6th on 6th chords), and that
+      // fallback is colour, not a guide tone — flagging it would tell a learner
+      // a sus4 or add9 triad is "missing its 7th". Same test
+      // essentialGuideTonePcs uses for the mixed DP's completeness contract.
+      if (gt[2] && MIX_SEVENTH_INTERVALS.indexOf(gt[2]) !== -1 && !names.has(gt[2])) impliedGuideTones.push('7th');
+
+      // Nothing added AND nothing chord-defining missing → page and hands agree.
+      if (!extras.length && !impliedGuideTones.length) return null;
 
       let suffix = chordInfo.symbol;
       const ladder = SOUNDING_LADDERS[quality];
@@ -1391,15 +1408,9 @@
         extras.sort((a, b) => SOUNDING_COLOR_ORDER.indexOf(a) - SOUNDING_COLOR_ORDER.indexOf(b));
         suffix += '(' + extras.join(',') + ')';
       }
-      // Honesty about SUBTRACTION, not just addition: an upgraded name like
-      // "Dm13" (or a rootless slice) can imply chord-defining guide tones the
-      // voicing doesn't actually sound — the So What quartal cluster has no 3rd
-      // or 7th at all. Flag the ones the context (bassist, ear) must supply, so
-      // a learner isn't told the cluster contains degrees it omits.
-      const gt = guideToneIntervals(quality); // ['R', third-slot?, seventh-slot?]
-      const impliedGuideTones = [];
-      if (gt[1] && !names.has(gt[1])) impliedGuideTones.push('3rd');
-      if (gt[2] && !names.has(gt[2])) impliedGuideTones.push('7th');
+      // (impliedGuideTones — honesty about SUBTRACTION, not just addition — is
+      // computed above the early return so a voicing that omits a guide tone
+      // without adding color still reports it.)
       return {
         symbol: formatNoteDisplay(rootNote) + suffix,
         rootImplied: !names.has('R'),
@@ -1446,7 +1457,14 @@
       // deepened). bassonly is exempt — it emulates a single-note bassist. Applies
       // wherever the LH is a lone root (roots mode; mixed's lone-root moments),
       // added post-realization so no optimizer/DP costing changes (invariant 11).
-      if (octaveRoots && leftHandMode !== 'bassonly' && realized.left.length === 1) {
+      // ANCHORED voicings are exempt (invariant 1b): they realize as one
+      // contiguous stack from a mid-register anchor, so prepending an octave
+      // BELOW the anchor turns the compact cluster into a bass-octave-plus-
+      // cluster texture it was never meant to be. Only the maj9 Lydian slash
+      // has a lone-root LH slice today, but the rule is the mechanism's, not
+      // that voicing's: a lone root here is a cluster layer, not a bass root.
+      if (octaveRoots && leftHandMode !== 'bassonly' && voicing.anchor == null
+          && realized.left.length === 1) {
         const top = realized.left[0];
         if (top.midi - 12 >= 36) realized.left = [{ name: top.name, octave: top.octave - 1, midi: top.midi - 12 }, top];
       }
