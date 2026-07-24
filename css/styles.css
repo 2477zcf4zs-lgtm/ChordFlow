@@ -1233,6 +1233,25 @@
       margin-bottom: 16px;
     }
 
+    /* Non-default settings dot (v3 §4.3): a quiet badge on the Settings tab so
+       a stray Swing / 12-Keys / Ensemble change is discoverable from anywhere,
+       without opening the panel. `position: relative` is scoped to the dotted
+       state so the shared .tab-btn layout is untouched. */
+    .tab-btn.has-custom {
+      position: relative;
+    }
+
+    .tab-btn.has-custom::after {
+      content: '';
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-gold);
+    }
+
     /* Settings segmented groups (Song / Sound / Practice). The active chip is
        the location indicator — there is no per-group heading, and no group
        scrolls on its own at 390px. Mirrors .dict-category-btn's chip look so

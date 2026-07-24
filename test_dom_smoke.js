@@ -676,6 +676,32 @@ async function main() {
       check(panel.contains(document.getElementById('keySelect')), 'hidden-group controls stay in the panel');
       chip('song').click();
       check(shown().join() === 'song', 'chip switches back to Song');
+
+      // Non-default settings dot (v3 §4.3). Earlier checks legitimately leave
+      // leftHand off its default, so this block sets its own all-defaults
+      // baseline first and restores what it found on the way out.
+      const tab = document.getElementById('settingsToggle');
+      const swingBtn = document.getElementById('swingBtn');
+      const ensembleSel = document.getElementById('leftHandSelect');
+      const setEnsemble = v => { ensembleSel.value = v; ensembleSel.dispatchEvent(new window.Event('change')); };
+      const enteredWith = st().leftHand;
+      setEnsemble('mixed');
+      check(!tab.classList.contains('has-custom'), 'no dot when every watched setting is default');
+      swingBtn.click();
+      check(st().swing === true && tab.classList.contains('has-custom'),
+        'a non-default setting lights the dot');
+      swingBtn.click();
+      check(st().swing === false && !tab.classList.contains('has-custom'),
+        'restoring defaults clears the dot');
+      // The cycle chip lives OUTSIDE #settingsPanel, so the panel's delegated
+      // listener cannot see it — setEnsembleMode has to update the dot itself.
+      const lhChip = document.getElementById('lhModeChip');
+      lhChip.click();
+      check(st().leftHand !== 'mixed' && tab.classList.contains('has-custom'),
+        'ensemble cycle chip also updates the dot (it sits outside the panel)');
+      while (st().leftHand !== 'mixed') lhChip.click();
+      check(!tab.classList.contains('has-custom'), 'cycling back to the default clears it again');
+      setEnsemble(enteredWith);
     }
 
     settingsToggle.click();
@@ -969,17 +995,28 @@ async function main() {
     check(st().leftHand === 'roots' && lhNotesEl.textContent === rootsLhText,
       'roots mode restores the original LH');
 
-    // Octave roots: doubling the lone bass root re-renders the LH (opt-in, no
-    // recompute). In roots mode chord 1's LH is a lone root, so it doubles.
+    // Octave roots: doubling the LONE bass root re-renders the LH (opt-in, no
+    // recompute). The doubling deliberately skips a multi-note LH (an open
+    // R-5 triad voicing already carries width) and anchored voicings, so this
+    // must run on a chord that actually HAS a lone-root LH — picking blind
+    // fails whenever the random progression seats a triad here.
     const octBtn = document.getElementById('octaveRootsBtn');
     check(!!octBtn && st().octaveRoots === false, 'octave roots starts off');
+    let loneRootAt = -1;
+    for (let i = 0; i < st().progression.length; i++) {
+      window.selectChord(i);
+      if (lhNotesEl.textContent.trim().split(/\s+/).length === 1) { loneRootAt = i; break; }
+    }
+    check(loneRootAt !== -1, 'found a chord whose roots-mode LH is a lone root');
+    const loneBefore = lhNotesEl.textContent;
     octBtn.click();
     check(st().octaveRoots === true &&
       octBtn.querySelector('.btn-label').textContent === 'Octaves: On' &&
-      lhNotesEl.textContent !== rootsLhText,
-      'octave roots toggles on and doubles the lone LH root (panel re-renders)');
+      lhNotesEl.textContent !== loneBefore &&
+      lhNotesEl.textContent.trim().split(/\s+/).length === 2,
+      `octave roots doubles the lone LH root (chord ${loneRootAt}: "${loneBefore}" -> "${lhNotesEl.textContent}")`);
     octBtn.click();
-    check(st().octaveRoots === false && lhNotesEl.textContent === rootsLhText,
+    check(st().octaveRoots === false && lhNotesEl.textContent === loneBefore,
       'octave roots toggles back off, restoring the single root');
 
     // Mixed (the app default): the app picks the LH per chord AND the RH

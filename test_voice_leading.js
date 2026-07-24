@@ -13,7 +13,7 @@ function loadTheoryCore() {
   // touches live inside functions this suite never calls.
   const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/audio.js', 'js/state.js'];
   const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
-  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, realizeMixedCandidateBelow, bestMixedLhForRh, formatChordSymbol, soundingChord, computeInversionComp, coreChordTones, inversionShapesFor };');
+  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, realizeMixedCandidateBelow, bestMixedLhForRh, formatChordSymbol, soundingChord, computeInversionComp, coreChordTones, inversionShapesFor, SETTINGS_DEFAULTS, state };');
   return fn();
 }
 const T = loadTheoryCore();
@@ -1524,6 +1524,23 @@ console.log('\nTest 24: octave roots (v6 Stage 3 — stride/gospel bass octave, 
   const s = T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'roots', octaveRoots: true }).sounding;
   const sOff = T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'roots' }).sounding;
   check(JSON.stringify(s) === JSON.stringify(sOff), 'octave root adds no new pitch class — sounding name unchanged');
+}
+
+console.log('\nTest 25: SETTINGS_DEFAULTS agrees with state (v6 Stage 6 — settings dot)');
+{
+  // The dot compares live state against SETTINGS_DEFAULTS. If a listed default
+  // disagrees with state's real initial value the dot is wrong on load (lit at
+  // defaults, or never lighting); if a settings key is added without being
+  // listed, it silently never lights the dot. Pin both directions.
+  const defaults = T.SETTINGS_DEFAULTS;
+  check(!!defaults, 'SETTINGS_DEFAULTS is defined');
+  const mismatched = Object.keys(defaults || {}).filter(k => T.state[k] !== defaults[k]);
+  check(mismatched.length === 0,
+    `every SETTINGS_DEFAULTS value matches state's initial value${mismatched.length ? ' -> ' + mismatched.join(', ') : ''}`);
+  // v3 §4.3 predates both of these; the spec's list would now be wrong.
+  check(defaults && defaults.leftHand === 'mixed', "leftHand default tracks state ('mixed', not v3's 'roots')");
+  check(defaults && Object.prototype.hasOwnProperty.call(defaults, 'octaveRoots'),
+    'octaveRoots (added after v3 §4.3) is watched');
 }
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));

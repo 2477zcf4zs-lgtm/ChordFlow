@@ -109,6 +109,14 @@
       elements.libraryToggle.addEventListener('click', () => toggleTab('library'));
       elements.settingsToggle.addEventListener('click', () => toggleTab('settings'));
 
+      // Settings dot (v3 §4.3): ONE delegated listener rather than a call
+      // appended to each of the ten settings listeners. Every watched control
+      // lives inside #settingsPanel and both `change` and `click` bubble, so
+      // this fires after the control's own handler has already updated state.
+      // (setEnsembleMode also calls it — the cycle chip lives outside the panel.)
+      elements.settingsPanel.addEventListener('change', updateSettingsDot);
+      elements.settingsPanel.addEventListener('click', updateSettingsDot);
+
       // Settings groups (Song / Sound / Practice): one delegated listener, and
       // the active chip is the only "where am I" indicator. Purely a show/hide
       // of existing rows — no control IDs move, so every other settings
@@ -230,6 +238,7 @@
         if (mode === 'mixed') recomputeProgressionVoicings();
         else if (mode === 'evans' || mode === 'lhcomp') recomputeLhIndices();
         renderVoicing();
+        updateSettingsDot(); // the chip lives outside #settingsPanel's delegation
       }
       elements.leftHandSelect.addEventListener('change', (e) => setEnsembleMode(e.target.value));
       // Cycle chip at point of use. The ORDER comes from the select's own
