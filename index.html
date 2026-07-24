@@ -183,6 +183,17 @@
 
         <div class="settings-panel" id="settingsPanel" role="tabpanel" aria-labelledby="settingsToggle">
           <div class="panel-title">Settings</div>
+          <!-- Segmented groups: the active chip IS the "where am I" indicator,
+               so each group fits a 390px viewport without its own scroll.
+               No control IDs change — every listener and smoke check still
+               binds exactly as before. -->
+          <div class="settings-groups" id="settingsGroups" role="tablist" aria-label="Settings groups">
+            <button type="button" class="settings-group-btn active" data-group="song" role="tab" aria-selected="true" aria-controls="settingsGroupSong">Song</button>
+            <button type="button" class="settings-group-btn" data-group="sound" role="tab" aria-selected="false" aria-controls="settingsGroupSound">Sound</button>
+            <button type="button" class="settings-group-btn" data-group="practice" role="tab" aria-selected="false" aria-controls="settingsGroupPractice">Practice</button>
+          </div>
+
+          <div class="settings-group" id="settingsGroupSong" data-group="song" role="tabpanel">
           <div class="control-row">
             <label for="keySelect">Key</label>
             <select id="keySelect">
@@ -221,6 +232,18 @@
             </select>
           </div>
           <div class="control-row">
+            <label for="barsSelect">Bars</label>
+            <select id="barsSelect">
+              <option value="2">2 bars</option>
+              <option value="3">3 bars</option>
+              <option value="4" selected>4 bars</option>
+              <option value="5">5 bars</option>
+              <option value="6">6 bars</option>
+              <option value="7">7 bars</option>
+              <option value="8">8 bars</option>
+            </select>
+          </div>
+          <div class="control-row">
             <label for="beatsPerChord">Beats/Chord</label>
             <select id="beatsPerChord">
               <option value="2">2 beats</option>
@@ -228,6 +251,9 @@
               <option value="8">8 beats (2 bars)</option>
             </select>
           </div>
+          </div><!-- /Song -->
+
+          <div class="settings-group" id="settingsGroupSound" data-group="sound" role="tabpanel" hidden>
           <div class="control-row">
             <label>Metronome</label>
             <button class="btn btn-secondary" id="metroBtn" title="Metronome click on every beat">
@@ -291,7 +317,9 @@
             </button>
           </div>
 
-          <div class="panel-title" style="margin-top: 20px;">Practice</div>
+          </div><!-- /Sound -->
+
+          <div class="settings-group" id="settingsGroupPractice" data-group="practice" role="tabpanel" hidden>
           <div class="control-row">
             <label for="autoTransposeSelect">12 Keys</label>
             <select id="autoTransposeSelect" title="Transpose the progression each loop">
@@ -314,18 +342,6 @@
               <span class="btn-label">Symbols: Shown</span>
             </button>
           </div>
-          <div class="control-row">
-            <label for="barsSelect">Bars</label>
-            <select id="barsSelect">
-              <option value="2">2 bars</option>
-              <option value="3">3 bars</option>
-              <option value="4" selected>4 bars</option>
-              <option value="5">5 bars</option>
-              <option value="6">6 bars</option>
-              <option value="7">7 bars</option>
-              <option value="8">8 bars</option>
-            </select>
-          </div>
 
           <div class="shortcuts-hint">
             <span><kbd>Space</kbd> Play/Pause</span>
@@ -334,6 +350,7 @@
             <span><kbd>←</kbd><kbd>→</kbd> Tempo ±5</span>
             <span><kbd>[</kbd><kbd>]</kbd> Prev/Next Chord</span>
           </div>
+          </div><!-- /Practice -->
         </div>
       </div>
     </div>

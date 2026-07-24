@@ -641,6 +641,43 @@ async function main() {
     check(document.getElementById('settingsPanel').contains(document.getElementById('keySelect')) &&
       document.getElementById('settingsPanel').contains(document.getElementById('metroBtn')),
       'key select + metronome relocated into settings panel');
+
+    // Settings groups (Stage 6 item 1): Song / Sound / Practice. The chips
+    // only show/hide existing rows — no control moves out of #settingsPanel,
+    // which is why every settings check above and below still binds by ID.
+    {
+      const panel = document.getElementById('settingsPanel');
+      const groupOf = id => {
+        const g = document.getElementById(id).closest('.settings-group');
+        return g && g.dataset.group;
+      };
+      check(panel.querySelectorAll('.settings-group').length === 3, 'settings split into three groups');
+      // Every control row lives in exactly one group — nothing orphaned by the regroup.
+      check(panel.querySelectorAll('.settings-group .control-row').length ===
+        panel.querySelectorAll('.control-row').length, 'every settings row is inside a group');
+      check(groupOf('keySelect') === 'song' && groupOf('barsSelect') === 'song',
+        'Song holds Key and Bars (Bars moved up out of Practice)');
+      check(groupOf('leftHandSelect') === 'sound' && groupOf('octaveRootsBtn') === 'sound',
+        'Sound holds Ensemble and Octave roots');
+      check(groupOf('autoTransposeSelect') === 'practice', 'Practice holds 12 Keys');
+      const chip = g => panel.querySelector(`.settings-group-btn[data-group="${g}"]`);
+      const shown = () => [...panel.querySelectorAll('.settings-group')]
+        .filter(x => !x.hidden).map(x => x.dataset.group);
+      check(shown().join() === 'song', 'Song is the default group');
+      chip('sound').click();
+      check(shown().join() === 'sound', 'chip switches to Sound (others hidden)');
+      check(chip('sound').classList.contains('active') && !chip('song').classList.contains('active'),
+        'active chip is the location indicator');
+      check(chip('sound').getAttribute('aria-selected') === 'true' &&
+        chip('song').getAttribute('aria-selected') === 'false', 'aria-selected tracks the active group');
+      chip('practice').click();
+      check(shown().join() === 'practice', 'chip switches to Practice');
+      // Controls in a hidden group are still reachable by ID (listeners intact).
+      check(panel.contains(document.getElementById('keySelect')), 'hidden-group controls stay in the panel');
+      chip('song').click();
+      check(shown().join() === 'song', 'chip switches back to Song');
+    }
+
     settingsToggle.click();
     check(st().activeTab === null && !document.getElementById('settingsPanel').classList.contains('visible'),
       'clicking the active tab closes it');

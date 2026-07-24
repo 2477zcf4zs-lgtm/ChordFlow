@@ -18,6 +18,7 @@
       tempoPopover: document.getElementById('tempoPopover'),
       settingsToggle: document.getElementById('settingsToggle'),
       settingsPanel: document.getElementById('settingsPanel'),
+      settingsGroups: document.getElementById('settingsGroups'),
       beatsPerChord: document.getElementById('beatsPerChord'),
       keySelect: document.getElementById('keySelect'),
       barsSelect: document.getElementById('barsSelect'),
@@ -106,6 +107,24 @@
       elements.dictToggle.addEventListener('click', () => toggleTab('dictionary'));
       elements.libraryToggle.addEventListener('click', () => toggleTab('library'));
       elements.settingsToggle.addEventListener('click', () => toggleTab('settings'));
+
+      // Settings groups (Song / Sound / Practice): one delegated listener, and
+      // the active chip is the only "where am I" indicator. Purely a show/hide
+      // of existing rows — no control IDs move, so every other settings
+      // listener and smoke check is untouched.
+      elements.settingsGroups.addEventListener('click', (e) => {
+        const btn = e.target.closest('.settings-group-btn');
+        if (!btn) return;
+        const group = btn.dataset.group;
+        elements.settingsGroups.querySelectorAll('.settings-group-btn').forEach(b => {
+          const on = b.dataset.group === group;
+          b.classList.toggle('active', on);
+          b.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        elements.settingsPanel.querySelectorAll('.settings-group').forEach(g => {
+          g.hidden = g.dataset.group !== group;
+        });
+      });
 
       // Tempo popover (opened from the transport bar's BPM readout)
       elements.tempoBtn.addEventListener('click', () => {

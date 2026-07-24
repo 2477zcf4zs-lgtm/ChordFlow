@@ -1233,6 +1233,35 @@
       margin-bottom: 16px;
     }
 
+    /* Settings segmented groups (Song / Sound / Practice). The active chip is
+       the location indicator — there is no per-group heading, and no group
+       scrolls on its own at 390px. Mirrors .dict-category-btn's chip look so
+       the two segmented rows in the app read as the same control. */
+    .settings-groups {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .settings-group-btn {
+      flex: 1;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.8rem;
+      padding: 6px 14px;
+      border-radius: 16px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .settings-group-btn.active {
+      background: var(--accent-gold);
+      color: var(--bg-primary);
+      border-color: var(--accent-gold);
+    }
+
     .dict-category-btn {
       font-family: 'DM Sans', sans-serif;
       font-size: 0.8rem;
