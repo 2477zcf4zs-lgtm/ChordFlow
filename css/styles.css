@@ -870,6 +870,10 @@
       gap: 12px;
       max-height: 400px;
       overflow-y: auto;
+      /* See .dict-voicing-list: nested scrollers inside the fixed body need
+         these two or iOS gives the gesture to the locked page. */
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
       padding-right: 10px;
     }
 
@@ -1145,12 +1149,26 @@
       margin: -4px 0 12px;
     }
 
+    /* A nested scroller inside the position:fixed body (see the `body` rule)
+       needs BOTH of these or iOS intermittently hands the gesture to the locked
+       page instead of the list — the "sometimes it just won't scroll" bug.
+       `contain` also stops scroll chaining at the list's own end.
+       The bottom mask is the affordance: qualities with 4+ voicings (maj9's
+       Lydian slash is the 4th and last) overflow 300px with nothing on screen
+       saying so. `padding-bottom` reserves exactly the masked strip, so the
+       fade only ever covers empty space — never the notes, which sit at the
+       BOTTOM of each item and would otherwise wash out at scroll-end. */
     .dict-voicing-list {
       display: flex;
       flex-direction: column;
       gap: 12px;
       max-height: 300px;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      padding-bottom: 24px;
+      -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent);
+      mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent);
     }
 
     .dict-voicing-item {
@@ -1291,6 +1309,10 @@
       gap: 8px;
       flex-wrap: wrap;
       overflow-y: auto;
+      /* See .dict-voicing-list: nested scrollers inside the fixed body need
+         these two or iOS gives the gesture to the locked page. */
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
       max-height: 88px;
       min-height: 40px;
       padding: 4px 2px;
