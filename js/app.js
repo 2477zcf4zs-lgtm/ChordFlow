@@ -19,6 +19,7 @@
       settingsToggle: document.getElementById('settingsToggle'),
       settingsPanel: document.getElementById('settingsPanel'),
       settingsGroups: document.getElementById('settingsGroups'),
+      lhModeChip: document.getElementById('lhModeChip'),
       beatsPerChord: document.getElementById('beatsPerChord'),
       keySelect: document.getElementById('keySelect'),
       barsSelect: document.getElementById('barsSelect'),
@@ -212,8 +213,13 @@
       // and the voice-leading optimizer are untouched, so no rebuild. Audio
       // reads it live via chordPitchesAt on the next chord/pad/audition; the
       // voicing panel just needs a re-render to show the new LH.
-      elements.leftHandSelect.addEventListener('change', (e) => {
-        state.leftHand = e.target.value;
+      // ONE entry point for an ensemble change, shared by the Settings select
+      // and the voicing panel's cycle chip. The recompute rules below are
+      // subtle (invariant 11) and a second copy would silently drift — the
+      // chip must never be the path that forgets to refresh lhVoicingIndices.
+      function setEnsembleMode(mode) {
+        state.leftHand = mode;
+        elements.leftHandSelect.value = mode; // keep the Settings select in sync
         // state.lhVoicingIndices is mode-specific (evans shapes / lhcomp
         // inversions / mixed's joint LH), so switching into a mode that READS it
         // must refresh it — otherwise the realizer reads the previous mode's
@@ -221,9 +227,18 @@
         // re-picks the RH jointly (full recompute); evans/lhcomp refresh only
         // the LH (manual RH cycling preserved); roots/shells/rootless/bassonly
         // ignore the field, so nothing to do.
-        if (state.leftHand === 'mixed') recomputeProgressionVoicings();
-        else if (state.leftHand === 'evans' || state.leftHand === 'lhcomp') recomputeLhIndices();
+        if (mode === 'mixed') recomputeProgressionVoicings();
+        else if (mode === 'evans' || mode === 'lhcomp') recomputeLhIndices();
         renderVoicing();
+      }
+      elements.leftHandSelect.addEventListener('change', (e) => setEnsembleMode(e.target.value));
+      // Cycle chip at point of use. The ORDER comes from the select's own
+      // options, so adding an ensemble mode there extends the cycle for free
+      // and the two controls can never disagree about what exists.
+      elements.lhModeChip.addEventListener('click', () => {
+        const modes = Array.from(elements.leftHandSelect.options).map(o => o.value);
+        const i = modes.indexOf(state.leftHand);
+        setEnsembleMode(modes[(i + 1) % modes.length]);
       });
       // Range (3-octave mode): unlike the Left Hand modes, the window changes
       // which RH voicings/shifts the optimizer picks, so it must recompute.
@@ -289,6 +304,10 @@
         activePads.set(e.pointerId, { index, pad });
         pad.classList.add('pressed');
         padPress(index);
+        // Haptics live on the POINTER path only: the audio layer stays pure,
+        // and a keyboard press (the keydown handler below) shouldn't buzz.
+        // Feature-checked, no setting.
+        if (navigator.vibrate) navigator.vibrate(8);
       });
       const endPad = (e) => {
         const rec = activePads.get(e.pointerId);

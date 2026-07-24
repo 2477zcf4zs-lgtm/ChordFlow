@@ -905,6 +905,48 @@ async function main() {
     check(JSON.stringify(st().lhVoicingIndices) ===
       JSON.stringify(window.computeLeftHandVoicings(st().progression).indices),
       'switching lhcomp -> evans refreshes lhVoicingIndices to evans shapes (not stale inversions)');
+
+    // Ensemble cycle chip (Stage 6 item 2): the select's shortcut at point of
+    // use. It must walk the SAME option set, keep the select in sync, and — the
+    // part a second code path would get wrong — run the same recompute rules.
+    {
+      const chip = document.getElementById('lhModeChip');
+      const modes = Array.from(lhSelect.options).map(o => o.value);
+      check(!!chip, 'ensemble cycle chip exists in the voicing panel header');
+      // A full lap passes through 'mixed', which re-picks the RH JOINTLY (see
+      // the rootsRhText baseline above). Snapshot the RH selection so this
+      // block leaves no trace for the downstream comparisons to trip over.
+      const savedIdx = st().voicingIndices.slice();
+      const savedShifts = st().voicingShifts.slice();
+      lhSelect.value = 'roots';
+      lhSelect.dispatchEvent(new window.Event('change'));
+      // One full lap: every mode in select order, select stays in sync throughout.
+      let synced = true, seen = [];
+      for (let i = 0; i < modes.length; i++) {
+        chip.click();
+        seen.push(st().leftHand);
+        if (lhSelect.value !== st().leftHand) synced = false;
+      }
+      check(seen.length === modes.length && new Set(seen).size === modes.length,
+        `chip cycles through every ensemble mode (${seen.length} distinct)`);
+      check(synced, 'chip keeps the Settings select in sync');
+      check(st().leftHand === 'roots', 'a full lap returns to the starting mode');
+      check(chip.textContent.trim().length > 0, 'chip labels the current mode');
+      // Recompute parity: cycling INTO evans must refresh lhVoicingIndices the
+      // same way the select does — the staleness bug the chip could reintroduce.
+      while (st().leftHand !== 'evans') chip.click();
+      check(JSON.stringify(st().lhVoicingIndices) ===
+        JSON.stringify(window.computeLeftHandVoicings(st().progression).indices),
+        'chip into evans refreshes lhVoicingIndices (same rules as the select)');
+      while (st().leftHand !== 'lhcomp') chip.click();
+      check(JSON.stringify(st().lhVoicingIndices) ===
+        JSON.stringify(window.computeInversionComp(st().progression).indices),
+        'chip into lhcomp refreshes lhVoicingIndices');
+      // Put the RH selection back exactly as found (mixed re-picked it).
+      st().voicingIndices.splice(0, st().voicingIndices.length, ...savedIdx);
+      st().voicingShifts.splice(0, st().voicingShifts.length, ...savedShifts);
+    }
+
     // Back to rootless for the playback/audition checks below.
     lhSelect.value = 'rootless';
     lhSelect.dispatchEvent(new window.Event('change'));
@@ -1173,6 +1215,35 @@ async function main() {
         'chord symbol built from a malicious root is escaped in pad grid and chord strip');
       window.loadProgression(0); // restore clean state (also closes the tab)
       padsToggle.click();        // reopen pads for the remaining pad checks
+    }
+
+    // Pad haptics (Stage 6 item 2 / v3 §4.4): the buzz rides the POINTER path
+    // only — the audio layer stays pure and a keyboard press must not vibrate.
+    {
+      const grid = document.getElementById('padGrid');
+      const pad = grid.querySelector('.pad');
+      const realVibrate = window.navigator.vibrate;
+      let calls = [];
+      Object.defineProperty(window.navigator, 'vibrate', {
+        value: (ms) => { calls.push(ms); return true; }, configurable: true, writable: true
+      });
+      const pointer = (type, target) => {
+        const e = new window.Event(type, { bubbles: true, cancelable: true });
+        e.pointerId = 99;
+        Object.defineProperty(e, 'target', { value: target, configurable: true });
+        target.dispatchEvent(e);
+      };
+      pointer('pointerdown', pad);
+      check(calls.length === 1, `pointer pad press vibrates once (${calls.length})`);
+      window.dispatchEvent(new window.Event('pointerup'));
+      calls = [];
+      const kd = new window.KeyboardEvent('keydown', { code: 'Enter', bubbles: true });
+      Object.defineProperty(kd, 'target', { value: pad, configurable: true });
+      pad.dispatchEvent(kd);
+      check(calls.length === 0, `keyboard pad press does NOT vibrate (${calls.length})`);
+      if (realVibrate === undefined) delete window.navigator.vibrate;
+      else Object.defineProperty(window.navigator, 'vibrate', { value: realVibrate, configurable: true, writable: true });
+      window.padReleaseAll && window.padReleaseAll();
     }
 
     // One-shot: press opens a voice; a plain finger-up leaves it ringing AND

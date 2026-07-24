@@ -1319,7 +1319,31 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
       margin-bottom: 16px;
+    }
+
+    /* Ensemble cycle chip: the Settings select's shortcut, at point of use.
+       Sits between the chord name and the A/B button, so it stays quiet —
+       it reports the current mode more often than it gets tapped. */
+    .lh-mode-chip {
+      flex: none;
+      margin-left: auto;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.7rem;
+      padding: 4px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .lh-mode-chip:hover {
+      border-color: var(--accent-gold);
+      color: var(--text-primary);
     }
 
     .voicing-chord-name {

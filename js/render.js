@@ -4,6 +4,20 @@
     // CHORD DICTIONARY DATA
     // ============================================
     
+    // Short forms of the Ensemble select's labels, for the voicing panel's
+    // cycle chip (which has room for a word, not a sentence). Keys are the
+    // select's option values; the chip falls back to the option text when a
+    // mode has no short form here.
+    const ENSEMBLE_CHIP_LABELS = {
+      mixed: 'Auto',
+      roots: 'Bass root',
+      shells: 'Shells',
+      evans: '2-hand',
+      lhcomp: 'LH comp',
+      rootless: 'Bassist',
+      bassonly: 'App bass'
+    };
+
     const CHORD_CATEGORIES = {
       triads: ['maj', 'min', 'dim', 'aug', 'sus4', 'sus2'],
       seventh: ['maj7', 'min7', 'dom7', 'dim7', 'm7b5', 'minMaj7', 'dom7sus4'],
@@ -749,6 +763,16 @@
       
       // The teaching moment for bassist mode: name what the LH is doing when
       // it departs from the written voicing.
+      // Short forms of the Ensemble options for the cycle chip (the select's
+      // own labels are full sentences). Falls back to the select's text so a
+      // new mode still shows something sane before it earns a short name.
+      if (elements.lhModeChip) {
+        const opt = elements.leftHandSelect &&
+          elements.leftHandSelect.querySelector(`option[value="${state.leftHand}"]`);
+        elements.lhModeChip.textContent = ENSEMBLE_CHIP_LABELS[state.leftHand] ||
+          (opt ? opt.textContent : state.leftHand);
+      }
+
       const LH_MODE_NOTES = {
         shells: ' • Shells: root + guide tones (3 & 7) in the left hand',
         evans: ' • Two-hand rootless: LH color voicing — the bass stays with the bassist',
