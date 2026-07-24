@@ -1042,14 +1042,17 @@
       const subs = getChordSubstitutions(dictRoot, dictQuality);
       if (subs.length > 0) {
         elements.dictSubstitutions.innerHTML = subs.map(sub => `
-          <button class="voicing-sub-btn" title="${sub.description}">
-            ${sub.symbol} <span style="font-size: 0.65rem; opacity: 0.7;">(${sub.description})</span>
+          <button type="button" class="sub-chip" title="Tap to hear it, then jump to it — ${sub.description}">
+            ${sub.symbol} <span class="sub-chip-note">(${sub.description})</span>
           </button>
         `).join('');
         
         // Add click handlers to load that chord
-        elements.dictSubstitutions.querySelectorAll('.voicing-sub-btn').forEach((btn, i) => {
+        elements.dictSubstitutions.querySelectorAll('.sub-chip').forEach((btn, i) => {
           btn.addEventListener('click', () => {
+            // Hear it before you read it: the sub names a chord that isn't on
+            // display, so sound it, then navigate the dictionary there.
+            auditionDictSubstitution(subs[i].root, subs[i].quality);
             state.dictRoot = subs[i].root;
             state.dictQuality = subs[i].quality;
             elements.dictRootSelect.value = state.dictRoot;

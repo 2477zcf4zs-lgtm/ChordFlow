@@ -1012,26 +1012,14 @@ console.log('\nTest 16: LH-shell upper-structure + quartal voicings (new vocabul
       `${quality} ${frag} carries both guide tones across the hands`);
   }
 
-  // Every new voicing spells cleanly across a spread of roots (no undefined/NaN)
-  let bad = 0;
-  for (const [quality, frag] of [['dom7s11','US II'],['dom13','US II'],['dom13b9','US VI'],
-      ['dom7sus4','Slash'],['min7','Quartal'],['maj7','Quartal'],
-      ['dom7alt','US bVI'],['dom7alt','US bV:'],
-      ['maj7','Powell 13'],['maj7','Powell Lydian'],['dom7','Powell 13'],['min7','Powell 9'],
-      ['maj13','Powell 13'],['min11','Powell 11'],['dom7sus4','Quartal sus'],['maj9','Slash: D/C']]) {
-    // Same filtered index space getChordNotesAtIndex resolves against, and a
-    // hard -1 guard: an unmatched fragment must FAIL, not wrap (safeIndex
-    // modulo turns -1 into the last voicing) and silently test the wrong one.
-    const vs = T.voicingsFor(quality, 'seventh');
-    const i = vs.findIndex(x => x.name.indexOf(frag) !== -1);
-    if (i === -1) { bad++; check(false, `spell-check: no voicing matching '${frag}' in ${quality}`); continue; }
-    for (const root of ['C', 'F', 'Bb', 'Ab', 'E', 'B', 'Gb']) {
-      const d = T.getChordNotesAtIndex(root, quality, 'seventh', i, 0);
-      for (const p of d.leftHandPitches.concat(d.rightHandPitches))
-        if (!p.name || p.name.includes('undefined') || !Number.isFinite(p.midi)) { bad++; }
-    }
-  }
-  check(bad === 0, 'new voicings spell cleanly across all tested roots');
+  // (The cross-root spell-check that used to live here is gone — v4 Phase 4
+  // item 5. Test 4 already sweeps EVERY quality x EVERY voicing x 6 awkward
+  // roots and asserts strictly more: finite midi, a real name, ascending
+  // order, and name-vs-midi pitch-class agreement ('undefined' trips its
+  // <=3-char rule). Its coverage is automatic, so a new voicing is checked
+  // the moment it is added — this list had to be hand-extended for every
+  // addition and could silently fall behind. The pitch-class assertions above
+  // are kept: they are the part Test 4 cannot do.)
 }
 
 console.log('\nTest 17: single-hand span guard (playability tripwire)');

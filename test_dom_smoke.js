@@ -457,6 +457,22 @@ async function main() {
       check(!!dictItem && dictItem.tagName === 'BUTTON', 'dictionary voicings are playable buttons');
       dictItem.click();
       check(engine().auditionGain !== null, 'tapping a dictionary voicing auditions it');
+
+      // Substitution list (Stage 6 item 3): was inert .voicing-sub-btn markup;
+      // now auditioning .sub-chips that sound the sub, then navigate to it.
+      engine().auditionGain = null;
+      const subChip = document.querySelector('#dictSubstitutions .sub-chip');
+      check(!!subChip, 'dictionary substitutions render as sub-chips');
+      check(document.querySelectorAll('.voicing-sub-btn').length === 0,
+        'the old .voicing-sub-btn markup is gone');
+      if (subChip) {
+        const before = { root: st().dictRoot, quality: st().dictQuality };
+        subChip.click();
+        check(engine().auditionGain !== null, 'tapping a substitution auditions it');
+        check(engine().sessionGain === null, 'substitution audition never touches sessionGain');
+        check(st().dictRoot !== before.root || st().dictQuality !== before.quality,
+          'tapping a substitution also navigates the dictionary to that chord');
+      }
     }
     // My Progressions: collapsed by default, header toggle expands
     const savedBody = document.getElementById('savedBody');

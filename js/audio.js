@@ -494,24 +494,37 @@
      * the playback session-token discipline is untouched. Each audition
      * replaces the previous gain, so retriggering cuts the prior chord off.
      */
-    function auditionChord(index) {
-      if (!state.progression.length) return;
-      if (!ensureAudioContext()) return; // no Web Audio: step silently
+    /**
+     * Retire the sounding audition (short fade, then disconnect) and return a
+     * fresh auditionGain connected to master. Deliberately NOT the sessionGain,
+     * so playback's session-token discipline is untouched; replacing the gain
+     * each time is what makes a retrigger cut the previous chord off.
+     * The single owner of this swap — every audition path routes through it.
+     */
+    function swapAuditionGain() {
       const ctx = audioEngine.ctx;
-
       if (audioEngine.auditionGain) {
         const old = audioEngine.auditionGain;
         const t0 = ctx.currentTime;
-        old.gain.setValueAtTime(old.gain.value, t0);
-        old.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
-        setTimeout(() => old.disconnect(), 120);
+        try {
+          old.gain.setValueAtTime(old.gain.value, t0);
+          old.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
+        } catch (e) { /* mock nodes in tests */ }
+        setTimeout(() => { try { old.disconnect(); } catch (e) {} }, 120);
         audioEngine.auditionGain = null;
       }
-
       const g = ctx.createGain();
       g.gain.value = 1;
       g.connect(audioEngine.master);
       audioEngine.auditionGain = g;
+      return g;
+    }
+
+    function auditionChord(index) {
+      if (!state.progression.length) return;
+      if (!ensureAudioContext()) return; // no Web Audio: step silently
+      const ctx = audioEngine.ctx;
+      const g = swapAuditionGain();
 
       const t = ctx.currentTime + 0.02;
       const duration = 1.4;
@@ -634,21 +647,7 @@
       if (!ensureAudioContext()) return;
       const ctx = audioEngine.ctx;
 
-      if (audioEngine.auditionGain) {
-        const old = audioEngine.auditionGain;
-        const t0 = ctx.currentTime;
-        try {
-          old.gain.setValueAtTime(old.gain.value, t0);
-          old.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
-        } catch (e) { /* mock nodes */ }
-        setTimeout(() => { try { old.disconnect(); } catch (e) {} }, 120);
-        audioEngine.auditionGain = null;
-      }
-
-      const g = ctx.createGain();
-      g.gain.value = 1;
-      g.connect(audioEngine.master);
-      audioEngine.auditionGain = g;
+      const g = swapAuditionGain();
 
       // Window [prev, center, next] with wraparound (like loop playback);
       // 2-chord progressions preview [prev, center], 1-chord just the chord.
@@ -705,26 +704,32 @@
       if (!ensureAudioContext()) return;
       const ctx = audioEngine.ctx;
 
-      if (audioEngine.auditionGain) {
-        const old = audioEngine.auditionGain;
-        const t0 = ctx.currentTime;
-        try {
-          old.gain.setValueAtTime(old.gain.value, t0);
-          old.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
-        } catch (e) { /* mock nodes */ }
-        setTimeout(() => { try { old.disconnect(); } catch (e) {} }, 120);
-        audioEngine.auditionGain = null;
-      }
-      const g = ctx.createGain();
-      g.gain.value = 1;
-      g.connect(audioEngine.master);
-      audioEngine.auditionGain = g;
+      const g = swapAuditionGain();
 
       const shift = bestShiftForVoicing(dictRoot, voicing, null, activeRangeWindow());
       const d = realizeVoicing(dictRoot, voicing, shift, 'roots', dictQuality);
       const secPerBeat = 60 / state.tempo;
       scheduleChordSpan({ root: dictRoot },
         { leftHandPitches: d.left, rightHandPitches: d.right },
+        ctx.currentTime + 0.02, secPerBeat, Math.min(state.beatsPerChord, 4), g);
+    }
+
+    /**
+     * Audition an arbitrary root/quality — the dictionary's substitution chips,
+     * which name a chord that isn't the one on display. Realized through
+     * getChordNotes (the dictionary's own default voicing for that quality) and
+     * routed through the shared audition gain, so tapping a sub sounds it
+     * before the panel navigates there.
+     */
+    function auditionDictSubstitution(root, quality) {
+      if (!ensureAudioContext()) return;
+      const ctx = audioEngine.ctx;
+      const g = swapAuditionGain();
+      const d = getChordNotes(root, quality, state.complexity);
+      if (!d) return;
+      const secPerBeat = 60 / state.tempo;
+      scheduleChordSpan({ root },
+        { leftHandPitches: d.leftHandPitches, rightHandPitches: d.rightHandPitches },
         ctx.currentTime + 0.02, secPerBeat, Math.min(state.beatsPerChord, 4), g);
     }
 

@@ -193,7 +193,12 @@
           { left: ['R'], right: ['b7', '9', '4', '5'], name: 'Type B: 7-9-4-5', type: 'B', tiers: ['jazz'] },
           // Slash 13sus: bVII major triad in root position over the root (Bb/C) —
           // same tones as RSP(9) but voiced as a recognizable triad-over-bass
-          { left: ['R'], right: ['b7', '9', '11'], name: 'Slash: R | bVII triad (13sus)', type: null, tiers: ['jazz'] },
+          // Same pitch classes as RSP (9) above (the 4 and the 11 are one note)
+          // — what differs is the ROTATION: RSP puts the 4 at the bottom of the
+          // RH, this stacks the bVII triad in root position over the root
+          // (Bb-D-F over C). Both names now show their RH order so the tray and
+          // dictionary make the distinction visible.
+          { left: ['R'], right: ['b7', '9', '11'], name: 'Slash: bVII/I — Bb-over-C (7-9-11)', type: null, tiers: ['jazz'] },
           // Quartal sus (McCoy Tyner): the whole voicing is stacked 4ths —
           // 9-5-R-4-7 (D-G-C-F-Bb over C). ANCHORED mid-register like So What;
           // guide-tone-complete for a sus (the 4 and b7 are both present), so
