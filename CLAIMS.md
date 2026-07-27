@@ -210,6 +210,38 @@ described in tier-B language. They are the highest-risk items in the app.
   promoted by the owner liking the sound. Those are the two mechanisms that
   produced the current state.
 
+## Attempted and rejected sources
+
+### PiJAMA — obtained, verified, rejected as unfit (2026-07-27)
+
+Both transcriber archives (Kong 35 MB, Hawthorne 23 MB) were fetched, reassembled
+from split parts, CRC-verified, and extracted: 2,777 MIDI files each, 2,777
+metadata rows, 120 artists, per-performance inter-transcriber `agreement` scores.
+The data is intact and the pipeline would have worked.
+
+**It cannot answer our questions.** Rejected on repertoire, not on data quality:
+
+- **Bud Powell, Tadd Dameron and Wynton Kelly are absent entirely.** Powell's name
+  underpins **11 voicings** in this library (every "Powell shell" across
+  `maj7`/`min7`/`dom7`/`maj13`/`min11`). The one player those rows cite has zero
+  performances in the corpus. Those rows therefore stay tier **B** — this source
+  cannot promote them.
+- **The cohort we need is thin**: Bill Evans 6, Red Garland 8, McCoy Tyner 21,
+  Monk 31, Duke Jordan 42.
+- **The corpus centre of mass is stride and swing solo piano**: Dick Hyman 284
+  (10% of the corpus by himself), Art Tatum 122, Dave McKenna 76, Erroll Garner
+  45, Teddy Wilson 42. In that idiom the left hand plays bass-note/chord
+  alternation, walking tenths and stride patterns — it is *not* comping, because
+  there is no bassist and no soloist to comp for.
+
+A corpus-wide "most common left-hand shape" query would have returned a clean,
+confident number that substantially described **stride practice** and read as
+empirical support for comping claims. That is the same failure this ledger exists
+to prevent, arriving in more persuasive clothing.
+
+Kept for reference: register and hand-span distributions would still have been
+usable (they are idiom-robust), stratified per artist and never pooled.
+
 ## Known blockers
 
 - **PiJAMA** (200+ h, 2,777 performances, 120 pianists) would settle the
