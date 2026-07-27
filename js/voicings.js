@@ -560,9 +560,23 @@
      * CHORD_TYPES and names each tone by its function:
      *   - 3rd slot: 3 or b3; sus chords substitute their 4 (or 2).
      *   - 7th slot: 7, b7, or bb7 (dim7's 9 semitones alongside a b5+b3);
-     *     6th chords get their 6; plain triads fall back to the 5th.
-     * Only degrees the chord actually contains are included, so a triad-only
-     * "strict" progression yields R-3(-5) rather than inventing a 7th.
+     *     6th chords get their 6 (on a 6th chord the 6 IS the characteristic
+     *     tone, so it legitimately occupies the slot).
+     * A quality with neither a 7th nor a 6th — a plain triad, sus, add9 —
+     * yields just R-3 (two notes) and STOPS.
+     *
+     * It used to fall back to the 5th, which made "shells" mode play R-3-5 on
+     * every triad: a root-position triad presented as a shell. Omitting the
+     * 5th is what the word means — it is the one chord tone that defines
+     * neither quality (the 3rd) nor function (the 7th), so it is the first
+     * note dropped. Both the three-note (R-3-7) and two-note (R+7 / R+3)
+     * readings of "shell" agree on that much. The app already encoded the rule
+     * next door: essentialGuideTonePcs deliberately excludes this same
+     * fallback as "colour, not a guide tone" — the two functions simply
+     * disagreed, and this one was wrong.
+     *
+     * Note `aug` already returned R-3 before this change, but only by accident:
+     * it has a #5, so the old `has(7)` test missed. Now it is deliberate.
      */
     function guideToneIntervals(quality) {
       let chordInfo;
@@ -584,7 +598,8 @@
       if (has(11)) out.push('7');
       else if (has(10)) out.push('b7');
       else if (has(9)) out.push(has(6) && has(3) ? 'bb7' : '6');
-      else if (has(7)) out.push('5');
+      // No 7th and no 6th: stop at R-3. Adding the 5th here would un-shell the
+      // shell (see the note above).
       return out;
     }
 
@@ -627,7 +642,18 @@
         ? vd.voicings.filter(v => v.tiers && v.tiers.indexOf('jazz') !== -1 && v.type)
         : [];
       if (jazz.length) return jazz.map(v => voicingRh(v));
-      return [guideToneIntervals(quality).slice(1)];
+      // Fallback for a quality with no typed rootless canon. NOTE this is not a
+      // rare edge case: extended/altered qualities carry no `tiers` field at
+      // all, so it is their normal path — changing it moves evans mode for most
+      // of the library.
+      //
+      // Guide tones minus the root, exactly as before, EXCEPT on a quality with
+      // no 7th/6th, where guide tones now stop at R-3 and slicing the root
+      // would leave a single-note "voicing". Those fall back to chord tones
+      // minus the root, which is what they resolved to previously. Both
+      // branches reproduce the pre-change output byte for byte.
+      const gt = guideToneIntervals(quality);
+      return [gt.length >= 3 ? gt.slice(1) : coreChordTones(quality).slice(1)];
     }
 
     /** Register penalty for an LH rootless voicing (mirrors registerPenalty). */

@@ -16,7 +16,7 @@ const PROGS = [
   [['C', 'maj7'], ['A', 'dom7'], ['D', 'min7'], ['G', 'dom7']],
   [['D', 'maj7'], ['B', 'min7'], ['G', 'maj7'], ['A', 'dom7']],
   [['F', 'min7'], ['Bb', 'dom13'], ['Eb', 'maj7'], ['C', 'dom7alt']],
-  [['E', 'min7'], ['A', 'dom13b9'], ['D', 'maj7'], ['F#', 'min7b5']],
+  [['E', 'min7'], ['A', 'dom13b9'], ['D', 'maj7'], ['F#', 'm7b5']],
   [['B', 'dom13s11'], ['E', 'maj13'], ['Ab', 'min11'], ['Db', 'dom7sus4']],
   [['G', 'min7'], ['G', 'min7'], ['C', 'dom7'], ['F', 'maj7']],
   [['Bb', 'maj7'], ['G', 'dom7b13'], ['C', 'min7'], ['F', 'dom13']],

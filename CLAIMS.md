@@ -49,7 +49,7 @@ described in tier-B language. They are the highest-risk items in the app.
 | Mixed comping = joint LH/RH DP over movement cost | voicings.js | E | Our optimization; no claim any player thinks this way |
 | Anchored + guide-tone-complete ⇒ mixed-eligible | INVARIANTS 1b | E | Owner *policy* decision, not a musical finding |
 | "Shells" LH = three-note R-3-7 | voicings.js | D | Research suggests the bebop LH shell is more often **two-note R7/R3 alternating** — open question |
-| Triads/sus/add9 shells include the 5th | guideToneIntervals | **contradicted** | A shell omits the 5th by definition; flagged, unfixed |
+| ~~Triads/sus/add9 shells include the 5th~~ | guideToneIntervals | **FIXED 2026-07-27** | Was contradicted: a shell omits the 5th by definition, and `essentialGuideTonePcs` already encoded that. Triads/sus/add9 now shell to R-3 and stop. Needed no external source — the app disagreed with itself. Incidentally fixed one-note rootless shapes on `aug`/`dim`. |
 | Hand span cap 14 st (a 9th) | Test 17 | E | Owner's measured span — valid for *this player*, not a claim about idiom |
 | "Root-Shell-Pretty" tier name | index.html, UI | D | "Pretty notes" is real but comes from the **rootless** context; the RSP compound appears to be ours |
 | Octave roots = stride/gospel practice | voicings.js | D | Plausible, unverified |

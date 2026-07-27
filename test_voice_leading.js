@@ -575,7 +575,28 @@ console.log('\nTest 11: left-hand modes (bassist mode)');
   check(gt('dim7') === 'R,b3,bb7', `dim7 gets bb7, not a 6th (got ${gt('dim7')})`);
   check(gt('6') === 'R,3,6' && gt('m6') === 'R,b3,6', '6th chords shell with their 6');
   check(gt('dom7sus4') === 'R,4,b7', `sus dominants shell with the 4 (got ${gt('dom7sus4')})`);
-  check(gt('maj') === 'R,3,5', `plain triad falls back to R-3-5 (got ${gt('maj')})`);
+  // A shell OMITS the 5th — that is what the word means, and it is the one
+  // chord tone defining neither quality nor function. A quality with no 7th and
+  // no 6th therefore stops at R-3 rather than restoring the 5th, which used to
+  // make "shells" mode play root-position triads. (The app already applied this
+  // rule in essentialGuideTonePcs; guideToneIntervals disagreed with it.)
+  check(gt('maj') === 'R,3', `plain triad shells to R-3, no 5th (got ${gt('maj')})`);
+  check(gt('min') === 'R,b3', `minor triad shells to R-b3 (got ${gt('min')})`);
+  check(gt('sus4') === 'R,4', `sus4 shells to R-4 (got ${gt('sus4')})`);
+  check(gt('add9') === 'R,3', `add9 shells to R-3, no 5th (got ${gt('add9')})`);
+  // aug returned R-3 before this change too, but only because its #5 dodged the
+  // old has(5) test. Now it is the rule rather than an accident.
+  check(gt('aug') === 'R,3', `aug shells to R-3 (got ${gt('aug')})`);
+  // Seventh/6th families must be untouched by the fix.
+  check(gt('maj9') === 'R,3,7' && gt('dom13') === 'R,3,b7' && gt('69') === 'R,3,6',
+    'qualities WITH a 7th or 6th keep all three guide tones');
+  // No rootless shape may collapse to a single note. aug/dim previously did:
+  // their guide tones already stopped at two, so slicing the root left one.
+  for (const q of ['maj', 'min', 'aug', 'dim', 'sus4', 'add9', 'maj7', 'dom7alt']) {
+    const shapes = T.lhRootlessShapesFor(q);
+    check(shapes.every(s => s.length >= 2),
+      `${q}: no one-note rootless shape (${JSON.stringify(shapes)})`);
+  }
   check(gt('dom7alt') === 'R,3,b7', `altered dominants keep 3/b7 (got ${gt('dom7alt')})`);
 
   // Shells: LH = root in the C2 zone + guide tones an octave up, correct pitch classes
