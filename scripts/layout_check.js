@@ -88,6 +88,25 @@ function box(el) { return el ? { top: Math.round(el.top), bottom: Math.round(el.
     // Stage 6 item 1: each settings GROUP must fit without its own scroll —
     // that is the whole point of splitting Song/Sound/Practice (the flat list
     // overflowed). Walk the chips and measure the panel area on each.
+    // The chip ROW itself must fit: on-device (2026-07-28) the four chips
+    // overflowed and "Song" was clipped off the left edge. Chromium cannot
+    // reproduce iOS's native control styling — that half is guarded by
+    // `appearance: none` in the CSS — but it does catch the overflow.
+    const chipRow = await page.evaluate(() => {
+      const row = document.getElementById('settingsGroups');
+      const btns = [...row.querySelectorAll('.settings-group-btn')];
+      const rb = row.getBoundingClientRect();
+      return {
+        n: btns.length,
+        overflow: Math.round(row.scrollWidth - row.clientWidth),
+        clippedLeft: Math.round(rb.left - btns[0].getBoundingClientRect().left),
+        clippedRight: Math.round(btns[btns.length - 1].getBoundingClientRect().right - rb.right)
+      };
+    });
+    check(chipRow.overflow <= 1, `settings chip row does not overflow (${chipRow.overflow}px over)`);
+    check(chipRow.clippedLeft <= 1, `first settings chip is not clipped (${chipRow.clippedLeft}px past the left edge)`);
+    check(chipRow.clippedRight <= 1, `last settings chip is not clipped (${chipRow.clippedRight}px past the right edge)`);
+
     const groups = await page.evaluate(() => {
       const out = [];
       const panel = document.getElementById('settingsPanel');
