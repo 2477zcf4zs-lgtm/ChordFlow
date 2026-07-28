@@ -667,7 +667,7 @@ async function main() {
         const g = document.getElementById(id).closest('.settings-group');
         return g && g.dataset.group;
       };
-      check(panel.querySelectorAll('.settings-group').length === 3, 'settings split into three groups');
+      check(panel.querySelectorAll('.settings-group').length === 4, 'settings split into four groups (incl. Guide)');
       // Every control row lives in exactly one group — nothing orphaned by the regroup.
       check(panel.querySelectorAll('.settings-group .control-row').length ===
         panel.querySelectorAll('.control-row').length, 'every settings row is inside a group');
@@ -692,6 +692,19 @@ async function main() {
       check(panel.contains(document.getElementById('keySelect')), 'hidden-group controls stay in the panel');
       chip('song').click();
       check(shown().join() === 'song', 'chip switches back to Song');
+
+      // Guide (v6 Stage 9): reachable from the same chip row, and it must
+      // actually contain the orientation a first-time user needs — a stub that
+      // renders but says nothing would pass a "does it open" check.
+      chip('guide').click();
+      const guide = document.getElementById('settingsGroupGuide');
+      check(shown().join() === 'guide', 'Guide opens from the settings chips');
+      check(guide.querySelectorAll('h4').length >= 5, 'guide has its sections');
+      const gtext = guide.textContent;
+      for (const term of ['Play', 'Library', 'Complexity', 'Ensemble', 'Sounding', '12 Keys'])
+        check(gtext.indexOf(term) !== -1, `guide explains "${term}"`);
+      check(/CLAIMS\.md/.test(gtext), 'guide carries the honest provenance note');
+      chip('song').click();
 
       // Non-default settings dot (v3 §4.3). Earlier checks legitimately leave
       // leftHand off its default, so this block sets its own all-defaults

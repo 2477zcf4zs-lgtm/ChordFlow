@@ -1275,6 +1275,54 @@
       transition: all 0.2s;
     }
 
+    /* The Guide group is reading material, not controls: it is allowed to
+       scroll (the control groups deliberately are not), and it needs prose
+       rhythm the settings rows don't. */
+    .settings-group.guide {
+      max-height: 100%;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      font-size: 0.85rem;
+      line-height: 1.55;
+      color: var(--text-secondary);
+      padding-bottom: 12px;
+    }
+
+    .settings-group.guide h4 {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--accent-gold);
+      margin: 18px 0 6px;
+    }
+
+    .settings-group.guide p { margin: 0 0 10px; }
+    .settings-group.guide ul,
+    .settings-group.guide ol { margin: 0 0 10px; padding-left: 20px; }
+    .settings-group.guide li { margin-bottom: 5px; }
+    .settings-group.guide strong { color: var(--text-primary); }
+    .settings-group.guide em { color: var(--text-primary); font-style: normal; opacity: 0.85; }
+    .settings-group.guide code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8em;
+      color: var(--accent-gold);
+    }
+
+    .guide-lede {
+      color: var(--text-primary);
+      font-size: 0.9rem;
+    }
+
+    /* The provenance caveat — present, readable, not shouting. */
+    .guide-note {
+      border-left: 2px solid var(--border-subtle);
+      padding-left: 10px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
     .settings-group-btn.active {
       background: var(--accent-gold);
       color: var(--bg-primary);

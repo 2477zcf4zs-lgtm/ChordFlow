@@ -104,7 +104,12 @@ function box(el) { return el ? { top: Math.round(el.top), bottom: Math.round(el.
       return out;
     });
     for (const g of groups) {
-      check(g.over <= 1, `settings group "${g.group}" fits with no panel scroll (overflow ${g.over}px)`);
+      // The Guide is reading material and scrolls INSIDE its own box by design;
+      // the no-scroll rule exists so you never have to scroll to find a
+      // CONTROL. It must still not push the page itself into scrolling.
+      if (g.group !== 'guide') {
+        check(g.over <= 1, `settings group "${g.group}" fits with no panel scroll (overflow ${g.over}px)`);
+      }
       check(g.docOver <= 1, `settings group "${g.group}" causes no page scroll (overflow ${g.docOver}px)`);
     }
 
