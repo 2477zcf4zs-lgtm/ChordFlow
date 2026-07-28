@@ -19,6 +19,9 @@ bottom of this guide — use them.
 **Library** for a standard.
 - Press **Play** (the triangle ▶, the gold button). The chart highlights each
 chord as it sounds.
+- **On a phone or tablet: take it off silent.** iPhones and iPads mute web
+audio with the hardware ring/silent switch, so on silent the app looks like it is running
+perfectly and playing nothing. Turn the ringer on and bring the volume up.
 - Tap any chord box to see its voicing on the piano.
 
 ## The transport bar (bottom)

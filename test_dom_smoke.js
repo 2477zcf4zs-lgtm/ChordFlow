@@ -664,6 +664,43 @@ async function main() {
       document.getElementById('settingsPanel').contains(document.getElementById('metroBtn')),
       'key select + metronome relocated into settings panel');
 
+    // Silent-switch hint: iOS mutes Web Audio from the hardware ring switch, so
+    // a muted phone makes the app look broken rather than muted. Touch-only,
+    // once-only, and it must never be able to break playback.
+    {
+      const hint = document.getElementById('silentHint');
+      const seenKey = 'chordflow.silentHintSeen';
+      check(!!hint && hint.hidden, 'silent-switch hint exists and starts hidden');
+
+      // Detection is `(pointer: coarse)`, not 'ontouchstart' in window — the
+      // latter is true in desktop Chrome AND in jsdom, so it would show a phone
+      // hint to people with no silent switch. Stub matchMedia for both answers.
+      const media = (coarse) => (q) => ({ matches: /coarse/.test(q) && coarse, media: q });
+      window.localStorage.removeItem(seenKey);
+      window.matchMedia = media(false);          // fine pointer / desktop
+      window.maybeShowSilentHint();
+      check(hint.hidden, 'no silent hint on a fine-pointer (desktop) device');
+
+      window.matchMedia = media(true);           // coarse pointer / touch
+      window.maybeShowSilentHint();
+      check(!hint.hidden, 'touch device sees the silent hint on first play');
+      check(/silent/i.test(hint.textContent), 'hint explains the silent switch');
+      check(window.localStorage.getItem(seenKey) === '1', 'hint records that it has been seen');
+
+      hint.hidden = true;
+      window.maybeShowSilentHint();
+      check(hint.hidden, 'hint does not return on later plays');
+
+      // Dismissable, and harmless when storage is blocked.
+      window.localStorage.removeItem(seenKey);
+      window.maybeShowSilentHint();
+      document.getElementById('silentHintDismiss').click();
+      check(hint.hidden, 'dismiss hides the hint');
+      window.localStorage.removeItem(seenKey);
+      delete window.matchMedia;
+      hint.hidden = true;
+    }
+
     // Stale-version banner: a cached page asks the server whether a newer
     // build exists. Drive both answers through a stubbed fetch — a banner that
     // only ever stays hidden would pass a "does it render" check.

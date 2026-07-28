@@ -1982,3 +1982,28 @@
     @media (max-width: 420px) {
       .update-banner { font-size: 0.75rem; gap: 6px; padding: 7px 8px 7px 12px; }
     }
+
+    /* First-playback silent-switch hint. Sits just above the transport, where
+       the eye already is after pressing Play. Same fixed-overlay reasoning as
+       .update-banner: the shell is position:fixed with no page scroll. */
+    .silent-hint {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      max-width: calc(100vw - 24px);
+      padding: 8px 8px 8px 14px;
+      border-radius: var(--radius-pill);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+    }
+
+    .silent-hint[hidden] { display: none; }
+    .silent-hint-text { line-height: 1.35; }
