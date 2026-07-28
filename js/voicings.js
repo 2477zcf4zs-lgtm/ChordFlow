@@ -1532,6 +1532,44 @@
       return getChordNotesAtIndex(rootNote, quality, complexity, 0, undefined, opts);
     }
 
+    /**
+     * Chart-reading spelling: the simplest enharmonic for a double accidental.
+     *
+     * Functional spelling is CORRECT and is what the Dictionary shows — a
+     * diminished 7th on Gb really is Gb-Bbb-Dbb-Fbb, and classical engraving
+     * sets exactly that, because the page is meant to encode what the harmony
+     * is doing. A lead sheet answers a different question: what do I grab, at
+     * tempo. Reading `Bbb` costs a beat of thought that reading `A` does not.
+     *
+     * So the playing surfaces (chord strip, piano, hand lists) respell ONLY
+     * double accidentals, and the app SAYS when it has done so — a silent swap
+     * would be teaching a falsehood about the harmony. Single accidentals are
+     * left alone: Cb, Fb, E# and B# are ordinary chart spellings and carry real
+     * functional meaning (Cb is the IV of Gb, not a clumsy B).
+     *
+     * Flats resolve toward flats/naturals and sharps toward sharps/naturals, so
+     * the respelling keeps the accidental flavour of the surrounding key.
+     */
+    const READABLE_RESPELL = {
+      Cbb: 'Bb', Dbb: 'C',  Ebb: 'D',  Fbb: 'Eb', Gbb: 'F',  Abb: 'G',  Bbb: 'A',
+      'C##': 'D', 'D##': 'E', 'E##': 'F#', 'F##': 'G', 'G##': 'A', 'A##': 'B', 'B##': 'C#'
+    };
+
+    /** The reading spelling of a note name (unchanged unless double-accidental). */
+    function readableNoteName(n) {
+      return READABLE_RESPELL[n] || n;
+    }
+
+    /** Display form of a note, respelled for reading. */
+    function formatNoteReadable(n) {
+      return formatNoteDisplay(readableNoteName(n));
+    }
+
+    /** Chord symbol for a PLAYING surface — root respelled for reading. */
+    function formatChordSymbolReadable(root, quality) {
+      return formatChordSymbol(readableNoteName(root), quality);
+    }
+
     function formatNoteDisplay(n) {
       if (NOTE_DISPLAY[n]) return NOTE_DISPLAY[n];
       if (n.includes('##')) return n.charAt(0) + '\u{1D12A}';

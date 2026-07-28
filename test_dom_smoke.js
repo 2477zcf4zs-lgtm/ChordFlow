@@ -664,6 +664,58 @@ async function main() {
       document.getElementById('settingsPanel').contains(document.getElementById('metroBtn')),
       'key select + metronome relocated into settings panel');
 
+    // Chart-reading spelling. The Dictionary stays functional (Gb dim7 really
+    // is Gb-Bbb-Dbb-Fbb, and that is what classical engraving sets); the
+    // playing surfaces respell double accidentals so they read at tempo, and
+    // the app SAYS when it has, so the shortcut teaches the enharmonic rather
+    // than quietly asserting a falsehood.
+    {
+      check(window.readableNoteName('Bbb') === 'A' && window.readableNoteName('F##') === 'G',
+        'double accidentals respell for reading');
+      check(window.readableNoteName('Cb') === 'Cb' && window.readableNoteName('E#') === 'E#',
+        'single accidentals are left alone (Cb is the IV of Gb, not a clumsy B)');
+      check(window.formatChordSymbolReadable('Bbb', 'min7') === window.formatChordSymbol('A', 'min7'),
+        'a double-accidental ROOT respells in the chord symbol');
+
+      // Drive a real Gb dim7 through the voicing panel and check both halves.
+      // selectChord() switches the active tab, so snapshot it: a later check
+      // expects Settings still open and would fail on our leftovers.
+      const tabBefore = st().activeTab;
+      const dictBefore = { root: st().dictRoot, quality: st().dictQuality };
+      const prevProg = st().progression.slice();
+      st().progression.splice(0, st().progression.length, { root: 'Gb', quality: 'dim7', degree: 'vii' });
+      window.recomputeProgressionVoicings();
+      window.renderChordStructure();
+      window.selectChord(0);
+
+      const respell = document.getElementById('respellNote');
+      check(!!respell && !respell.hidden, 'panel announces the respelling');
+      check(/functionally/.test(respell.textContent), 'it names the functional spelling');
+      const shown = document.getElementById('leftHandNotes').textContent +
+                    document.getElementById('rightHandNotes').textContent;
+      check(!/\u{1D12B}/u.test(shown), 'no double-flat glyph on the playing surface');
+      const strip = document.querySelector('.chord-symbol').textContent;
+      check(!/\u{1D12A}|\u{1D12B}/u.test(strip), 'no double accidental in the chord strip symbol');
+
+      // The Dictionary must still show the functional spelling.
+      st().dictRoot = 'Gb'; st().dictQuality = 'dim7';
+      window.renderDictVoicings();
+      const dictText = document.getElementById('dictVoicingList').textContent;
+      check(/\u{1D12B}/u.test(dictText), 'Dictionary keeps the functional double-flat spelling');
+
+      st().progression.splice(0, st().progression.length, ...prevProg);
+      window.recomputeProgressionVoicings();
+      window.renderChordStructure();
+      window.selectChord(0);
+      check(document.getElementById('respellNote').hidden, 'notice hides on an ordinary chord');
+
+      // Put back everything this block disturbed.
+      st().dictRoot = dictBefore.root;
+      st().dictQuality = dictBefore.quality;
+      window.renderDictVoicings();
+      if (st().activeTab !== tabBefore) window.toggleTab(tabBefore);
+    }
+
     // Silent-switch hint: iOS mutes Web Audio from the hardware ring switch, so
     // a muted phone makes the app look broken rather than muted. Touch-only,
     // once-only, and it must never be able to break playback.
