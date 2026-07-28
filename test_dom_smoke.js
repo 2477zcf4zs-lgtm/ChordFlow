@@ -18,7 +18,13 @@ class LocalResourceLoader extends ResourceLoader {
   fetch(url, options) {
     if (url.startsWith('file:')) return super.fetch(url, options);
     const local = /^https?:\/\/localhost\/(.+)$/.exec(url);
-    if (local) return fs.promises.readFile(path.join(__dirname, decodeURIComponent(local[1])));
+    // Strip the cache-busting ?v=<hash> (and any #fragment) before hitting the
+    // filesystem — index.html's asset refs carry content stamps, and a real
+    // server serves the file regardless of query string.
+    if (local) {
+      const rel = decodeURIComponent(local[1]).split(/[?#]/)[0];
+      return fs.promises.readFile(path.join(__dirname, rel));
+    }
     return Promise.resolve(Buffer.from(''));
   }
 }
