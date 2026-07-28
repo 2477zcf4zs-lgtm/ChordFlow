@@ -13,7 +13,7 @@ function loadTheoryCore() {
   // touches live inside functions this suite never calls.
   const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/audio.js', 'js/state.js'];
   const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
-  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, realizeMixedCandidateBelow, bestMixedLhForRh, formatChordSymbol, soundingChord, computeInversionComp, coreChordTones, inversionShapesFor };');
+  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, realizeMixedCandidateBelow, bestMixedLhForRh, formatChordSymbol, soundingChord, computeInversionComp, coreChordTones, inversionShapesFor, SETTINGS_DEFAULTS, state };');
   return fn();
 }
 const T = loadTheoryCore();
@@ -575,7 +575,28 @@ console.log('\nTest 11: left-hand modes (bassist mode)');
   check(gt('dim7') === 'R,b3,bb7', `dim7 gets bb7, not a 6th (got ${gt('dim7')})`);
   check(gt('6') === 'R,3,6' && gt('m6') === 'R,b3,6', '6th chords shell with their 6');
   check(gt('dom7sus4') === 'R,4,b7', `sus dominants shell with the 4 (got ${gt('dom7sus4')})`);
-  check(gt('maj') === 'R,3,5', `plain triad falls back to R-3-5 (got ${gt('maj')})`);
+  // A shell OMITS the 5th — that is what the word means, and it is the one
+  // chord tone defining neither quality nor function. A quality with no 7th and
+  // no 6th therefore stops at R-3 rather than restoring the 5th, which used to
+  // make "shells" mode play root-position triads. (The app already applied this
+  // rule in essentialGuideTonePcs; guideToneIntervals disagreed with it.)
+  check(gt('maj') === 'R,3', `plain triad shells to R-3, no 5th (got ${gt('maj')})`);
+  check(gt('min') === 'R,b3', `minor triad shells to R-b3 (got ${gt('min')})`);
+  check(gt('sus4') === 'R,4', `sus4 shells to R-4 (got ${gt('sus4')})`);
+  check(gt('add9') === 'R,3', `add9 shells to R-3, no 5th (got ${gt('add9')})`);
+  // aug returned R-3 before this change too, but only because its #5 dodged the
+  // old has(5) test. Now it is the rule rather than an accident.
+  check(gt('aug') === 'R,3', `aug shells to R-3 (got ${gt('aug')})`);
+  // Seventh/6th families must be untouched by the fix.
+  check(gt('maj9') === 'R,3,7' && gt('dom13') === 'R,3,b7' && gt('69') === 'R,3,6',
+    'qualities WITH a 7th or 6th keep all three guide tones');
+  // No rootless shape may collapse to a single note. aug/dim previously did:
+  // their guide tones already stopped at two, so slicing the root left one.
+  for (const q of ['maj', 'min', 'aug', 'dim', 'sus4', 'add9', 'maj7', 'dom7alt']) {
+    const shapes = T.lhRootlessShapesFor(q);
+    check(shapes.every(s => s.length >= 2),
+      `${q}: no one-note rootless shape (${JSON.stringify(shapes)})`);
+  }
   check(gt('dom7alt') === 'R,3,b7', `altered dominants keep 3/b7 (got ${gt('dom7alt')})`);
 
   // Shells: LH = root in the C2 zone + guide tones an octave up, correct pitch classes
@@ -1012,26 +1033,14 @@ console.log('\nTest 16: LH-shell upper-structure + quartal voicings (new vocabul
       `${quality} ${frag} carries both guide tones across the hands`);
   }
 
-  // Every new voicing spells cleanly across a spread of roots (no undefined/NaN)
-  let bad = 0;
-  for (const [quality, frag] of [['dom7s11','US II'],['dom13','US II'],['dom13b9','US VI'],
-      ['dom7sus4','Slash'],['min7','Quartal'],['maj7','Quartal'],
-      ['dom7alt','US bVI'],['dom7alt','US bV:'],
-      ['maj7','Powell 13'],['maj7','Powell Lydian'],['dom7','Powell 13'],['min7','Powell 9'],
-      ['maj13','Powell 13'],['min11','Powell 11'],['dom7sus4','Quartal sus'],['maj9','Slash: D/C']]) {
-    // Same filtered index space getChordNotesAtIndex resolves against, and a
-    // hard -1 guard: an unmatched fragment must FAIL, not wrap (safeIndex
-    // modulo turns -1 into the last voicing) and silently test the wrong one.
-    const vs = T.voicingsFor(quality, 'seventh');
-    const i = vs.findIndex(x => x.name.indexOf(frag) !== -1);
-    if (i === -1) { bad++; check(false, `spell-check: no voicing matching '${frag}' in ${quality}`); continue; }
-    for (const root of ['C', 'F', 'Bb', 'Ab', 'E', 'B', 'Gb']) {
-      const d = T.getChordNotesAtIndex(root, quality, 'seventh', i, 0);
-      for (const p of d.leftHandPitches.concat(d.rightHandPitches))
-        if (!p.name || p.name.includes('undefined') || !Number.isFinite(p.midi)) { bad++; }
-    }
-  }
-  check(bad === 0, 'new voicings spell cleanly across all tested roots');
+  // (The cross-root spell-check that used to live here is gone — v4 Phase 4
+  // item 5. Test 4 already sweeps EVERY quality x EVERY voicing x 6 awkward
+  // roots and asserts strictly more: finite midi, a real name, ascending
+  // order, and name-vs-midi pitch-class agreement ('undefined' trips its
+  // <=3-char rule). Its coverage is automatic, so a new voicing is checked
+  // the moment it is added — this list had to be hand-extended for every
+  // addition and could silently fall behind. The pitch-class assertions above
+  // are kept: they are the part Test 4 cannot do.)
 }
 
 console.log('\nTest 17: single-hand span guard (playability tripwire)');
@@ -1524,6 +1533,23 @@ console.log('\nTest 24: octave roots (v6 Stage 3 — stride/gospel bass octave, 
   const s = T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'roots', octaveRoots: true }).sounding;
   const sOff = T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'roots' }).sounding;
   check(JSON.stringify(s) === JSON.stringify(sOff), 'octave root adds no new pitch class — sounding name unchanged');
+}
+
+console.log('\nTest 25: SETTINGS_DEFAULTS agrees with state (v6 Stage 6 — settings dot)');
+{
+  // The dot compares live state against SETTINGS_DEFAULTS. If a listed default
+  // disagrees with state's real initial value the dot is wrong on load (lit at
+  // defaults, or never lighting); if a settings key is added without being
+  // listed, it silently never lights the dot. Pin both directions.
+  const defaults = T.SETTINGS_DEFAULTS;
+  check(!!defaults, 'SETTINGS_DEFAULTS is defined');
+  const mismatched = Object.keys(defaults || {}).filter(k => T.state[k] !== defaults[k]);
+  check(mismatched.length === 0,
+    `every SETTINGS_DEFAULTS value matches state's initial value${mismatched.length ? ' -> ' + mismatched.join(', ') : ''}`);
+  // v3 §4.3 predates both of these; the spec's list would now be wrong.
+  check(defaults && defaults.leftHand === 'mixed', "leftHand default tracks state ('mixed', not v3's 'roots')");
+  check(defaults && Object.prototype.hasOwnProperty.call(defaults, 'octaveRoots'),
+    'octaveRoots (added after v3 §4.3) is watched');
 }
 
 console.log('\n' + (failures ? `${failures} FAILURE(S)` : 'ALL TESTS PASSED'));

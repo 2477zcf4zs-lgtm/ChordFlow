@@ -4,6 +4,20 @@
     // CHORD DICTIONARY DATA
     // ============================================
     
+    // Short forms of the Ensemble select's labels, for the voicing panel's
+    // cycle chip (which has room for a word, not a sentence). Keys are the
+    // select's option values; the chip falls back to the option text when a
+    // mode has no short form here.
+    const ENSEMBLE_CHIP_LABELS = {
+      mixed: 'Auto',
+      roots: 'Bass root',
+      shells: 'Shells',
+      evans: '2-hand',
+      lhcomp: 'LH comp',
+      rootless: 'Bassist',
+      bassonly: 'App bass'
+    };
+
     const CHORD_CATEGORIES = {
       triads: ['maj', 'min', 'dim', 'aug', 'sus4', 'sus2'],
       seventh: ['maj7', 'min7', 'dom7', 'dim7', 'm7b5', 'minMaj7', 'dom7sus4'],
@@ -749,6 +763,16 @@
       
       // The teaching moment for bassist mode: name what the LH is doing when
       // it departs from the written voicing.
+      // Short forms of the Ensemble options for the cycle chip (the select's
+      // own labels are full sentences). Falls back to the select's text so a
+      // new mode still shows something sane before it earns a short name.
+      if (elements.lhModeChip) {
+        const opt = elements.leftHandSelect &&
+          elements.leftHandSelect.querySelector(`option[value="${state.leftHand}"]`);
+        elements.lhModeChip.textContent = ENSEMBLE_CHIP_LABELS[state.leftHand] ||
+          (opt ? opt.textContent : state.leftHand);
+      }
+
       const LH_MODE_NOTES = {
         shells: ' • Shells: root + guide tones (3 & 7) in the left hand',
         evans: ' • Two-hand rootless: LH color voicing — the bass stays with the bassist',
@@ -1018,14 +1042,17 @@
       const subs = getChordSubstitutions(dictRoot, dictQuality);
       if (subs.length > 0) {
         elements.dictSubstitutions.innerHTML = subs.map(sub => `
-          <button class="voicing-sub-btn" title="${sub.description}">
-            ${sub.symbol} <span style="font-size: 0.65rem; opacity: 0.7;">(${sub.description})</span>
+          <button type="button" class="sub-chip" title="Tap to hear it, then jump to it — ${sub.description}">
+            ${sub.symbol} <span class="sub-chip-note">(${sub.description})</span>
           </button>
         `).join('');
         
         // Add click handlers to load that chord
-        elements.dictSubstitutions.querySelectorAll('.voicing-sub-btn').forEach((btn, i) => {
+        elements.dictSubstitutions.querySelectorAll('.sub-chip').forEach((btn, i) => {
           btn.addEventListener('click', () => {
+            // Hear it before you read it: the sub names a chord that isn't on
+            // display, so sound it, then navigate the dictionary there.
+            auditionDictSubstitution(subs[i].root, subs[i].quality);
             state.dictRoot = subs[i].root;
             state.dictQuality = subs[i].quality;
             elements.dictRootSelect.value = state.dictRoot;

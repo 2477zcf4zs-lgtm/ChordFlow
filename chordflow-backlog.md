@@ -17,7 +17,10 @@ started then deliberately shelved.
 
 ## A. Cleanup / polish (do before more feature adds)
 
-- [ ] **Unify the dictionary's substitution buttons with the sub tray.**
+- [x] **Unify the dictionary's substitution buttons with the sub tray.** DONE
+  (v6 Stage 6 item 3): they are auditioning `.sub-chip`s now and `.voicing-sub-btn`
+  CSS is deleted. The audition gain-swap, duplicated in three places, was
+  extracted to `swapAuditionGain()` rather than copied a fourth time.
   *(Absorbed into `chordflow-spec-v4.md` Phase 4.)* The
   Chord Dictionary still renders substitutions as old-style `.voicing-sub-btn`
   elements (`renderDictVoicings` → `voicingSubs` list in `js/render.js` ~line
@@ -25,7 +28,10 @@ started then deliberately shelved.
   `.sub-chip` tray the rest of the app now uses. Either restyle them as
   `.sub-chip`s or (nicer) let them audition on tap like the main tray. Removes a
   visual inconsistency and the last consumer of `.voicing-sub-btn` CSS.
-- [ ] **Settings menu cleanup — regroup + non-default indicator.**
+- [x] **Settings menu cleanup — regroup + non-default indicator.** DONE
+  (v6 Stage 6 items 1 + dot): Song / Sound / Practice segmented groups, each
+  verified to fit 390x844 with zero overflow, plus the non-default dot on the
+  Settings tab. `SETTINGS_DEFAULTS` is pinned to real state by Test 25.
   *(Absorbed into `chordflow-spec-v4.md` Phase 4 — execute from there.)* The Settings
   panel is a long single scroll with two faint section titles and no sense of
   where you are. Split it into **Song / Sound / Practice** segmented groups

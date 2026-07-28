@@ -457,6 +457,22 @@ async function main() {
       check(!!dictItem && dictItem.tagName === 'BUTTON', 'dictionary voicings are playable buttons');
       dictItem.click();
       check(engine().auditionGain !== null, 'tapping a dictionary voicing auditions it');
+
+      // Substitution list (Stage 6 item 3): was inert .voicing-sub-btn markup;
+      // now auditioning .sub-chips that sound the sub, then navigate to it.
+      engine().auditionGain = null;
+      const subChip = document.querySelector('#dictSubstitutions .sub-chip');
+      check(!!subChip, 'dictionary substitutions render as sub-chips');
+      check(document.querySelectorAll('.voicing-sub-btn').length === 0,
+        'the old .voicing-sub-btn markup is gone');
+      if (subChip) {
+        const before = { root: st().dictRoot, quality: st().dictQuality };
+        subChip.click();
+        check(engine().auditionGain !== null, 'tapping a substitution auditions it');
+        check(engine().sessionGain === null, 'substitution audition never touches sessionGain');
+        check(st().dictRoot !== before.root || st().dictQuality !== before.quality,
+          'tapping a substitution also navigates the dictionary to that chord');
+      }
     }
     // My Progressions: collapsed by default, header toggle expands
     const savedBody = document.getElementById('savedBody');
@@ -641,6 +657,82 @@ async function main() {
     check(document.getElementById('settingsPanel').contains(document.getElementById('keySelect')) &&
       document.getElementById('settingsPanel').contains(document.getElementById('metroBtn')),
       'key select + metronome relocated into settings panel');
+
+    // Settings groups (Stage 6 item 1): Song / Sound / Practice. The chips
+    // only show/hide existing rows — no control moves out of #settingsPanel,
+    // which is why every settings check above and below still binds by ID.
+    {
+      const panel = document.getElementById('settingsPanel');
+      const groupOf = id => {
+        const g = document.getElementById(id).closest('.settings-group');
+        return g && g.dataset.group;
+      };
+      check(panel.querySelectorAll('.settings-group').length === 4, 'settings split into four groups (incl. Guide)');
+      // Every control row lives in exactly one group — nothing orphaned by the regroup.
+      check(panel.querySelectorAll('.settings-group .control-row').length ===
+        panel.querySelectorAll('.control-row').length, 'every settings row is inside a group');
+      check(groupOf('keySelect') === 'song' && groupOf('barsSelect') === 'song',
+        'Song holds Key and Bars (Bars moved up out of Practice)');
+      check(groupOf('leftHandSelect') === 'sound' && groupOf('octaveRootsBtn') === 'sound',
+        'Sound holds Ensemble and Octave roots');
+      check(groupOf('autoTransposeSelect') === 'practice', 'Practice holds 12 Keys');
+      const chip = g => panel.querySelector(`.settings-group-btn[data-group="${g}"]`);
+      const shown = () => [...panel.querySelectorAll('.settings-group')]
+        .filter(x => !x.hidden).map(x => x.dataset.group);
+      check(shown().join() === 'song', 'Song is the default group');
+      chip('sound').click();
+      check(shown().join() === 'sound', 'chip switches to Sound (others hidden)');
+      check(chip('sound').classList.contains('active') && !chip('song').classList.contains('active'),
+        'active chip is the location indicator');
+      check(chip('sound').getAttribute('aria-selected') === 'true' &&
+        chip('song').getAttribute('aria-selected') === 'false', 'aria-selected tracks the active group');
+      chip('practice').click();
+      check(shown().join() === 'practice', 'chip switches to Practice');
+      // Controls in a hidden group are still reachable by ID (listeners intact).
+      check(panel.contains(document.getElementById('keySelect')), 'hidden-group controls stay in the panel');
+      chip('song').click();
+      check(shown().join() === 'song', 'chip switches back to Song');
+
+      // Guide (v6 Stage 9): reachable from the same chip row, and it must
+      // actually contain the orientation a first-time user needs — a stub that
+      // renders but says nothing would pass a "does it open" check.
+      chip('guide').click();
+      const guide = document.getElementById('settingsGroupGuide');
+      check(shown().join() === 'guide', 'Guide opens from the settings chips');
+      check(guide.querySelectorAll('h4').length >= 5, 'guide has its sections');
+      const gtext = guide.textContent;
+      for (const term of ['Play', 'Library', 'Complexity', 'Ensemble', 'Sounding', '12 Keys'])
+        check(gtext.indexOf(term) !== -1, `guide explains "${term}"`);
+      check(/CLAIMS\.md/.test(gtext), 'guide carries the honest provenance note');
+      chip('song').click();
+
+      // Non-default settings dot (v3 §4.3). Earlier checks legitimately leave
+      // leftHand off its default, so this block sets its own all-defaults
+      // baseline first and restores what it found on the way out.
+      const tab = document.getElementById('settingsToggle');
+      const swingBtn = document.getElementById('swingBtn');
+      const ensembleSel = document.getElementById('leftHandSelect');
+      const setEnsemble = v => { ensembleSel.value = v; ensembleSel.dispatchEvent(new window.Event('change')); };
+      const enteredWith = st().leftHand;
+      setEnsemble('mixed');
+      check(!tab.classList.contains('has-custom'), 'no dot when every watched setting is default');
+      swingBtn.click();
+      check(st().swing === true && tab.classList.contains('has-custom'),
+        'a non-default setting lights the dot');
+      swingBtn.click();
+      check(st().swing === false && !tab.classList.contains('has-custom'),
+        'restoring defaults clears the dot');
+      // The cycle chip lives OUTSIDE #settingsPanel, so the panel's delegated
+      // listener cannot see it — setEnsembleMode has to update the dot itself.
+      const lhChip = document.getElementById('lhModeChip');
+      lhChip.click();
+      check(st().leftHand !== 'mixed' && tab.classList.contains('has-custom'),
+        'ensemble cycle chip also updates the dot (it sits outside the panel)');
+      while (st().leftHand !== 'mixed') lhChip.click();
+      check(!tab.classList.contains('has-custom'), 'cycling back to the default clears it again');
+      setEnsemble(enteredWith);
+    }
+
     settingsToggle.click();
     check(st().activeTab === null && !document.getElementById('settingsPanel').classList.contains('visible'),
       'clicking the active tab closes it');
@@ -868,6 +960,48 @@ async function main() {
     check(JSON.stringify(st().lhVoicingIndices) ===
       JSON.stringify(window.computeLeftHandVoicings(st().progression).indices),
       'switching lhcomp -> evans refreshes lhVoicingIndices to evans shapes (not stale inversions)');
+
+    // Ensemble cycle chip (Stage 6 item 2): the select's shortcut at point of
+    // use. It must walk the SAME option set, keep the select in sync, and — the
+    // part a second code path would get wrong — run the same recompute rules.
+    {
+      const chip = document.getElementById('lhModeChip');
+      const modes = Array.from(lhSelect.options).map(o => o.value);
+      check(!!chip, 'ensemble cycle chip exists in the voicing panel header');
+      // A full lap passes through 'mixed', which re-picks the RH JOINTLY (see
+      // the rootsRhText baseline above). Snapshot the RH selection so this
+      // block leaves no trace for the downstream comparisons to trip over.
+      const savedIdx = st().voicingIndices.slice();
+      const savedShifts = st().voicingShifts.slice();
+      lhSelect.value = 'roots';
+      lhSelect.dispatchEvent(new window.Event('change'));
+      // One full lap: every mode in select order, select stays in sync throughout.
+      let synced = true, seen = [];
+      for (let i = 0; i < modes.length; i++) {
+        chip.click();
+        seen.push(st().leftHand);
+        if (lhSelect.value !== st().leftHand) synced = false;
+      }
+      check(seen.length === modes.length && new Set(seen).size === modes.length,
+        `chip cycles through every ensemble mode (${seen.length} distinct)`);
+      check(synced, 'chip keeps the Settings select in sync');
+      check(st().leftHand === 'roots', 'a full lap returns to the starting mode');
+      check(chip.textContent.trim().length > 0, 'chip labels the current mode');
+      // Recompute parity: cycling INTO evans must refresh lhVoicingIndices the
+      // same way the select does — the staleness bug the chip could reintroduce.
+      while (st().leftHand !== 'evans') chip.click();
+      check(JSON.stringify(st().lhVoicingIndices) ===
+        JSON.stringify(window.computeLeftHandVoicings(st().progression).indices),
+        'chip into evans refreshes lhVoicingIndices (same rules as the select)');
+      while (st().leftHand !== 'lhcomp') chip.click();
+      check(JSON.stringify(st().lhVoicingIndices) ===
+        JSON.stringify(window.computeInversionComp(st().progression).indices),
+        'chip into lhcomp refreshes lhVoicingIndices');
+      // Put the RH selection back exactly as found (mixed re-picked it).
+      st().voicingIndices.splice(0, st().voicingIndices.length, ...savedIdx);
+      st().voicingShifts.splice(0, st().voicingShifts.length, ...savedShifts);
+    }
+
     // Back to rootless for the playback/audition checks below.
     lhSelect.value = 'rootless';
     lhSelect.dispatchEvent(new window.Event('change'));
@@ -890,17 +1024,28 @@ async function main() {
     check(st().leftHand === 'roots' && lhNotesEl.textContent === rootsLhText,
       'roots mode restores the original LH');
 
-    // Octave roots: doubling the lone bass root re-renders the LH (opt-in, no
-    // recompute). In roots mode chord 1's LH is a lone root, so it doubles.
+    // Octave roots: doubling the LONE bass root re-renders the LH (opt-in, no
+    // recompute). The doubling deliberately skips a multi-note LH (an open
+    // R-5 triad voicing already carries width) and anchored voicings, so this
+    // must run on a chord that actually HAS a lone-root LH — picking blind
+    // fails whenever the random progression seats a triad here.
     const octBtn = document.getElementById('octaveRootsBtn');
     check(!!octBtn && st().octaveRoots === false, 'octave roots starts off');
+    let loneRootAt = -1;
+    for (let i = 0; i < st().progression.length; i++) {
+      window.selectChord(i);
+      if (lhNotesEl.textContent.trim().split(/\s+/).length === 1) { loneRootAt = i; break; }
+    }
+    check(loneRootAt !== -1, 'found a chord whose roots-mode LH is a lone root');
+    const loneBefore = lhNotesEl.textContent;
     octBtn.click();
     check(st().octaveRoots === true &&
       octBtn.querySelector('.btn-label').textContent === 'Octaves: On' &&
-      lhNotesEl.textContent !== rootsLhText,
-      'octave roots toggles on and doubles the lone LH root (panel re-renders)');
+      lhNotesEl.textContent !== loneBefore &&
+      lhNotesEl.textContent.trim().split(/\s+/).length === 2,
+      `octave roots doubles the lone LH root (chord ${loneRootAt}: "${loneBefore}" -> "${lhNotesEl.textContent}")`);
     octBtn.click();
-    check(st().octaveRoots === false && lhNotesEl.textContent === rootsLhText,
+    check(st().octaveRoots === false && lhNotesEl.textContent === loneBefore,
       'octave roots toggles back off, restoring the single root');
 
     // Mixed (the app default): the app picks the LH per chord AND the RH
@@ -1136,6 +1281,35 @@ async function main() {
         'chord symbol built from a malicious root is escaped in pad grid and chord strip');
       window.loadProgression(0); // restore clean state (also closes the tab)
       padsToggle.click();        // reopen pads for the remaining pad checks
+    }
+
+    // Pad haptics (Stage 6 item 2 / v3 §4.4): the buzz rides the POINTER path
+    // only — the audio layer stays pure and a keyboard press must not vibrate.
+    {
+      const grid = document.getElementById('padGrid');
+      const pad = grid.querySelector('.pad');
+      const realVibrate = window.navigator.vibrate;
+      let calls = [];
+      Object.defineProperty(window.navigator, 'vibrate', {
+        value: (ms) => { calls.push(ms); return true; }, configurable: true, writable: true
+      });
+      const pointer = (type, target) => {
+        const e = new window.Event(type, { bubbles: true, cancelable: true });
+        e.pointerId = 99;
+        Object.defineProperty(e, 'target', { value: target, configurable: true });
+        target.dispatchEvent(e);
+      };
+      pointer('pointerdown', pad);
+      check(calls.length === 1, `pointer pad press vibrates once (${calls.length})`);
+      window.dispatchEvent(new window.Event('pointerup'));
+      calls = [];
+      const kd = new window.KeyboardEvent('keydown', { code: 'Enter', bubbles: true });
+      Object.defineProperty(kd, 'target', { value: pad, configurable: true });
+      pad.dispatchEvent(kd);
+      check(calls.length === 0, `keyboard pad press does NOT vibrate (${calls.length})`);
+      if (realVibrate === undefined) delete window.navigator.vibrate;
+      else Object.defineProperty(window.navigator, 'vibrate', { value: realVibrate, configurable: true, writable: true });
+      window.padReleaseAll && window.padReleaseAll();
     }
 
     // One-shot: press opens a voice; a plain finger-up leaves it ringing AND

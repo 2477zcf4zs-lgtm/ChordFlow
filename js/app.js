@@ -18,6 +18,8 @@
       tempoPopover: document.getElementById('tempoPopover'),
       settingsToggle: document.getElementById('settingsToggle'),
       settingsPanel: document.getElementById('settingsPanel'),
+      settingsGroups: document.getElementById('settingsGroups'),
+      lhModeChip: document.getElementById('lhModeChip'),
       beatsPerChord: document.getElementById('beatsPerChord'),
       keySelect: document.getElementById('keySelect'),
       barsSelect: document.getElementById('barsSelect'),
@@ -107,6 +109,32 @@
       elements.libraryToggle.addEventListener('click', () => toggleTab('library'));
       elements.settingsToggle.addEventListener('click', () => toggleTab('settings'));
 
+      // Settings dot (v3 §4.3): ONE delegated listener rather than a call
+      // appended to each of the ten settings listeners. Every watched control
+      // lives inside #settingsPanel and both `change` and `click` bubble, so
+      // this fires after the control's own handler has already updated state.
+      // (setEnsembleMode also calls it — the cycle chip lives outside the panel.)
+      elements.settingsPanel.addEventListener('change', updateSettingsDot);
+      elements.settingsPanel.addEventListener('click', updateSettingsDot);
+
+      // Settings groups (Song / Sound / Practice): one delegated listener, and
+      // the active chip is the only "where am I" indicator. Purely a show/hide
+      // of existing rows — no control IDs move, so every other settings
+      // listener and smoke check is untouched.
+      elements.settingsGroups.addEventListener('click', (e) => {
+        const btn = e.target.closest('.settings-group-btn');
+        if (!btn) return;
+        const group = btn.dataset.group;
+        elements.settingsGroups.querySelectorAll('.settings-group-btn').forEach(b => {
+          const on = b.dataset.group === group;
+          b.classList.toggle('active', on);
+          b.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        elements.settingsPanel.querySelectorAll('.settings-group').forEach(g => {
+          g.hidden = g.dataset.group !== group;
+        });
+      });
+
       // Tempo popover (opened from the transport bar's BPM readout)
       elements.tempoBtn.addEventListener('click', () => {
         const opening = elements.tempoPopover.hidden;
@@ -193,8 +221,13 @@
       // and the voice-leading optimizer are untouched, so no rebuild. Audio
       // reads it live via chordPitchesAt on the next chord/pad/audition; the
       // voicing panel just needs a re-render to show the new LH.
-      elements.leftHandSelect.addEventListener('change', (e) => {
-        state.leftHand = e.target.value;
+      // ONE entry point for an ensemble change, shared by the Settings select
+      // and the voicing panel's cycle chip. The recompute rules below are
+      // subtle (invariant 11) and a second copy would silently drift — the
+      // chip must never be the path that forgets to refresh lhVoicingIndices.
+      function setEnsembleMode(mode) {
+        state.leftHand = mode;
+        elements.leftHandSelect.value = mode; // keep the Settings select in sync
         // state.lhVoicingIndices is mode-specific (evans shapes / lhcomp
         // inversions / mixed's joint LH), so switching into a mode that READS it
         // must refresh it — otherwise the realizer reads the previous mode's
@@ -202,9 +235,19 @@
         // re-picks the RH jointly (full recompute); evans/lhcomp refresh only
         // the LH (manual RH cycling preserved); roots/shells/rootless/bassonly
         // ignore the field, so nothing to do.
-        if (state.leftHand === 'mixed') recomputeProgressionVoicings();
-        else if (state.leftHand === 'evans' || state.leftHand === 'lhcomp') recomputeLhIndices();
+        if (mode === 'mixed') recomputeProgressionVoicings();
+        else if (mode === 'evans' || mode === 'lhcomp') recomputeLhIndices();
         renderVoicing();
+        updateSettingsDot(); // the chip lives outside #settingsPanel's delegation
+      }
+      elements.leftHandSelect.addEventListener('change', (e) => setEnsembleMode(e.target.value));
+      // Cycle chip at point of use. The ORDER comes from the select's own
+      // options, so adding an ensemble mode there extends the cycle for free
+      // and the two controls can never disagree about what exists.
+      elements.lhModeChip.addEventListener('click', () => {
+        const modes = Array.from(elements.leftHandSelect.options).map(o => o.value);
+        const i = modes.indexOf(state.leftHand);
+        setEnsembleMode(modes[(i + 1) % modes.length]);
       });
       // Range (3-octave mode): unlike the Left Hand modes, the window changes
       // which RH voicings/shifts the optimizer picks, so it must recompute.
@@ -270,6 +313,10 @@
         activePads.set(e.pointerId, { index, pad });
         pad.classList.add('pressed');
         padPress(index);
+        // Haptics live on the POINTER path only: the audio layer stays pure,
+        // and a keyboard press (the keydown handler below) shouldn't buzz.
+        // Feature-checked, no setting.
+        if (navigator.vibrate) navigator.vibrate(8);
       });
       const endPad = (e) => {
         const rec = activePads.get(e.pointerId);

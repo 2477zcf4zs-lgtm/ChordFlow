@@ -85,6 +85,34 @@ function box(el) { return el ? { top: Math.round(el.top), bottom: Math.round(el.
     check(s.keyVisible, 'key select reachable in settings without page scroll');
     check(s.scrollH <= s.innerH + 1, 'still no page scroll with settings open');
 
+    // Stage 6 item 1: each settings GROUP must fit without its own scroll —
+    // that is the whole point of splitting Song/Sound/Practice (the flat list
+    // overflowed). Walk the chips and measure the panel area on each.
+    const groups = await page.evaluate(() => {
+      const out = [];
+      const panel = document.getElementById('settingsPanel');
+      const pa = document.querySelector('.panel-area');
+      for (const btn of panel.querySelectorAll('.settings-group-btn')) {
+        btn.click();
+        out.push({
+          group: btn.dataset.group,
+          over: pa.scrollHeight - pa.clientHeight,
+          docOver: document.documentElement.scrollHeight - window.innerHeight
+        });
+      }
+      panel.querySelector('.settings-group-btn[data-group="song"]').click();
+      return out;
+    });
+    for (const g of groups) {
+      // The Guide is reading material and scrolls INSIDE its own box by design;
+      // the no-scroll rule exists so you never have to scroll to find a
+      // CONTROL. It must still not push the page itself into scrolling.
+      if (g.group !== 'guide') {
+        check(g.over <= 1, `settings group "${g.group}" fits with no panel scroll (overflow ${g.over}px)`);
+      }
+      check(g.docOver <= 1, `settings group "${g.group}" causes no page scroll (overflow ${g.docOver}px)`);
+    }
+
     // --- Phase 1c: mobile shell integrity + vertical budget ---
     if (vw === 390) {
       // Re-open voicing on a SUB-HEAVY chord (the ii-V-I's dominant, index 1 =

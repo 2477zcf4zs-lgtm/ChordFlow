@@ -77,6 +77,8 @@
         <div class="voicing-panel" id="voicingPanel" role="tabpanel" aria-labelledby="voicingBtn">
           <div class="voicing-panel-header">
             <div class="voicing-chord-name" id="voicingChordName">—</div>
+            <button type="button" class="lh-mode-chip" id="lhModeChip"
+              title="Ensemble — who plays what. Tap to cycle; same options as the Ensemble setting.">Auto</button>
             <button type="button" class="ab-compare-btn" id="abCompareBtn" aria-pressed="false" disabled
               title="A = original, B = with substitutions — tap to switch">
               <span class="ab-side" id="abSideA">A</span><span class="ab-sep">/</span><span class="ab-side" id="abSideB">B</span>
@@ -183,6 +185,18 @@
 
         <div class="settings-panel" id="settingsPanel" role="tabpanel" aria-labelledby="settingsToggle">
           <div class="panel-title">Settings</div>
+          <!-- Segmented groups: the active chip IS the "where am I" indicator,
+               so each group fits a 390px viewport without its own scroll.
+               No control IDs change — every listener and smoke check still
+               binds exactly as before. -->
+          <div class="settings-groups" id="settingsGroups" role="tablist" aria-label="Settings groups">
+            <button type="button" class="settings-group-btn active" data-group="song" role="tab" aria-selected="true" aria-controls="settingsGroupSong">Song</button>
+            <button type="button" class="settings-group-btn" data-group="sound" role="tab" aria-selected="false" aria-controls="settingsGroupSound">Sound</button>
+            <button type="button" class="settings-group-btn" data-group="practice" role="tab" aria-selected="false" aria-controls="settingsGroupPractice">Practice</button>
+            <button type="button" class="settings-group-btn" data-group="guide" role="tab" aria-selected="false" aria-controls="settingsGroupGuide">Guide</button>
+          </div>
+
+          <div class="settings-group" id="settingsGroupSong" data-group="song" role="tabpanel">
           <div class="control-row">
             <label for="keySelect">Key</label>
             <select id="keySelect">
@@ -221,6 +235,18 @@
             </select>
           </div>
           <div class="control-row">
+            <label for="barsSelect">Bars</label>
+            <select id="barsSelect">
+              <option value="2">2 bars</option>
+              <option value="3">3 bars</option>
+              <option value="4" selected>4 bars</option>
+              <option value="5">5 bars</option>
+              <option value="6">6 bars</option>
+              <option value="7">7 bars</option>
+              <option value="8">8 bars</option>
+            </select>
+          </div>
+          <div class="control-row">
             <label for="beatsPerChord">Beats/Chord</label>
             <select id="beatsPerChord">
               <option value="2">2 beats</option>
@@ -228,6 +254,9 @@
               <option value="8">8 beats (2 bars)</option>
             </select>
           </div>
+          </div><!-- /Song -->
+
+          <div class="settings-group" id="settingsGroupSound" data-group="sound" role="tabpanel" hidden>
           <div class="control-row">
             <label>Metronome</label>
             <button class="btn btn-secondary" id="metroBtn" title="Metronome click on every beat">
@@ -291,7 +320,9 @@
             </button>
           </div>
 
-          <div class="panel-title" style="margin-top: 20px;">Practice</div>
+          </div><!-- /Sound -->
+
+          <div class="settings-group" id="settingsGroupPractice" data-group="practice" role="tabpanel" hidden>
           <div class="control-row">
             <label for="autoTransposeSelect">12 Keys</label>
             <select id="autoTransposeSelect" title="Transpose the progression each loop">
@@ -314,18 +345,6 @@
               <span class="btn-label">Symbols: Shown</span>
             </button>
           </div>
-          <div class="control-row">
-            <label for="barsSelect">Bars</label>
-            <select id="barsSelect">
-              <option value="2">2 bars</option>
-              <option value="3">3 bars</option>
-              <option value="4" selected>4 bars</option>
-              <option value="5">5 bars</option>
-              <option value="6">6 bars</option>
-              <option value="7">7 bars</option>
-              <option value="8">8 bars</option>
-            </select>
-          </div>
 
           <div class="shortcuts-hint">
             <span><kbd>Space</kbd> Play/Pause</span>
@@ -334,6 +353,69 @@
             <span><kbd>←</kbd><kbd>→</kbd> Tempo ±5</span>
             <span><kbd>[</kbd><kbd>]</kbd> Prev/Next Chord</span>
           </div>
+          </div><!-- /Practice -->
+
+          <!-- Guide: reading material, so unlike the control groups it is
+               allowed to scroll (layout_check exempts it deliberately). -->
+          <div class="settings-group guide" id="settingsGroupGuide" data-group="guide" role="tabpanel" hidden>
+            <p class="guide-lede">A jazz chord-progression practice tool. It deals you changes, shows you a
+            keyboard voicing for each one, and plays them back so you can read, comp and hear along.</p>
+
+            <h4>Start here</h4>
+            <ol>
+              <li>Hit <strong>New</strong> (the transport bar) for a fresh progression, or open <strong>Library</strong> for a standard.</li>
+              <li>Press <strong>Play</strong>. The chart highlights the chord as it sounds.</li>
+              <li>Tap any chord box to see its voicing on the piano.</li>
+            </ol>
+
+            <h4>The five tabs</h4>
+            <ul>
+              <li><strong>Pads</strong> — tap a chord to hear it, any time. Good for ear checks.</li>
+              <li><strong>Voicing</strong> — the piano. Which notes, which hand, what it's really sounding.</li>
+              <li><strong>Dictionary</strong> — look up any chord type and hear its voicings.</li>
+              <li><strong>Library</strong> — standards and exercises, plus progressions you've saved.</li>
+              <li><strong>Settings</strong> — you're here.</li>
+            </ul>
+
+            <h4>The two settings that change the most</h4>
+            <p><strong>Complexity</strong> (Song) sets the harmonic vocabulary — from
+            <em>Simple Triads</em> up through <em>Jazz 7ths</em>, <em>Extended</em> and
+            <em>Altered</em>. Start lower than you think; the chart gets busy fast.</p>
+            <p><strong>Ensemble</strong> (Sound) decides who plays what:</p>
+            <ul>
+              <li><em>App plays both hands</em> — Auto, Bass root, Shells, Two-hand rootless. Watch and copy.</li>
+              <li><em>App plays left hand</em> — LH comp. You take the melody with your right.</li>
+              <li><em>You comp</em> — With a bassist / App plays bass. The app holds down the low end and leaves the chords to you.</li>
+            </ul>
+            <p>The chip beside the chord name in the Voicing tab cycles these without coming back here.</p>
+
+            <h4>Reading the piano</h4>
+            <p>Left-hand notes and right-hand notes are coloured separately and listed above the keyboard.
+            If a <strong>Sounding:</strong> line appears, the voicing differs from the chord symbol on the
+            chart — usually richer (a Cmaj7 voiced with the 9 sounds as Cmaj9). It will also tell you when a
+            voicing <em>leaves out</em> the 3rd or 7th and is relying on your ear or a bassist to imply them.</p>
+            <p>Tap the voicing name to cycle alternatives for the same chord. The list scrolls — there are
+            usually more than fit on screen.</p>
+
+            <h4>Practice tools (Practice tab)</h4>
+            <ul>
+              <li><strong>12 Keys</strong> — transposes at each loop, so you drill all keys.</li>
+              <li><strong>Tempo ramp</strong> — nudges the tempo up every loop.</li>
+              <li><strong>Symbols</strong> — hides chord names so you read from numerals. Flashcard mode.</li>
+            </ul>
+
+            <h4>Keyboard shortcuts</h4>
+            <p><kbd>Space</kbd> play/pause · <kbd>R</kbd> new progression · <kbd>V</kbd> voicing panel ·
+            <kbd>←</kbd><kbd>→</kbd> tempo ±5 · <kbd>[</kbd><kbd>]</kbd> previous/next chord</p>
+
+            <h4>One honest note</h4>
+            <p class="guide-note">The voicings here are drawn from standard jazz vocabulary — rootless
+            shapes, guide-tone shells, quartals, upper structures. But the specific register and note
+            choices are largely the app's own, and most have not been checked against transcriptions of
+            actual players. Treat it as a practice tool rather than an authority, and trust a real
+            recording over it. The project tracks exactly what rests on what in
+            <code>CLAIMS.md</code>.</p>
+          </div><!-- /Guide -->
         </div>
       </div>
     </div>

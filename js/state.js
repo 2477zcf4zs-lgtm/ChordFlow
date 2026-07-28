@@ -526,3 +526,28 @@
       renderSavedProgressions();
       return count;
     }
+
+    // The settings whose non-default state earns the dot on the Settings tab.
+    // Values mirror `state`'s initial values above — a smoke check asserts the
+    // two agree, so adding a setting without listing it here fails loudly
+    // instead of silently never lighting the dot.
+    const SETTINGS_DEFAULTS = {
+      metronomeOn: false,
+      groove: 'block',
+      swing: false,
+      leftHand: 'mixed',   // v3 §4.3 said 'roots'; the default moved to mixed
+      range: 'full',
+      bassBacking: false,
+      octaveRoots: false,  // added after v3 §4.3 was written
+      autoTranspose: 'off',
+      tempoRamp: 0,
+      hideSymbols: false
+    };
+
+    /** Light the Settings tab when any watched setting is off its default. */
+    function updateSettingsDot() {
+      const el = document.getElementById('settingsToggle');
+      if (!el) return;
+      const custom = Object.keys(SETTINGS_DEFAULTS).some(k => state[k] !== SETTINGS_DEFAULTS[k]);
+      el.classList.toggle('has-custom', custom);
+    }
