@@ -785,13 +785,16 @@ console.log('\nTest 14: flavor pass (borrowed vocabulary) + flavor subs + borrow
       `${num} parses pinned to ${root} ${quality} (got ${c.root} ${c.quality})`);
   }
 
-  // Statistical sweep: 500 8-bar generations per level
+  // Statistical sweep: 500 generations per level, at BOTH lengths. 4 bars is
+  // the app default and the hardest case (only two interior slots, and
+  // adjacency means at most one interior conversion), so a sweep that only
+  // looked at 8 bars would miss the length the owner actually plays.
   const RUNS = 500;
   const isBorrowedList = nums => nums.map(s => T.isBorrowedNumeral(s, 'major'));
-  const stats = (level) => {
+  const stats = (level, bars = 8) => {
     let withFlavor = 0;
     for (let r = 0; r < RUNS; r++) {
-      const nums = T.buildRandomNumerals('major', 8, 1.0, level);
+      const nums = T.buildRandomNumerals('major', bars, 1.0, level);
       const b = isBorrowedList(nums);
       const n = nums.length;
       if (b.some(x => x)) withFlavor++;
@@ -810,7 +813,7 @@ console.log('\nTest 14: flavor pass (borrowed vocabulary) + flavor subs + borrow
       const backdoors = nums.filter((s, i) => s === 'iv7' && nums[i + 1] === 'bVII7').length;
       const events = b.filter(x => x).length - backdoors;
       const secondaries = nums.filter(s => String(s).includes('/')).length;
-      const cap = (level === 'bold' ? 2 : 1) * 2; // 8 bars = two 4-bar spans
+      const cap = (level === 'bold' ? 2 : 1) * Math.ceil(bars / 4);
       if (events + secondaries > cap)
         check(false, `${level}: chromatic budget blown (${events}+${secondaries} > ${cap}) in ${nums.join(' ')}`);
     }
@@ -819,11 +822,31 @@ console.log('\nTest 14: flavor pass (borrowed vocabulary) + flavor subs + borrow
   const offRate = stats('off');
   const subtleRate = stats('subtle');
   const boldRate = stats('bold');
+  const subtle4 = stats('subtle', 4);
+  const bold4 = stats('bold', 4);
   check(offRate === 0, `off generates no borrowed chords (${offRate})`);
-  check(subtleRate > 0.05 && subtleRate < 0.95,
-    `subtle presence in loose bounds (${(subtleRate * 100).toFixed(0)}% of 8-bar runs)`);
-  check(boldRate > 0.2 && boldRate > subtleRate,
-    `bold is bolder than subtle (${(boldRate * 100).toFixed(0)}% vs ${(subtleRate * 100).toFixed(0)}%)`);
+  // Owner: "the flavor control is not really introducing the interesting
+  // chords enough. It generates borrowed chords pretty rarely." It did: the
+  // per-rule odds read like ordinary probabilities but were CONDITIONAL on a
+  // slot already fitting the rule, and compounded with how rarely a phrase
+  // offers an eligible interior slot. Measured before -> after, share of
+  // generations carrying at least one borrowed chord:
+  //
+  //            4 bars          8 bars
+  //   subtle   13.6% -> 55%    25.7% -> 80%
+  //   bold     31.9% -> 77%    54.8% -> 96%
+  //
+  // Floors sit ~5+ sampling SDs under the measured rates (n=500), so these
+  // pin the improvement without going flaky. The old bounds (subtle > 0.05,
+  // bold > 0.2) would have passed at the rates being complained about.
+  check(subtleRate > 0.65 && subtleRate < 0.95,
+    `subtle delivers color at 8 bars (${(subtleRate * 100).toFixed(0)}%, was 26%)`);
+  check(boldRate > 0.88 && boldRate > subtleRate,
+    `bold is bolder than subtle at 8 bars (${(boldRate * 100).toFixed(0)}% vs ${(subtleRate * 100).toFixed(0)}%)`);
+  // 4 bars is the default length — the case the complaint was really about.
+  check(subtle4 > 0.40, `subtle delivers color at the default 4 bars (${(subtle4 * 100).toFixed(0)}%, was 14%)`);
+  check(bold4 > 0.65 && bold4 > subtle4,
+    `bold delivers color at the default 4 bars (${(bold4 * 100).toFixed(0)}%, was 32%)`);
 
   // Flavor subs offered with correctly spelled roots
   const g7 = T.getChordSubstitutions('G', 'dom7');

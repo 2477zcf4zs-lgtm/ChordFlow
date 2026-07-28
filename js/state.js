@@ -200,9 +200,22 @@
     // probabilities for the flavor pass; 'subtle' sticks to modal interchange
     // and the backdoor, 'bold' unlocks mediants, passing dims and the
     // deceptive ending.
+    // These are CONDITIONAL probabilities — the roll only happens on a slot that
+    // already fits the rule (an interior IV for `iv`, a final tonic for
+    // `deceptive`, and so on). The original values read like ordinary odds but
+    // compounded with how rarely a 4-bar phrase offers an eligible interior
+    // slot at all, so Bold delivered a borrowed chord in under a third of
+    // progressions and the mediants/passing dims it exists to unlock showed up
+    // in ~0%. Measured ceiling (every eligible slot converting) is 92% at 4
+    // bars, so there was headroom; these are set against that ceiling.
+    //
+    // The cadence rules stay deliberately lower than the interior ones. They
+    // are decided FIRST and spend from the same budget, so at parity they
+    // monopolise it — at the ceiling the deceptive ending alone took 74% of
+    // progressions and starved everything else.
     const FLAVOR_RULES = {
-      subtle: { iv: 0.12, minorV: 0.08, minorVCadential: 0, backdoor: 0.10, mediant: 0, passingDim: 0, deceptive: 0 },
-      bold: { iv: 0.25, minorV: 0.18, minorVCadential: 0.10, backdoor: 0.22, mediant: 0.10, passingDim: 0.08, deceptive: 0.05 }
+      subtle: { iv: 0.55, minorV: 0.40, minorVCadential: 0.20, backdoor: 0.45, mediant: 0, passingDim: 0, deceptive: 0 },
+      bold: { iv: 0.75, minorV: 0.60, minorVCadential: 0.35, backdoor: 0.60, mediant: 0.55, passingDim: 0.50, deceptive: 0.25 }
     };
 
     /**
