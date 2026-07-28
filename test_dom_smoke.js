@@ -705,11 +705,23 @@ async function main() {
       chip('guide').click();
       const guide = document.getElementById('settingsGroupGuide');
       check(shown().join() === 'guide', 'Guide opens from the settings chips');
-      check(guide.querySelectorAll('h4').length >= 5, 'guide has its sections');
+      check(guide.querySelectorAll('h4').length >= 9, 'guide has its sections');
       const gtext = guide.textContent;
-      for (const term of ['Play', 'Library', 'Complexity', 'Ensemble', 'Sounding', '12 Keys'])
-        check(gtext.indexOf(term) !== -1, `guide explains "${term}"`);
-      check(/CLAIMS\.md/.test(gtext), 'guide carries the honest provenance note');
+      // Feature coverage: every surface a newcomer meets should be named.
+      for (const term of ['Play', 'Library', 'Complexity', 'Ensemble', 'Sounding', '12 Keys',
+                          'Flavor', 'Trigger', 'Comping', 'Swing', 'Range', 'Backing bass',
+                          'Octave roots', 'Tempo ramp', 'Beats/Chord', 'A/B', 'My Progressions'])
+        check(gtext.indexOf(term) !== -1, `guide covers "${term}"`);
+      // Transport entries name their button symbol, not just the label.
+      for (const sym of ['\u23ee', '\u25b6', '\u25a0', '\u21bb'])
+        check(gtext.indexOf(sym) !== -1, `transport symbol ${sym} appears`);
+      // Honesty: what this is, and where to actually learn.
+      check(/vibe-coded/i.test(gtext), 'guide says plainly that it is vibe-coded');
+      check(/loose approximation/i.test(gtext), 'guide calls itself a loose approximation');
+      check(/CLAIMS\.md/.test(gtext), 'guide points at the claims ledger');
+      for (const who of ['Bud Powell', 'Bill Evans', 'McCoy Tyner', 'Art Tatum', 'Levine', 'Omnibook'])
+        check(gtext.indexOf(who) !== -1, `guide names a real source: ${who}`);
+      check(/A teacher/i.test(gtext), 'guide says to get a teacher');
       chip('song').click();
 
       // Non-default settings dot (v3 §4.3). Earlier checks legitimately leave
