@@ -1027,8 +1027,11 @@
         return nodes;
       });
 
+      // Mixed distributes the sonority across both hands, so its density is the
+      // whole texture's — a 3-note RH over a shell LH is not "thin".
       const { path, totalCost } = dpMinPath(layers, (a, b) =>
-        voiceMovementCost(a.rhMidis, b.rhMidis) + voiceMovementCost(a.lhMidis, b.lhMidis));
+        voiceMovementCost(a.rhMidis, b.rhMidis) + voiceMovementCost(a.lhMidis, b.lhMidis)
+        + densityCost(a.rhMidis.length + a.lhMidis.length, b.rhMidis.length + b.lhMidis.length));
       path.forEach((n, i) => { rhIndices[i] = n.rhVIndex; rhShifts[i] = n.rhShift; lhIndices[i] = n.lhCi; });
       return { rhIndices, rhShifts, lhIndices, totalCost };
     }
@@ -1175,6 +1178,31 @@
         cost += best;
       }
       return cost / 2;
+    }
+
+    /**
+     * Voice-count continuity between adjacent chords.
+     *
+     * voiceMovementCost measures how far each VOICE travels; it says nothing
+     * about how many voices there are. So a 5-note drop-2 followed by a 3-note
+     * quartal can score beautifully — every retained voice barely moves — while
+     * sounding like the texture fell out from under the progression. The ear
+     * tracks density as well as pitch, and a progression that alternates
+     * dense/open reads as lurching even when each voicing is idiomatic on its
+     * own.
+     *
+     * Superlinear on purpose: one voice appearing or dropping away is ordinary
+     * breathing, but a two-voice swing is the jarring case the owner reported,
+     * so it costs 4x rather than 2x.
+     *
+     * Soft, never binding: some qualities offer only one density at a tier (a
+     * triad has no four-note option; a window can force a thinner voicing), and
+     * the DP must still be able to take them.
+     */
+    const DENSITY_STEP_COST = 1.6;
+    function densityCost(prevCount, nextCount) {
+      const d = Math.abs(prevCount - nextCount);
+      return d ? DENSITY_STEP_COST * d * d : 0;
     }
 
     const FALLBACK_VOICING = { left: ['R'], right: ['R'], name: 'Basic', type: null };
@@ -1390,7 +1418,11 @@
         return nonAnchored.length ? nonAnchored : cands;
       });
 
-      dpMinPath(layers, (a, b) => voiceMovementCost(a.rhMidis, b.rhMidis))
+      // The RH is the density variable in the fixed modes: their LH note count
+      // is near-constant by construction (roots 1-2, shells 3, evans 3-4), so
+      // the texture's breathing is the RH's.
+      dpMinPath(layers, (a, b) => voiceMovementCost(a.rhMidis, b.rhMidis)
+          + densityCost(a.rhMidis.length, b.rhMidis.length))
         .path.forEach((n, i) => { indices[i] = n.vIndex; shifts[i] = n.shift; });
       return { indices, shifts };
     }
