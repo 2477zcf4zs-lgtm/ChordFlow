@@ -771,8 +771,8 @@ console.log('\nTest 14: flavor pass (borrowed vocabulary) + flavor subs + borrow
   const plain = ['I', 'IV', 'V', 'I'];
   check(JSON.stringify(T.flavorizeNumerals(plain, 'major', 'off')) === JSON.stringify(plain),
     "flavor 'off' is an identity pass");
-  check(JSON.stringify(T.flavorizeNumerals(plain, 'minor', 'bold')) === JSON.stringify(plain),
-    'minor mode is a deliberate no-op');
+  check(JSON.stringify(T.flavorizeNumerals(['i', 'iv', 'V', 'i'], 'minor', 'off')) ===
+    JSON.stringify(['i', 'iv', 'V', 'i']), "minor flavor 'off' is an identity pass");
 
   // Every vocabulary numeral parses PINNED in C major (roots and qualities)
   const pinned = [
@@ -785,13 +785,16 @@ console.log('\nTest 14: flavor pass (borrowed vocabulary) + flavor subs + borrow
       `${num} parses pinned to ${root} ${quality} (got ${c.root} ${c.quality})`);
   }
 
-  // Statistical sweep: 500 8-bar generations per level
+  // Statistical sweep: 500 generations per level, at BOTH lengths. 4 bars is
+  // the app default and the hardest case (only two interior slots, and
+  // adjacency means at most one interior conversion), so a sweep that only
+  // looked at 8 bars would miss the length the owner actually plays.
   const RUNS = 500;
   const isBorrowedList = nums => nums.map(s => T.isBorrowedNumeral(s, 'major'));
-  const stats = (level) => {
+  const stats = (level, bars = 8) => {
     let withFlavor = 0;
     for (let r = 0; r < RUNS; r++) {
-      const nums = T.buildRandomNumerals('major', 8, 1.0, level);
+      const nums = T.buildRandomNumerals('major', bars, 1.0, level);
       const b = isBorrowedList(nums);
       const n = nums.length;
       if (b.some(x => x)) withFlavor++;
@@ -810,7 +813,7 @@ console.log('\nTest 14: flavor pass (borrowed vocabulary) + flavor subs + borrow
       const backdoors = nums.filter((s, i) => s === 'iv7' && nums[i + 1] === 'bVII7').length;
       const events = b.filter(x => x).length - backdoors;
       const secondaries = nums.filter(s => String(s).includes('/')).length;
-      const cap = (level === 'bold' ? 2 : 1) * 2; // 8 bars = two 4-bar spans
+      const cap = (level === 'bold' ? 2 : 1) * Math.ceil(bars / 4);
       if (events + secondaries > cap)
         check(false, `${level}: chromatic budget blown (${events}+${secondaries} > ${cap}) in ${nums.join(' ')}`);
     }
@@ -819,11 +822,31 @@ console.log('\nTest 14: flavor pass (borrowed vocabulary) + flavor subs + borrow
   const offRate = stats('off');
   const subtleRate = stats('subtle');
   const boldRate = stats('bold');
+  const subtle4 = stats('subtle', 4);
+  const bold4 = stats('bold', 4);
   check(offRate === 0, `off generates no borrowed chords (${offRate})`);
-  check(subtleRate > 0.05 && subtleRate < 0.95,
-    `subtle presence in loose bounds (${(subtleRate * 100).toFixed(0)}% of 8-bar runs)`);
-  check(boldRate > 0.2 && boldRate > subtleRate,
-    `bold is bolder than subtle (${(boldRate * 100).toFixed(0)}% vs ${(subtleRate * 100).toFixed(0)}%)`);
+  // Owner: "the flavor control is not really introducing the interesting
+  // chords enough. It generates borrowed chords pretty rarely." It did: the
+  // per-rule odds read like ordinary probabilities but were CONDITIONAL on a
+  // slot already fitting the rule, and compounded with how rarely a phrase
+  // offers an eligible interior slot. Measured before -> after, share of
+  // generations carrying at least one borrowed chord:
+  //
+  //            4 bars          8 bars
+  //   subtle   13.6% -> 55%    25.7% -> 80%
+  //   bold     31.9% -> 77%    54.8% -> 96%
+  //
+  // Floors sit ~5+ sampling SDs under the measured rates (n=500), so these
+  // pin the improvement without going flaky. The old bounds (subtle > 0.05,
+  // bold > 0.2) would have passed at the rates being complained about.
+  check(subtleRate > 0.65 && subtleRate < 0.95,
+    `subtle delivers color at 8 bars (${(subtleRate * 100).toFixed(0)}%, was 26%)`);
+  check(boldRate > 0.88 && boldRate > subtleRate,
+    `bold is bolder than subtle at 8 bars (${(boldRate * 100).toFixed(0)}% vs ${(subtleRate * 100).toFixed(0)}%)`);
+  // 4 bars is the default length — the case the complaint was really about.
+  check(subtle4 > 0.40, `subtle delivers color at the default 4 bars (${(subtle4 * 100).toFixed(0)}%, was 14%)`);
+  check(bold4 > 0.65 && bold4 > subtle4,
+    `bold delivers color at the default 4 bars (${(bold4 * 100).toFixed(0)}%, was 32%)`);
 
   // Flavor subs offered with correctly spelled roots
   const g7 = T.getChordSubstitutions('G', 'dom7');
@@ -840,6 +863,73 @@ console.log('\nTest 14: flavor pass (borrowed vocabulary) + flavor subs + borrow
   check(!!biii && biii.root === 'Eb', `Cmaj7 bIII mediant spelled Eb (got ${biii && biii.root})`);
   check(g7.some(s => !s.flavor) && cmaj7.some(s => !s.flavor),
     'functional subs still offered alongside flavor');
+
+  // --- Minor mode (owner request: "please enable the flavor setting in minor") ---
+  // Minor is NOT the mirror of major. Aeolian already contains III, VI, VII, iv
+  // and v, so those are diatonic and must NOT read as colour — a blanket
+  // /^b[IViv]/ like major's would tint the flat degrees minor spells unaltered.
+  // Pin both directions, because the negatives are the easy thing to get wrong.
+  {
+    const minorPinned = [
+      ['IV7', 'F', 'dom7'],        // dorian major IV (aeolian's IV is minor)
+      ['bII7', 'Db', 'dom7'],      // tritone sub of V
+      ['bIImaj7', 'Db', 'maj7'],   // Neapolitan as colour
+      ['#iv°7', 'F#', 'dim7'],     // passing dim walking iv -> V
+      ['Imaj7', 'C', 'maj7']       // Picardy third
+    ];
+    for (const [num, root, quality] of minorPinned) {
+      const c = T.parseRomanNumeral(num, 'C', 'minor', 'seventh');
+      check(c.root === root && c.quality === quality,
+        `minor ${num} parses pinned to ${root} ${quality} (got ${c.root} ${c.quality})`);
+      check(T.isBorrowedNumeral(num, 'minor') === true, `minor ${num} reads as borrowed`);
+    }
+    // The diatonic aeolian degrees must stay uncoloured.
+    for (const num of ['i', 'iv', 'v', 'III', 'VI', 'VII', 'ii', 'V']) {
+      check(T.isBorrowedNumeral(num, 'minor') === false,
+        `minor ${num} is diatonic to aeolian, not borrowed`);
+    }
+
+    const RUNS_M = 500;
+    const minorStats = (level, bars) => {
+      let withFlavor = 0;
+      for (let r = 0; r < RUNS_M; r++) {
+        const nums = T.buildRandomNumerals('minor', bars, 1.0, level);
+        const b = nums.map(x => T.isBorrowedNumeral(x, 'minor'));
+        const n = nums.length;
+        if (b.some(Boolean)) withFlavor++;
+        for (let i = 0; i < n; i++) {
+          if (b[i] && b[i + 1]) check(false, `minor ${level}: adjacent conversions in ${nums.join(' ')}`);
+          if (i === 0 && b[i]) check(false, `minor ${level}: opening chord converted in ${nums.join(' ')}`);
+          if (i === n - 1 && b[i] && nums[i] !== 'Imaj7')
+            check(false, `minor ${level}: final slot flavored as ${nums[i]}`);
+          if (level === 'subtle' && ['bIImaj7', '#iv°7', 'Imaj7'].includes(nums[i]))
+            check(false, `minor ${level}: bold-only vocabulary (${nums[i]}) at subtle`);
+        }
+        const events = b.filter(Boolean).length;
+        const secondaries = nums.filter(x => String(x).includes('/')).length;
+        const cap = (level === 'bold' ? 2 : 1) * Math.ceil(bars / 4);
+        if (events + secondaries > cap)
+          check(false, `minor ${level}: chromatic budget blown (${events}+${secondaries} > ${cap}) in ${nums.join(' ')}`);
+        // Every flavored numeral must survive the real parse.
+        for (const num of nums) {
+          const c = T.parseRomanNumeral(num, 'C', 'minor', 'seventh');
+          if (!c || !c.root || !c.quality) check(false, `minor ${level}: ${num} failed to parse`);
+        }
+      }
+      return withFlavor / RUNS_M;
+    };
+    check(minorStats('off', 4) === 0, 'minor off generates no borrowed chords');
+    const mSub4 = minorStats('subtle', 4), mBold4 = minorStats('bold', 4);
+    const mSub8 = minorStats('subtle', 8), mBold8 = minorStats('bold', 8);
+    // Measured 47% / 69% / 67% / 89%. Floors sit several sampling SDs under
+    // those (n=500). Before this change every one of these was 0.
+    check(mSub4 > 0.32, `minor subtle delivers colour at 4 bars (${(mSub4 * 100).toFixed(0)}%, was 0%)`);
+    check(mBold4 > 0.55 && mBold4 > mSub4,
+      `minor bold delivers colour at 4 bars (${(mBold4 * 100).toFixed(0)}%, was 0%)`);
+    check(mSub8 > 0.52, `minor subtle at 8 bars (${(mSub8 * 100).toFixed(0)}%, was 0%)`);
+    check(mBold8 > 0.78 && mBold8 > mSub8,
+      `minor bold at 8 bars (${(mBold8 * 100).toFixed(0)}%, was 0%)`);
+  }
 
   // isBorrowedNumeral truth table
   const bt = [

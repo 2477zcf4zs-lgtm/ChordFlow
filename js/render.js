@@ -921,6 +921,7 @@
     /** Rebuild the My Progressions list. Click handling is delegated once in
         setupEventListeners (mirrors libraryGrid/chordContainer). */
     function renderSavedProgressions() {
+      updateSavedControls(); // Update button tracks whether a save is loaded
       const listEl = document.getElementById('savedList');
       const emptyEl = document.getElementById('savedEmpty');
       const unavailableEl = document.getElementById('savedUnavailable');

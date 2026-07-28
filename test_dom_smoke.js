@@ -273,6 +273,19 @@ async function main() {
     // --- Trial subs during playback + A/B compare (spec v3 phase 2) ---
     window.loadProgression(0); // Dm7 G7 Cmaj7 in C, 12-beat loop
     window.setTempo(120);      // deterministic seam timing: 12 beats = 6s
+    // Pin the QUALITIES for this block. Library entry 0 is bare ["ii","V","I"],
+    // so the V slot re-rolls its quality on every rebuild and lands on a plain
+    // major triad about 2% of the time (~1.8% at density 1.0, ~4.4% at 0.45).
+    // A triad offers no tritone sub, so the 12-keys seam below re-derived the
+    // trialed sub, failed to find 'tritone' on a C major triad, and silently
+    // dropped it — which is CORRECT app behaviour (a stored sub that no longer
+    // applies is meant to be dropped), but made "trialed sub re-derived in the
+    // new key" a ~2% coin flip. That is the long-mislabelled "trial timer
+    // flake": it was never a timer, and the clock here is fully mocked.
+    // Explicit suffixes pin the parse in every key, so the seam re-derives a
+    // dominant every time and the assertion measures what it claims to.
+    st().sourceNumerals = ['ii7', 'V7', 'Imaj7'];
+    window.buildProgressionFromSource();
     const tray2 = document.getElementById('voicingSubs');
     const abBtn = document.getElementById('abCompareBtn');
     const drive = (secs) => {
@@ -1014,6 +1027,94 @@ async function main() {
       document.getElementById('complexitySelect').value === snapshot.complexity,
       'selects sync to the restored state');
 
+    // Settings ride along with the progression (owner request). Save a
+    // deliberately non-default sound, wreck it, then load and check it came
+    // back — and that the CONTROLS came back with it, not just state.
+    {
+      const lhSel = document.getElementById('leftHandSelect');
+      const rangeSel = document.getElementById('rangeSelect');
+      const grooveSel = document.getElementById('grooveSelect');
+      const swing = document.getElementById('swingBtn');
+      lhSel.value = 'evans'; lhSel.dispatchEvent(new window.Event('change'));
+      rangeSel.value = 'reface'; rangeSel.dispatchEvent(new window.Event('change'));
+      grooveSel.value = 'bossa'; grooveSel.dispatchEvent(new window.Event('change'));
+      if (!st().swing) swing.click();
+      window.setTempo(96);
+      const withSettings = window.saveCurrentProgression('Settings Tune');
+      check(!!withSettings && !!withSettings.settings,
+        'save captures a settings bag alongside the chords');
+      check(withSettings.settings.leftHand === 'evans' && withSettings.settings.range === 'reface' &&
+        withSettings.settings.groove === 'bossa' && withSettings.settings.swing === true &&
+        withSettings.settings.tempo === 96,
+        'the bag holds the sound settings, not just the chords');
+
+      // Wreck every one of them.
+      lhSel.value = 'roots'; lhSel.dispatchEvent(new window.Event('change'));
+      rangeSel.value = 'full'; rangeSel.dispatchEvent(new window.Event('change'));
+      grooveSel.value = 'block'; grooveSel.dispatchEvent(new window.Event('change'));
+      if (st().swing) swing.click();
+      window.setTempo(140);
+      window.generateRandomProgression();
+
+      window.loadSavedProgression(withSettings.id);
+      check(st().leftHand === 'evans' && st().range === 'reface' && st().groove === 'bossa' &&
+        st().swing === true && st().tempo === 96,
+        'loading restores the saved settings');
+      check(lhSel.value === 'evans' && rangeSel.value === 'reface' && grooveSel.value === 'bossa' &&
+        swing.querySelector('.btn-label').textContent === 'Swing: On' &&
+        document.getElementById('tempoSlider').value === '96',
+        'the settings CONTROLS follow state, not just state itself');
+
+      // A loaded progression is a snapshot: editing it must not write back.
+      const beforeEdit = JSON.stringify(window.readSavedProgressions().find(e => e.id === withSettings.id));
+      lhSel.value = 'shells'; lhSel.dispatchEvent(new window.Event('change'));
+      keySel.value = 'Ab'; keySel.dispatchEvent(new window.Event('change'));
+      check(JSON.stringify(window.readSavedProgressions().find(e => e.id === withSettings.id)) === beforeEdit,
+        'editing a loaded progression does NOT overwrite the saved copy');
+
+      // ...until Update is pressed. It only exists while a save is loaded.
+      const updBtn = document.getElementById('updateProgressionBtn');
+      check(!!updBtn && updBtn.hidden === false, 'Update shows while a saved progression is loaded');
+      updBtn.click();
+      const after = window.readSavedProgressions().find(e => e.id === withSettings.id);
+      check(after.key === 'Ab' && after.settings.leftHand === 'shells',
+        'Update writes the edits back to the same entry');
+      check(after.id === withSettings.id && after.name === 'Settings Tune' &&
+        window.readSavedProgressions().length === 2,
+        'Update keeps the id and name, and adds no duplicate');
+
+      // Anything that puts a different progression on screen retires the target.
+      window.generateRandomProgression();
+      check(st().loadedSavedId === null && updBtn.hidden === true,
+        'generating a new progression hides Update (nothing to update)');
+
+      // Old entries predate the settings bag; loading one must leave the
+      // current sound alone rather than snapping it to defaults.
+      const legacy = window.readSavedProgressions().find(e => e.id === withSettings.id);
+      delete legacy.settings;
+      window.eval('writeSavedProgressions(' + JSON.stringify([legacy]) + ')');
+      lhSel.value = 'bassonly'; lhSel.dispatchEvent(new window.Event('change'));
+      window.loadSavedProgression(legacy.id);
+      check(st().leftHand === 'bassonly',
+        'a pre-settings entry loads without disturbing the current settings');
+      window.localStorage.removeItem('chordflow.savedProgressions.v1');
+      window.renderSavedProgressions();
+      // This block deliberately drove every sound setting off its default, and
+      // the loads above restored them again — so hand the suite back exactly
+      // what it had, or the later groove/swing and range checks measure this
+      // block's leftovers instead of their own behaviour.
+      lhSel.value = 'mixed'; lhSel.dispatchEvent(new window.Event('change'));
+      rangeSel.value = 'full'; rangeSel.dispatchEvent(new window.Event('change'));
+      grooveSel.value = 'block'; grooveSel.dispatchEvent(new window.Event('change'));
+      if (st().swing) swing.click();
+      window.setTempo(120);
+    }
+
+    // Re-save for the rename/export/delete/import checks below.
+    window.loadProgression(autumnIdx);
+    const savedEntry2 = window.saveCurrentProgression('Smoke Test Tune');
+    savedEntry.id = savedEntry2.id;
+
     // Rename + export + delete + import
     check(window.renameSavedProgression(savedEntry.id, 'Renamed Tune') === true &&
       document.querySelector('.saved-name').textContent === 'Renamed Tune', 'rename persists and re-renders');
@@ -1035,6 +1136,110 @@ async function main() {
     window.eval('storageAvailable = __realStorageAvailable;');
     window.renderSavedProgressions();
     window.loadProgression(0);
+
+    // Flavor in MINOR (owner request). The control used to be inert in minor —
+    // flavorizeNumerals returned early — so this walks the real UI path to
+    // prove the setting now reaches generation, tints, and plays.
+    {
+      const modeSel = document.getElementById('modeSelect');
+      const flavorBtn = document.getElementById('flavorBtn');
+      const prevMode = st().mode;
+      while (st().flavor !== 'off') flavorBtn.click();
+      modeSel.value = 'minor'; modeSel.dispatchEvent(new window.Event('change'));
+      flavorBtn.click(); flavorBtn.click(); // -> bold
+      check(st().mode === 'minor' && st().flavor === 'bold', 'minor + Bold selected');
+      let sawBorrowed = false, sawTint = false;
+      for (let t = 0; t < 60 && !sawBorrowed; t++) {
+        window.generateRandomProgression();
+        if (st().sourceNumerals.some(nu => window.isBorrowedNumeral(nu, 'minor'))) {
+          sawBorrowed = true;
+          sawTint = document.querySelectorAll('.chord-cell.borrowed, .chord-cell .borrowed').length > 0 ||
+                    st().progression.some(c => c.borrowed === true);
+        }
+      }
+      check(sawBorrowed, 'Bold in minor actually generates borrowed chords');
+      check(sawTint, 'borrowed chords in minor carry the tint flag');
+      check(errors.length === 0, 'no script errors generating flavored minor progressions');
+      // And they must survive the whole realization pipeline, not just parse.
+      window.renderVoicing();
+      check(st().progression.every(c => c.root && c.quality),
+        'every flavored minor chord realizes');
+      while (st().flavor !== 'off') flavorBtn.click();
+      modeSel.value = prevMode; modeSel.dispatchEvent(new window.Event('change'));
+      window.loadProgression(0);
+    }
+
+    // --- Session snapshot (reopen where you left off) ---
+    {
+      const SESSION_KEY = 'chordflow.session.v1';
+      window.localStorage.removeItem(SESSION_KEY);
+      const lhSel = document.getElementById('leftHandSelect');
+
+      // Build a distinctive desk: specific chords, a manual voicing cycle, a
+      // non-default sound, a selected chord.
+      window.loadProgression(autumnIdx);
+      keySel.value = 'Db'; keySel.dispatchEvent(new window.Event('change'));
+      lhSel.value = 'shells'; lhSel.dispatchEvent(new window.Event('change'));
+      window.setTempo(88);
+      window.selectChord(2);
+      window.selectChord(2); // re-selecting cycles: a manual choice, not the optimizer's
+      const want = {
+        numerals: JSON.stringify(st().sourceNumerals),
+        key: st().key, tempo: st().tempo, lh: st().leftHand,
+        vIdx: JSON.stringify(st().voicingIndices),
+        vShift: JSON.stringify(st().voicingShifts),
+        selected: st().selectedChordIndex
+      };
+      check(window.persistSession() === true, 'session snapshot writes to localStorage');
+      check(!!window.localStorage.getItem(SESSION_KEY), 'the snapshot is actually stored');
+
+      // Simulate a reopen: scramble everything, then restore.
+      window.generateRandomProgression();
+      keySel.value = 'G'; keySel.dispatchEvent(new window.Event('change'));
+      lhSel.value = 'mixed'; lhSel.dispatchEvent(new window.Event('change'));
+      window.setTempo(150);
+      check(window.restoreSession() === true, 'restoreSession reports success');
+      check(JSON.stringify(st().sourceNumerals) === want.numerals && st().key === want.key,
+        'the same chords come back, in the same key');
+      check(st().leftHand === want.lh && st().tempo === want.tempo,
+        'the settings come back');
+      check(lhSel.value === want.lh && document.getElementById('tempoSlider').value === String(want.tempo),
+        'the controls come back too');
+      check(JSON.stringify(st().voicingIndices) === want.vIdx &&
+        JSON.stringify(st().voicingShifts) === want.vShift,
+        'manual voicing choices survive (not silently re-optimised)');
+      check(st().selectedChordIndex === want.selected, 'the selected chord comes back');
+
+      // A reopened app must never come back playing.
+      check(st().isPlaying === false, 'restore never resumes playback');
+
+      // Junk must be refused, not trusted — a corrupt snapshot cannot be
+      // allowed to brick startup.
+      window.localStorage.setItem(SESSION_KEY, '{not json');
+      check(window.restoreSession() === false, 'a corrupt snapshot is refused');
+      window.localStorage.setItem(SESSION_KEY, JSON.stringify({ v: 99, sourceNumerals: ['I'] }));
+      check(window.restoreSession() === false, 'a snapshot from a future version is refused');
+      window.localStorage.setItem(SESSION_KEY, JSON.stringify({ v: 1, sourceNumerals: [] }));
+      check(window.restoreSession() === false, 'an empty snapshot is refused');
+
+      // A stale voicing array from a DIFFERENT progression must not be indexed
+      // into this one's voicing tables.
+      const good = JSON.parse(window.localStorage.getItem(SESSION_KEY) || '{}');
+      window.loadProgression(autumnIdx);
+      window.persistSession();
+      const snap = JSON.parse(window.localStorage.getItem(SESSION_KEY));
+      snap.voicingIndices = [0]; // one entry for a many-chord progression
+      snap.voicingShifts = [0];
+      window.localStorage.setItem(SESSION_KEY, JSON.stringify(snap));
+      check(window.restoreSession() === true, 'a length-mismatched voicing array still restores');
+      check(st().voicingIndices.length === st().progression.length,
+        'the mismatched array is dropped, not indexed into (fresh optimizer result kept)');
+
+      window.localStorage.removeItem(SESSION_KEY);
+      lhSel.value = 'mixed'; lhSel.dispatchEvent(new window.Event('change'));
+      window.setTempo(120);
+      window.loadProgression(0);
+    }
 
     // --- Comping grooves + swing ---
     const grooveSelect = document.getElementById('grooveSelect');

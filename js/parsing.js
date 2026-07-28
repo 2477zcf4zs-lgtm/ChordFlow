@@ -196,6 +196,15 @@
         if (/^iv(?!i)/.test(numeral)) return true; // borrowed iv (vi/vii excluded below)
         if (/^v(?!i)/.test(numeral)) return true;  // minor v — 'vi'/'vii' don't match
       }
+      if (mode === 'minor') {
+        // Minor is NOT the mirror of major here. Aeolian already contains III,
+        // VI, VII, iv and v, so those are diatonic and carry no colour — a
+        // blanket /^b[IViv]/ like major's would wrongly tint the flat degrees
+        // that minor spells unaltered anyway. Only three things are chromatic:
+        if (/^bII/.test(numeral)) return true;      // Neapolitan / tritone sub of V
+        if (/^IV(?!i)/.test(numeral)) return true;  // dorian major IV (aeolian's is minor)
+        if (/^I(?![IViv])/.test(numeral)) return true; // Picardy major tonic
+      }
       return false;
     }
 
