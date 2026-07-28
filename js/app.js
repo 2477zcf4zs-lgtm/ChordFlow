@@ -549,6 +549,44 @@
     // INITIALIZATION
     // ============================================
 
+    /**
+     * Notice when this page is running against a newer deploy. A cached page
+     * cannot know it is stale on its own — the running code IS the stale thing
+     * — so it asks the server: version.json is fetched with cache defeated
+     * (no-store plus a cache-busting query, since Safari honours neither alone
+     * reliably) and compared against the build id baked into this document.
+     *
+     * Re-checked when the tab regains focus, because the common case is a
+     * phone that has had the app open in a background tab across a deploy.
+     */
+    function watchForNewVersion() {
+      const banner = document.getElementById('updateBanner');
+      const meta = document.querySelector('meta[name="app-version"]');
+      if (!banner || !meta || !meta.content || typeof fetch !== 'function') return;
+      const mine = meta.content;
+      let dismissed = false;
+
+      const check = () => {
+        if (dismissed || !banner.hidden) return;
+        fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
+          .then(r => (r.ok ? r.json() : null))
+          .then(d => { if (d && d.version && d.version !== mine) banner.hidden = false; })
+          .catch(() => {}); // offline, or opened from file:// — say nothing
+      };
+
+      document.getElementById('updateReloadBtn').addEventListener('click', () => {
+        // Reload from the network rather than the bfcache.
+        location.replace(location.pathname + '?v=' + Date.now() + location.hash);
+      });
+      document.getElementById('updateDismissBtn').addEventListener('click', () => {
+        dismissed = true;
+        banner.hidden = true;
+      });
+
+      check();
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+    }
+
     function init() {
       renderLibrary();
       renderSavedProgressions();
@@ -558,6 +596,8 @@
 
       // Load a default progression
       loadProgression(0);
+
+      watchForNewVersion();
     }
 
     init();

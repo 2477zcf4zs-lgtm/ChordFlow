@@ -5,9 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Chord Flow — Practice Progressions</title>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=33e063a8">
+  <meta name="app-version" content="9608c42d6164">
+  <link rel="stylesheet" href="css/styles.css?v=cc5f5663">
 </head>
 <body>
+  <!-- Shown only when version.json reports a build newer than this page's
+       meta. Fixed-position so it can never disturb the no-scroll shell. -->
+  <div class="update-banner" id="updateBanner" role="status" hidden>
+    <span class="update-banner-text">A newer version of ChordFlow is available.</span>
+    <button type="button" class="update-banner-btn" id="updateReloadBtn">Refresh</button>
+    <button type="button" class="update-banner-x" id="updateDismissBtn" aria-label="Dismiss">&times;</button>
+  </div>
+
   <div class="app">
     <div class="app-main">
       <!-- The old full-width header (wordmark + tagline + status) spent a row
@@ -626,6 +635,6 @@
   <script src="js/audio.js?v=6f69b5fc"></script>
   <script src="js/state.js?v=6928afed"></script>
   <script src="js/render.js?v=d3b97beb"></script>
-  <script src="js/app.js?v=694638c5"></script>
+  <script src="js/app.js?v=0c78d82e"></script>
 </body>
 </html>
