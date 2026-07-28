@@ -273,6 +273,19 @@ async function main() {
     // --- Trial subs during playback + A/B compare (spec v3 phase 2) ---
     window.loadProgression(0); // Dm7 G7 Cmaj7 in C, 12-beat loop
     window.setTempo(120);      // deterministic seam timing: 12 beats = 6s
+    // Pin the QUALITIES for this block. Library entry 0 is bare ["ii","V","I"],
+    // so the V slot re-rolls its quality on every rebuild and lands on a plain
+    // major triad about 2% of the time (~1.8% at density 1.0, ~4.4% at 0.45).
+    // A triad offers no tritone sub, so the 12-keys seam below re-derived the
+    // trialed sub, failed to find 'tritone' on a C major triad, and silently
+    // dropped it — which is CORRECT app behaviour (a stored sub that no longer
+    // applies is meant to be dropped), but made "trialed sub re-derived in the
+    // new key" a ~2% coin flip. That is the long-mislabelled "trial timer
+    // flake": it was never a timer, and the clock here is fully mocked.
+    // Explicit suffixes pin the parse in every key, so the seam re-derives a
+    // dominant every time and the assertion measures what it claims to.
+    st().sourceNumerals = ['ii7', 'V7', 'Imaj7'];
+    window.buildProgressionFromSource();
     const tray2 = document.getElementById('voicingSubs');
     const abBtn = document.getElementById('abCompareBtn');
     const drive = (secs) => {
