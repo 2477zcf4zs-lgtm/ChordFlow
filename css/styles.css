@@ -1263,10 +1263,21 @@
     }
 
     .settings-group-btn {
-      flex: 1;
+      /* iOS renders a <button> with its native control look unless appearance
+         is cleared — white pill, native metrics — which also makes it size
+         itself and overflow this row. flex-basis 0 + min-width 0 lets four
+         chips share a 390px panel without the first one clipping. */
+      appearance: none;
+      -webkit-appearance: none;
+      -webkit-tap-highlight-color: transparent;
+      flex: 1 1 0;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
       font-family: 'DM Sans', sans-serif;
-      font-size: 0.8rem;
-      padding: 6px 14px;
+      font-size: 0.78rem;
+      padding: 7px 4px;
       border-radius: 16px;
       border: 1px solid var(--border-subtle);
       background: var(--bg-elevated);
@@ -1330,6 +1341,9 @@
     }
 
     .dict-category-btn {
+      appearance: none;
+      -webkit-appearance: none;
+      -webkit-tap-highlight-color: transparent;
       font-family: 'DM Sans', sans-serif;
       font-size: 0.8rem;
       padding: 6px 14px;
@@ -1394,6 +1408,9 @@
        Sits between the chord name and the A/B button, so it stays quiet —
        it reports the current mode more often than it gets tapped. */
     .lh-mode-chip {
+      appearance: none;
+      -webkit-appearance: none;
+      -webkit-tap-highlight-color: transparent;
       flex: none;
       margin-left: auto;
       font-family: 'DM Sans', sans-serif;
