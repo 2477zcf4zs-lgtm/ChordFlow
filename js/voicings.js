@@ -711,14 +711,33 @@
      * tenor octave, and the A/B choice is the classic source of smooth rootless
      * voice leading. Returns { indices: [...] }.
      */
-    function computeLeftHandVoicings(progression) {
+    /**
+     * `rhMidis` (per chord, optional) is the REALIZED right hand. The evans LH
+     * pool is drawn from the same Type A/B shapes the right hand plays, so
+     * without it both hands optimize independently and can land on the same
+     * pitches in the same octave — the app then shows one voicing twice and
+     * paints a single set of keys.
+     *
+     * The filter is on PITCHES, not on shape: the same shape an octave apart is
+     * a legitimate texture, and so is a different rotation of the same tones.
+     * Only an exact unison is excluded. If that would empty a chord's pool the
+     * full pool is kept, so a layer can never vanish (the placement backstop in
+     * realizeVoicing still separates the hands).
+     */
+    function computeLeftHandVoicings(progression, rhMidis) {
       const indices = [];
       if (!progression || !progression.length) return { indices };
-      const layers = progression.map(chord =>
-        lhRootlessShapesFor(chord.quality).map((ivs, vIndex) => {
+      const layers = progression.map((chord, ci) => {
+        const rh = rhMidis && rhMidis[ci];
+        const rhKey = rh && rh.length ? JSON.stringify(rh) : null;
+        const all = lhRootlessShapesFor(chord.quality).map((ivs, vIndex) => {
           const midis = realizeHand(chord.root, ivs, LH_ROOTLESS_BASE).map(n => n.midi);
           return { vIndex, midis, localCost: lhRegisterPenalty(midis) };
-        }));
+        });
+        if (!rhKey) return all;
+        const distinct = all.filter(c => JSON.stringify(c.midis) !== rhKey);
+        return distinct.length ? distinct : all;
+      });
       dpMinPath(layers, (a, b) => voiceMovementCost(a.midis, b.midis))
         .path.forEach((n, i) => { indices[i] = n.vIndex; });
       return { indices };
@@ -880,6 +899,39 @@
         const low = realizeHand(rootNote, cands[safe], MIX_LH_BASES[b]);
         if (Math.max(...low.map(n => n.midi)) < rhBottom) return { notes: low, dropOctaves: b };
       }
+      return { notes: home, dropOctaves: 0 };
+    }
+
+    /**
+     * Realize a left hand at its home base, dropping by octaves only as far as
+     * needed to keep it STRICTLY below rhBottom.
+     *
+     * Mixed mode has always done this (mixedLhPlacement); evans, shells and
+     * roots realized at a fixed base and ignored the right hand entirely, so a
+     * downward RH octave shift put the two hands in the same register — 2,239
+     * crossed textures in evans, 1,610 in shells, 633 in roots, against 0 in
+     * mixed. This is that same rule, generalized: the hands are not two
+     * independent problems.
+     *
+     * Returns { notes, dropOctaves }; dropOctaves is 0 at home, and lets the
+     * caller price the displacement. If nothing clears (no real window does
+     * this), the home realization comes back and the caller decides.
+     */
+    function placeHandBelow(rootNote, intervals, homeBase, rhBottom) {
+      const home = realizeHand(rootNote, intervals, homeBase);
+      if (!home.length || !(rhBottom < Infinity) ||
+          Math.max(...home.map(n => n.midi)) < rhBottom) return { notes: home, dropOctaves: 0 };
+      for (let d = 1; d <= 3; d++) {
+        const low = realizeHand(rootNote, intervals, homeBase - 12 * d);
+        const midis = low.map(n => n.midi);
+        // Never drop below the app's bass floor (C2) — that is also the reface
+        // window's floor, and a hand under it is off the practical keyboard.
+        if (Math.min(...midis) < LH_BASE) break;
+        if (Math.max(...midis) < rhBottom) return { notes: low, dropOctaves: d };
+      }
+      // Nothing clears without going under the floor. Return home and let the
+      // RH-descent penalty keep the optimizer out of this corner in the first
+      // place — better a rare tight texture than a hand below the keyboard.
       return { notes: home, dropOctaves: 0 };
     }
 
@@ -1064,11 +1116,12 @@
       let left;
       if (leftHandMode === 'rootless') left = [];
       else if (leftHandMode === 'mixed') left = realizeMixedCandidateBelow(rootNote, quality, lhIndex, rhBottom);
-      else if (leftHandMode === 'shells') left = realizeShellHand(rootNote, quality);
+      else if (leftHandMode === 'shells')
+        left = placeHandBelow(rootNote, guideToneIntervals(quality), SHELL_TONE_BASE, rhBottom).notes;
       else if (leftHandMode === 'evans') {
         const shapes = lhRootlessShapesFor(quality);
         const safe = ((lhIndex || 0) % shapes.length + shapes.length) % shapes.length;
-        left = realizeHand(rootNote, shapes[safe], LH_ROOTLESS_BASE);
+        left = placeHandBelow(rootNote, shapes[safe], LH_ROOTLESS_BASE, rhBottom).notes;
       } else if (leftHandMode === 'bassonly') left = realizeHand(rootNote, ['R'], LH_BASE);
       else {
         // Roots mode: a LONE root comps in the pianist's C3 register (fixes the
@@ -1079,7 +1132,9 @@
         // window/register handling moves to the distribution solver, Stage B-1.)
         const lh = voicingLh(voicing); // the stack's default LH slice
         const base = lh.length > 1 ? LH_BASE : LH_COMP_BASE;
-        left = realizeHand(rootNote, lh, base);
+        // A lone root in the C3 comping zone can sit ABOVE a right hand the
+        // optimizer pulled down an octave; drop it under, same as every other mode.
+        left = placeHandBelow(rootNote, lh, base, rhBottom).notes;
       }
       return { left, right };
     }
@@ -1182,7 +1237,14 @@
       }
       const rhMidis = realizeHand(rootNote, voicingRh(voicing), RH_BASE + shift).map(n => n.midi);
       const lh = voicingLh(voicing);
-      const lhMidis = lh.length ? realizeHand(rootNote, lh, lh.length > 1 ? LH_BASE : LH_COMP_BASE).map(n => n.midi) : [];
+      // Mirror roots-mode realization exactly (invariant, Test 21) — including
+      // its drop below the right hand. The window then constrains the texture
+      // that will actually sound, so a shift that squeezes the left hand out of
+      // register is costed rather than discovered later.
+      const rhBottom = rhMidis.length ? Math.min(...rhMidis) : Infinity;
+      const lhMidis = lh.length
+        ? placeHandBelow(rootNote, lh, lh.length > 1 ? LH_BASE : LH_COMP_BASE, rhBottom).notes.map(n => n.midi)
+        : [];
       return { lhMidis, rhMidis, whole: lhMidis.concat(rhMidis) };
     }
 
@@ -1193,7 +1255,57 @@
      * the automatic default. Each candidate carries its full realized texture
      * (`lhMidis` + `rhMidis`); the window constrains the whole texture.
      */
-    function buildVoicingCandidates(chord, complexity, range = null) {
+    // Cost per semitone the RH descends into the register the LEFT hand wants.
+    // Soft on purpose (owner: "try not to descend that far, but it has the
+    // option if the left hand is already in a lower register") — a window can
+    // still force it, and modes whose LH lives low (bassonly, the C2 two-note
+    // shells) have a low ceiling and so pay nothing.
+    const RH_DESCENT_COST = 1.5;
+
+    /**
+     * The LOWEST top note the left hand can reach for this chord in this mode
+     * — i.e. after dropping as many octaves as the C2 floor allows. If even
+     * that is at or above the right hand's bottom, the hands MUST collide: no
+     * placement can separate them, and the RH is simply too low.
+     *
+     * This is what the descent penalty keys on, rather than the home ceiling.
+     * Penalising every descent double-counts, because placeHandBelow already
+     * resolves most of them — and in high keys the RH's downward shift is
+     * correct register behaviour that should not be fought. Only the corner
+     * where separation is impossible is worth a cost.
+     *
+     * -Infinity (never penalised) where the LH imposes nothing: rootless plays
+     * none, bassonly sits at C2 under everything, lhcomp silences the RH.
+     */
+    function lhFloorCeiling(rootNote, quality, leftHandMode, voicing) {
+      let ivs, base;
+      if (leftHandMode === 'rootless' || leftHandMode === 'bassonly' || leftHandMode === 'lhcomp')
+        return -Infinity;
+      if (leftHandMode === 'shells') { ivs = guideToneIntervals(quality); base = SHELL_TONE_BASE; }
+      else if (leftHandMode === 'evans') {
+        // Whichever shape wins is decided after the RH, so take the pool's
+        // most forgiving member — the one that can sit lowest.
+        const shapes = lhRootlessShapesFor(quality);
+        let best = Infinity;
+        for (const sh of shapes) best = Math.min(best, lowestTop(rootNote, sh, LH_ROOTLESS_BASE));
+        return shapes.length ? best : -Infinity;
+      } else { ivs = voicing ? voicingLh(voicing) : ['R']; base = ivs.length > 1 ? LH_BASE : LH_COMP_BASE; }
+      return lowestTop(rootNote, ivs, base);
+    }
+
+    /** Top note of `intervals` placed as low as the C2 floor permits. */
+    function lowestTop(rootNote, intervals, base) {
+      if (!intervals || !intervals.length) return -Infinity;
+      let top = Math.max(...realizeHand(rootNote, intervals, base).map(n => n.midi));
+      for (let d = 1; d <= 3; d++) {
+        const midis = realizeHand(rootNote, intervals, base - 12 * d).map(n => n.midi);
+        if (Math.min(...midis) < LH_BASE) break;
+        top = Math.max(...midis);
+      }
+      return top;
+    }
+
+    function buildVoicingCandidates(chord, complexity, range = null, leftHandMode = 'roots') {
       const cands = [];
       const spill = []; // out-of-window candidates, kept only if nothing fits
       // extended/altered reuse the 'seventh' cost table so their native
@@ -1225,7 +1337,17 @@
           const rhMidis = tex.rhMidis;
           const overflow = windowOverflow(tex.whole, range);
           const sparsity = anchored ? 0 : Math.max(0, 4 - rhMidis.length);
-          const localCost = registerPenalty(rhMidis) + sparsity * 0.4 + tierCost;
+          // Descending into the left hand's register is discouraged, not
+          // banned: an anchored voicing IS one two-hand sonority, so it is
+          // exempt (its "LH" is part of the same stack, by construction below
+          // the RH slice).
+          let descent = 0;
+          if (!anchored && rhMidis.length) {
+            const floorTop = lhFloorCeiling(chord.root, chord.quality, leftHandMode, voicing);
+            const overlap = floorTop - Math.min(...rhMidis);
+            if (overlap >= 0) descent = (overlap + 1) * RH_DESCENT_COST;
+          }
+          const localCost = registerPenalty(rhMidis) + sparsity * 0.4 + tierCost + descent;
           const cand = { vIndex, shift, rhMidis, lhMidis: tex.lhMidis, localCost, anchored };
           if (overflow > 0) {
             spill.push({ overflow, cand });
@@ -1250,7 +1372,7 @@
      * choice can't paint the progression into a corner.
      * Returns { indices: [...], shifts: [...] }.
      */
-    function computeProgressionVoicings(progression, complexity, range = null) {
+    function computeProgressionVoicings(progression, complexity, range = null, leftHandMode = 'roots') {
       const indices = [];
       const shifts = [];
       if (!progression || !progression.length) return { indices, shifts };
@@ -1263,7 +1385,7 @@
       // hands) and to manual selection — never dealt here. (Non-anchored
       // candidates always exist, so a layer never empties; guard anyway.)
       const layers = progression.map(chord => {
-        const cands = buildVoicingCandidates(chord, complexity, range);
+        const cands = buildVoicingCandidates(chord, complexity, range, leftHandMode);
         const nonAnchored = cands.filter(c => !c.anchored);
         return nonAnchored.length ? nonAnchored : cands;
       });
@@ -1293,7 +1415,7 @@
         state.lhVoicingIndices = joint.lhIndices;
         return;
       }
-      const result = computeProgressionVoicings(state.progression, state.complexity, range);
+      const result = computeProgressionVoicings(state.progression, state.complexity, range, state.leftHand);
       state.voicingIndices = result.indices;
       state.voicingShifts = result.shifts;
       recomputeLhIndices();
@@ -1310,9 +1432,19 @@
      * handled here — its RH is chosen jointly, so it needs the full recompute.
      */
     function recomputeLhIndices() {
-      state.lhVoicingIndices = state.leftHand === 'lhcomp'
-        ? computeInversionComp(state.progression).indices
-        : computeLeftHandVoicings(state.progression).indices;
+      if (state.leftHand === 'lhcomp') {
+        state.lhVoicingIndices = computeInversionComp(state.progression).indices;
+        return;
+      }
+      // The RH selection is already settled by this point, so the LH pool can
+      // see it and refuse an exact unison with it.
+      const rhMidis = state.progression.map((chord, i) => {
+        const vs = voicingsFor(chord.quality, state.complexity);
+        const v = vs[((state.voicingIndices[i] || 0) % vs.length + vs.length) % vs.length];
+        if (!v) return null;
+        return realizeCandidateTexture(chord.root, v, state.voicingShifts[i] || 0).rhMidis;
+      });
+      state.lhVoicingIndices = computeLeftHandVoicings(state.progression, rhMidis).indices;
     }
 
     /**

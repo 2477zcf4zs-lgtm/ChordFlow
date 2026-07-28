@@ -1178,7 +1178,9 @@ async function main() {
     // must run on a chord that actually HAS a lone-root LH — picking blind
     // fails whenever the random progression seats a triad here.
     const octBtn = document.getElementById('octaveRootsBtn');
-    check(!!octBtn && st().octaveRoots === false, 'octave roots starts off');
+    check(!!octBtn && st().octaveRoots === true, 'octave roots starts ON (default since 2026-07-28)');
+    octBtn.click(); // turn OFF first, so the toggle test below still measures a lone->doubled transition
+    check(st().octaveRoots === false, 'octave roots toggles off');
     let loneRootAt = -1;
     for (let i = 0; i < st().progression.length; i++) {
       window.selectChord(i);
