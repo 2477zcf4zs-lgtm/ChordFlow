@@ -92,7 +92,14 @@
       }, { passive: true });
 
       // Transport controls
-      elements.playBtn.addEventListener('click', () => { togglePlayback(); elements.playBtn.blur(); });
+      elements.playBtn.addEventListener('click', () => {
+        togglePlayback();
+        if (state.isPlaying) maybeShowSilentHint();
+        elements.playBtn.blur();
+      });
+      document.getElementById('silentHintDismiss').addEventListener('click', () => {
+        document.getElementById('silentHint').hidden = true;
+      });
       elements.prevChordBtn.addEventListener('click', () => { stepChord(-1); elements.prevChordBtn.blur(); });
       elements.nextChordBtn.addEventListener('click', () => { stepChord(1); elements.nextChordBtn.blur(); });
       elements.stopBtn.addEventListener('click', () => { stopAndReset(); elements.stopBtn.blur(); });
@@ -585,6 +592,33 @@
 
       check();
       document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+    }
+
+    /**
+     * On iOS the hardware ring/silent switch mutes Web Audio, so a muted phone
+     * makes the app look thoroughly broken rather than muted — the transport
+     * runs, the chart highlights, and nothing sounds. Say so once, the first
+     * time playback starts on a touch device, then never again.
+     *
+     * Touch-only because a desktop has no such switch, and once-only because a
+     * hint you have already read is just clutter. localStorage is wrapped:
+     * private browsing can throw on write, and a hint must never break play.
+     */
+    const SILENT_HINT_KEY = 'chordflow.silentHintSeen';
+    function maybeShowSilentHint() {
+      const el = document.getElementById('silentHint');
+      if (!el || !el.hidden) return;
+      // `(pointer: coarse)` is the accurate "touch-primary device" signal.
+      // `'ontouchstart' in window` is NOT: it is true in desktop Chrome on any
+      // touch-capable machine (and in jsdom), which would show a phone hint to
+      // people who have no silent switch to check.
+      const coarse = typeof window.matchMedia === 'function' &&
+        window.matchMedia('(pointer: coarse)').matches;
+      if (!coarse) return;
+      try { if (localStorage.getItem(SILENT_HINT_KEY)) return; } catch (e) { /* blocked: still show */ }
+      el.hidden = false;
+      try { localStorage.setItem(SILENT_HINT_KEY, '1'); } catch (e) { /* blocked: shows again next time */ }
+      setTimeout(() => { el.hidden = true; }, 9000);
     }
 
     function init() {

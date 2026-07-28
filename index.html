@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Chord Flow — Practice Progressions</title>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <meta name="app-version" content="9608c42d6164">
-  <link rel="stylesheet" href="css/styles.css?v=cc5f5663">
+  <meta name="app-version" content="de94d1d524a8">
+  <link rel="stylesheet" href="css/styles.css?v=7f7a22b2">
 </head>
 <body>
   <!-- Shown only when version.json reports a build newer than this page's
@@ -15,6 +15,13 @@
     <span class="update-banner-text">A newer version of ChordFlow is available.</span>
     <button type="button" class="update-banner-btn" id="updateReloadBtn">Refresh</button>
     <button type="button" class="update-banner-x" id="updateDismissBtn" aria-label="Dismiss">&times;</button>
+  </div>
+
+  <!-- Shown once, the first time playback starts on a touch device: a muted
+       ring/silent switch makes the app look broken rather than muted. -->
+  <div class="silent-hint" id="silentHint" role="status" hidden>
+    <span class="silent-hint-text">Hearing nothing? Take your device off silent — the ring/silent switch mutes web audio.</span>
+    <button type="button" class="update-banner-x" id="silentHintDismiss" aria-label="Dismiss">&times;</button>
   </div>
 
   <div class="app">
@@ -384,6 +391,9 @@
               <strong>Library</strong> for a standard.</li>
               <li>Press <strong>Play</strong> (the triangle ▶, the gold button). The chart highlights each
               chord as it sounds.</li>
+              <li><strong>On a phone or tablet: take it off silent.</strong> iPhones and iPads mute web
+              audio with the hardware ring/silent switch, so on silent the app looks like it is running
+              perfectly and playing nothing. Turn the ringer on and bring the volume up.</li>
               <li>Tap any chord box to see its voicing on the piano.</li>
             </ol>
 
@@ -635,6 +645,6 @@
   <script src="js/audio.js?v=6f69b5fc"></script>
   <script src="js/state.js?v=6928afed"></script>
   <script src="js/render.js?v=d3b97beb"></script>
-  <script src="js/app.js?v=0c78d82e"></script>
+  <script src="js/app.js?v=e19c163f"></script>
 </body>
 </html>
