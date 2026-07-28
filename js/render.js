@@ -129,7 +129,7 @@
 
       let html = '';
       progression.forEach((chord, index) => {
-        const symbol = formatChordSymbol(chord.root, chord.quality);
+        const symbol = formatChordSymbolReadable(chord.root, chord.quality);
 
         let dots = '';
         for (let b = 0; b < beatsPerChord; b++) dots += '<div class="beat-dot"></div>';
@@ -186,7 +186,7 @@
       if (!progression.length) { grid.innerHTML = ''; return; }
       grid.dataset.count = progression.length;
       grid.innerHTML = progression.map((chord, index) => {
-        const symbol = formatChordSymbol(chord.root, chord.quality);
+        const symbol = formatChordSymbolReadable(chord.root, chord.quality);
         const marker = chord.substituted ? '<span class="sub-marker" title="Substituted">sub</span>' : '';
         return `<button class="pad${chord.borrowed ? ' borrowed' : ''}" type="button" data-index="${index}"
                   aria-label="Play chord ${index + 1}, ${escapeHtml(chord.root)} ${escapeHtml(chord.quality)}">
@@ -374,7 +374,7 @@
           </button>`;
       };
 
-      let html = chip('original', formatChordSymbol(base.root, base.quality), 'Original', !applied);
+      let html = chip('original', formatChordSymbolReadable(base.root, base.quality), 'Original', !applied);
       subs.forEach((sub) => {
         html += chip(sub.type, sub.symbol, sub.description, applied === sub.type);
       });
@@ -445,7 +445,7 @@
           const snap = snapshotSubState(chordIndex);
           state.armedSub = null;
           revertSubstitution(chordIndex);
-          showUndoChip(`Back to ${formatChordSymbol(base.root, base.quality)}`,
+          showUndoChip(`Back to ${formatChordSymbolReadable(base.root, base.quality)}`,
             () => restoreSubState(chordIndex, snap));
           return;
         }
@@ -473,7 +473,7 @@
         const snap = snapshotSubState(chordIndex);
         state.armedSub = null;
         applySubstitution(chordIndex, sub);
-        showUndoChip(`Substituted ${formatChordSymbol(sub.root, sub.quality)}`,
+        showUndoChip(`Substituted ${formatChordSymbolReadable(sub.root, sub.quality)}`,
           () => restoreSubState(chordIndex, snap));
         return;
       }
@@ -515,7 +515,7 @@
       if (!t) return;
       state.trialSub = null;
       const kept = state.progression[t.index];
-      showUndoChip(`Kept ${formatChordSymbol(kept.root, kept.quality)}`,
+      showUndoChip(`Kept ${formatChordSymbolReadable(kept.root, kept.quality)}`,
         () => restoreTrialPrev(t));
       renderVoicing();
     }
@@ -678,7 +678,7 @@
           const fill = h ? (h.hand === 'L' ? 'var(--accent-coral)' : 'var(--accent-blue)') : '#ece9e2';
           whites += `<rect x="${x}" y="0" width="${WK_W}" height="${WK_H}" rx="2" style="fill:${fill}" stroke="#141418" stroke-width="1"/>`;
           if (h) {
-            labels += `<text x="${x + WK_W / 2}" y="${WK_H - 8}" text-anchor="middle" font-size="9" font-weight="700" style="fill:#141418">${formatNoteDisplay(h.name)}</text>`;
+            labels += `<text x="${x + WK_W / 2}" y="${WK_H - 8}" text-anchor="middle" font-size="9" font-weight="700" style="fill:#141418">${formatNoteReadable(h.name)}</text>`;
           } else if (pc === 0) {
             labels += `<text x="${x + WK_W / 2}" y="${WK_H - 6}" text-anchor="middle" font-size="7.5" style="fill:#9a9a9a">C${Math.floor(m / 12) - 1}</text>`;
           }
@@ -688,7 +688,7 @@
           const fill = h ? (h.hand === 'L' ? 'var(--accent-coral)' : 'var(--accent-blue)') : '#222228';
           blacks += `<rect x="${x}" y="0" width="${BK_W}" height="${BK_H}" rx="2" style="fill:${fill}" stroke="#0d0d0f" stroke-width="1"/>`;
           if (h) {
-            blacks += `<text x="${x + BK_W / 2}" y="${BK_H - 7}" text-anchor="middle" font-size="8" font-weight="700" style="fill:#f5f5f0">${formatNoteDisplay(h.name)}</text>`;
+            blacks += `<text x="${x + BK_W / 2}" y="${BK_H - 7}" text-anchor="middle" font-size="8" font-weight="700" style="fill:#f5f5f0">${formatNoteReadable(h.name)}</text>`;
           }
         }
       }
@@ -735,7 +735,7 @@
       }
       
       // Show realized pitches low-to-high with octave numbers (C4 = middle C)
-      const formatPitch = (p) => formatNoteDisplay(p.name) + p.octave;
+      const formatPitch = (p) => formatNoteReadable(p.name) + p.octave;
       const leftNotes = chordData.leftHandPitches.map(formatPitch).join('  ');
       const rightNotes = chordData.rightHandPitches.map(formatPitch).join('  ');
 
@@ -754,7 +754,7 @@
       }
       
       // Display chord name
-      const chordSymbol = formatChordSymbol(chord.root, chord.quality);
+      const chordSymbol = formatChordSymbolReadable(chord.root, chord.quality);
       chordNameEl.textContent = chordSymbol;
       
       // Substitution tray (hear-first: tap = audition in context, tap again
@@ -825,6 +825,31 @@
           soundEl.hidden = false;
         } else {
           soundEl.hidden = true;
+        }
+      }
+
+      // Say when a note has been respelled for reading. The chord strip and
+      // piano show chart spellings (A, not Bbb) so they can be read at tempo,
+      // but a silent swap would teach a falsehood about the harmony — the
+      // functional spelling is the correct one, and the Dictionary shows it.
+      // Naming the swap turns a readability shortcut into the enharmonic lesson.
+      const respellEl = document.getElementById('respellNote');
+      if (respellEl) {
+        const seen = new Map();
+        for (const p of chordData.leftHandPitches.concat(chordData.rightHandPitches)) {
+          const readable = readableNoteName(p.name);
+          if (readable !== p.name) seen.set(p.name, readable);
+        }
+        if (chordData.root && readableNoteName(chordData.root) !== chordData.root) {
+          seen.set(chordData.root, readableNoteName(chordData.root));
+        }
+        if (seen.size) {
+          respellEl.textContent = 'Respelled for reading: ' +
+            [...seen].map(([from, to]) =>
+              `${formatNoteDisplay(to)} is functionally ${formatNoteDisplay(from)}`).join(' · ');
+          respellEl.hidden = false;
+        } else {
+          respellEl.hidden = true;
         }
       }
     }

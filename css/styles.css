@@ -2007,3 +2007,17 @@
 
     .silent-hint[hidden] { display: none; }
     .silent-hint-text { line-height: 1.35; }
+
+    /* "Respelled for reading" — the chord strip and piano use chart spellings,
+       and this names the functional one so the shortcut teaches the enharmonic
+       rather than hiding it. Quieter than the sounding line: that one is about
+       the harmony, this one is only about notation. */
+    .respell-note {
+      text-align: center;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+      line-height: 1.3;
+    }
+
+    .respell-note[hidden] { display: none; }
