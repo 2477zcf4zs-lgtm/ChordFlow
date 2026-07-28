@@ -1137,6 +1137,38 @@ async function main() {
     window.renderSavedProgressions();
     window.loadProgression(0);
 
+    // Flavor in MINOR (owner request). The control used to be inert in minor —
+    // flavorizeNumerals returned early — so this walks the real UI path to
+    // prove the setting now reaches generation, tints, and plays.
+    {
+      const modeSel = document.getElementById('modeSelect');
+      const flavorBtn = document.getElementById('flavorBtn');
+      const prevMode = st().mode;
+      while (st().flavor !== 'off') flavorBtn.click();
+      modeSel.value = 'minor'; modeSel.dispatchEvent(new window.Event('change'));
+      flavorBtn.click(); flavorBtn.click(); // -> bold
+      check(st().mode === 'minor' && st().flavor === 'bold', 'minor + Bold selected');
+      let sawBorrowed = false, sawTint = false;
+      for (let t = 0; t < 60 && !sawBorrowed; t++) {
+        window.generateRandomProgression();
+        if (st().sourceNumerals.some(nu => window.isBorrowedNumeral(nu, 'minor'))) {
+          sawBorrowed = true;
+          sawTint = document.querySelectorAll('.chord-cell.borrowed, .chord-cell .borrowed').length > 0 ||
+                    st().progression.some(c => c.borrowed === true);
+        }
+      }
+      check(sawBorrowed, 'Bold in minor actually generates borrowed chords');
+      check(sawTint, 'borrowed chords in minor carry the tint flag');
+      check(errors.length === 0, 'no script errors generating flavored minor progressions');
+      // And they must survive the whole realization pipeline, not just parse.
+      window.renderVoicing();
+      check(st().progression.every(c => c.root && c.quality),
+        'every flavored minor chord realizes');
+      while (st().flavor !== 'off') flavorBtn.click();
+      modeSel.value = prevMode; modeSel.dispatchEvent(new window.Event('change'));
+      window.loadProgression(0);
+    }
+
     // --- Session snapshot (reopen where you left off) ---
     {
       const SESSION_KEY = 'chordflow.session.v1';
