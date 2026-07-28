@@ -23,6 +23,8 @@
       compareOriginal: false, // A/B: true = progression shows base chords, subs shelved
       progressionName: '',
       progressionStyle: '',
+      loadedSavedId: null, // id of the saved progression on screen, or null.
+                           // Only an explicit Update writes back to it.
       asWritten: false,   // library tune shown in its original key/qualities (5.1)
       loopCount: 1,
       showVoicing: false,
@@ -152,6 +154,11 @@
       if (state.showVoicing) {
         renderVoicing();
       }
+      // Every progression change funnels through here — generate, library load,
+      // saved load, key/mode/complexity/bars change, the 12-keys seam — so one
+      // hook covers them all instead of a call appended to each caller.
+      updateSavedControls();
+      scheduleSessionSave();
     }
 
     // ============================================
@@ -350,6 +357,7 @@
       state.asWritten = false;
       state.progressionName = 'Random Progression';
       state.progressionStyle = mode === 'major' ? 'Major' : 'Minor';
+      state.loadedSavedId = null; // a different progression is on screen now
 
       elements.progressionName.textContent = state.progressionName;
       elements.progressionStyle.textContent = state.progressionStyle;
@@ -381,6 +389,7 @@
       state.density = Math.random() < 0.7 ? 1.0 : 0.45;
       state.progressionName = prog.name;
       state.progressionStyle = prog.style;
+      state.loadedSavedId = null; // a library tune, not one of the user's saves
 
       elements.progressionName.textContent = state.progressionName;
       elements.progressionStyle.textContent = state.progressionStyle;
@@ -401,6 +410,44 @@
     // ============================================
 
     const SAVED_STORAGE_KEY = 'chordflow.savedProgressions.v1';
+    const SESSION_STORAGE_KEY = 'chordflow.session.v1';
+
+    /**
+     * The settings a progression carries with it — how it should SOUND and be
+     * practised, as distinct from what its chords are. Saved alongside every
+     * progression and restored with it, and reused verbatim by the session
+     * snapshot so the two can never capture different sets.
+     *
+     * Deliberately excludes key/mode/complexity/density/bars: those are stored
+     * as first-class fields on the entry because they change the CHORDS, not
+     * just their treatment.
+     */
+    const PROGRESSION_SETTING_KEYS = [
+      'tempo', 'beatsPerChord', 'metronomeOn', 'groove', 'swing', 'leftHand',
+      'range', 'bassBacking', 'octaveRoots', 'autoTranspose', 'tempoRamp',
+      'hideSymbols', 'padMode', 'flavor'
+    ];
+
+    function captureSettings() {
+      const out = {};
+      for (const k of PROGRESSION_SETTING_KEYS) out[k] = state[k];
+      return out;
+    }
+
+    /**
+     * Apply a stored settings bag. Unknown keys are ignored and MISSING keys
+     * are left at their current value rather than reset to a default — entries
+     * saved before settings were captured (no `settings` field at all) must not
+     * silently rearrange the user's current setup on load.
+     */
+    function applySettings(settings) {
+      if (!settings || typeof settings !== 'object') return;
+      for (const k of PROGRESSION_SETTING_KEYS) {
+        if (Object.prototype.hasOwnProperty.call(settings, k) && settings[k] != null) {
+          state[k] = settings[k];
+        }
+      }
+    }
 
     function storageAvailable() {
       try {
@@ -445,13 +492,45 @@
         complexity: state.complexity,
         density: state.density,
         substitutions: state.substitutions.slice(),
-        bars: state.bars
+        bars: state.bars,
+        settings: captureSettings()
       };
       const list = readSavedProgressions();
       list.push(entry);
       if (!writeSavedProgressions(list)) return null;
+      // The new entry becomes the one an Update targets — saving then tweaking
+      // then updating is the obvious flow, and it would be odd if Update still
+      // pointed at whatever was loaded before.
+      state.loadedSavedId = entry.id;
       renderSavedProgressions();
+      scheduleSessionSave();
       return entry;
+    }
+
+    /**
+     * Overwrite an existing saved entry with the current progression+settings.
+     * This is the ONLY path that mutates a saved progression's content: loading
+     * one and then editing never writes back (owner: "any change would not
+     * overwrite the saved progression unless user chooses to update it"), so
+     * a saved progression is a snapshot until explicitly told otherwise.
+     * Keeps the entry's id, name and createdAt — it is the same progression.
+     */
+    function updateSavedProgression(id) {
+      const list = readSavedProgressions();
+      const entry = list.find(e => e.id === id);
+      if (!entry || !state.sourceNumerals.length) return false;
+      entry.sourceNumerals = state.sourceNumerals.slice();
+      entry.key = state.key;
+      entry.mode = state.mode;
+      entry.complexity = state.complexity;
+      entry.density = state.density;
+      entry.substitutions = state.substitutions.slice();
+      entry.bars = state.bars;
+      entry.settings = captureSettings();
+      entry.updatedAt = new Date().toISOString();
+      if (!writeSavedProgressions(list)) return false;
+      renderSavedProgressions();
+      return true;
     }
 
     /** Restore every stored field verbatim — no re-rolls (density included). */
@@ -470,6 +549,11 @@
       state.asWritten = false;
       state.progressionName = entry.name;
       state.progressionStyle = 'Saved';
+      // Settings ride along with the progression (owner request). Entries saved
+      // before this existed have no `settings` field; applySettings leaves the
+      // current setup alone for those rather than snapping it to defaults.
+      applySettings(entry.settings);
+      state.loadedSavedId = id;
 
       elements.keySelect.value = state.key;
       elements.modeSelect.value = state.mode;
@@ -477,6 +561,7 @@
       if (elements.barsSelect) elements.barsSelect.value = String(state.bars);
       elements.progressionName.textContent = state.progressionName;
       elements.progressionStyle.textContent = state.progressionStyle;
+      syncSettingsControls();
 
       buildProgressionFromSource();
       updateAsWrittenChip();
@@ -501,8 +586,150 @@
       const next = list.filter(e => e.id !== id);
       if (next.length === list.length) return false;
       if (!writeSavedProgressions(next)) return false;
+      // Update has nothing to target once its entry is gone.
+      if (state.loadedSavedId === id) state.loadedSavedId = null;
       renderSavedProgressions();
       return true;
+    }
+
+    // ============================================
+    // SESSION SNAPSHOT
+    // Reopen exactly where you left off. Distinct from saved progressions:
+    // this is the scratch desk, not the filing cabinet — it is overwritten
+    // constantly and never appears in My Progressions.
+    // ============================================
+
+    /**
+     * What the session captures beyond the settings bag: everything needed to
+     * put the same chords, in the same voicings, on the same screen.
+     *
+     * Deliberately EXCLUDED — the transport is not part of "where you were":
+     * isPlaying/currentChordIndex/loopCount/currentBeat (a reopened app must
+     * not start mid-loop, and must never come back playing), and
+     * trialSub/armedSub/compareOriginal (half-finished interactions whose
+     * restore point lives in memory; restoring them would strand the user in
+     * a state they can't reason about).
+     */
+    function captureSession() {
+      return {
+        v: 1,
+        savedAt: Date.now(),
+        sourceNumerals: state.sourceNumerals.slice(),
+        substitutions: state.substitutions.slice(),
+        key: state.key,
+        mode: state.mode,
+        complexity: state.complexity,
+        density: state.density,
+        bars: state.bars,
+        asWritten: state.asWritten,
+        progressionName: state.progressionName,
+        progressionStyle: state.progressionStyle,
+        loadedSavedId: state.loadedSavedId,
+        // Manual voicing cycling is real work — without these, "exactly where
+        // you were" would silently re-optimise every chord on reopen.
+        voicingIndices: state.voicingIndices.slice(),
+        voicingShifts: state.voicingShifts.slice(),
+        lhVoicingIndices: (state.lhVoicingIndices || []).slice(),
+        selectedChordIndex: state.selectedChordIndex,
+        activeTab: state.activeTab,
+        settings: captureSettings()
+      };
+    }
+
+    function persistSession() {
+      if (!state.sourceNumerals.length) return false;
+      try {
+        window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(captureSession()));
+        return true;
+      } catch (e) {
+        return false; // private mode / quota: the app just doesn't remember
+      }
+    }
+
+    // Coalesce bursts (a key change re-renders many times, playback re-renders
+    // constantly) into one write. The pagehide/visibilitychange hook in app.js
+    // flushes synchronously, so a debounce can never lose the last edit.
+    let sessionSaveTimer = null;
+    function scheduleSessionSave() {
+      if (sessionSaveTimer) clearTimeout(sessionSaveTimer);
+      sessionSaveTimer = setTimeout(() => { sessionSaveTimer = null; persistSession(); }, 600);
+    }
+
+    function readSession() {
+      try {
+        const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+        if (!raw) return null;
+        const s = JSON.parse(raw);
+        // Anything unrecognisable is treated as absent rather than trusted:
+        // a half-written or older snapshot must not be able to brick startup.
+        if (!s || s.v !== 1 || !Array.isArray(s.sourceNumerals) || !s.sourceNumerals.length) return null;
+        return s;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function clearSession() {
+      try { window.localStorage.removeItem(SESSION_STORAGE_KEY); } catch (e) { /* nothing to clear */ }
+    }
+
+    /**
+     * Restore the previous session. Returns false (having changed nothing that
+     * matters) if there is no usable snapshot, so init() can fall back to its
+     * normal opening progression.
+     */
+    function restoreSession() {
+      const s = readSession();
+      if (!s) return false;
+      try {
+        state.key = s.key || state.key;
+        state.mode = s.mode || state.mode;
+        state.complexity = s.complexity || state.complexity;
+        state.density = typeof s.density === 'number' ? s.density : state.density;
+        state.bars = s.bars || state.bars;
+        state.sourceNumerals = s.sourceNumerals.slice();
+        state.substitutions = Array.isArray(s.substitutions) ? s.substitutions.slice() : [];
+        state.asWritten = !!s.asWritten;
+        state.progressionName = s.progressionName || '';
+        state.progressionStyle = s.progressionStyle || '';
+        state.loadedSavedId = s.loadedSavedId || null;
+        applySettings(s.settings);
+
+        elements.keySelect.value = state.key;
+        elements.modeSelect.value = state.mode;
+        elements.complexitySelect.value = state.complexity;
+        if (elements.barsSelect) elements.barsSelect.value = String(state.bars);
+        elements.progressionName.textContent = state.progressionName;
+        elements.progressionStyle.textContent = state.progressionStyle;
+        syncSettingsControls();
+
+        buildProgressionFromSource(); // recomputes voicings for the restored chords
+
+        // Reinstate the stored voicing selection ON TOP of that recompute, but
+        // only when it still describes this progression — a snapshot whose
+        // length disagrees belongs to different chords and would index into
+        // the wrong voicing tables.
+        const n = state.progression.length;
+        if (Array.isArray(s.voicingIndices) && s.voicingIndices.length === n &&
+            Array.isArray(s.voicingShifts) && s.voicingShifts.length === n) {
+          state.voicingIndices = s.voicingIndices.slice();
+          state.voicingShifts = s.voicingShifts.slice();
+          if (Array.isArray(s.lhVoicingIndices) && s.lhVoicingIndices.length === n) {
+            state.lhVoicingIndices = s.lhVoicingIndices.slice();
+          }
+        }
+        state.selectedChordIndex =
+          (typeof s.selectedChordIndex === 'number' && s.selectedChordIndex < n) ? s.selectedChordIndex : null;
+
+        updateAsWrittenChip();
+        showTab(s.activeTab === 'settings' || s.activeTab === 'library' ||
+                s.activeTab === 'dictionary' || s.activeTab === 'pads' ? s.activeTab : 'voicing');
+        return true;
+      } catch (e) {
+        // A snapshot that throws halfway leaves state part-written; the caller
+        // generates a fresh progression over the top, which fully reinitialises.
+        return false;
+      }
     }
 
     /** Export all saved progressions as pretty JSON (for download/backup). */
@@ -565,4 +792,8 @@
       if (!el) return;
       const custom = Object.keys(SETTINGS_DEFAULTS).some(k => state[k] !== SETTINGS_DEFAULTS[k]);
       el.classList.toggle('has-custom', custom);
+      // This already runs after every settings mutation (delegated on
+      // #settingsPanel, plus the ensemble chip), which makes it the one place
+      // that sees them all — the same reason the dot lives here.
+      scheduleSessionSave();
     }

@@ -59,6 +59,7 @@
       libraryPanel: document.getElementById('libraryPanel'),
       libraryGrid: document.getElementById('libraryGrid'),
       saveProgressionBtn: document.getElementById('saveProgressionBtn'),
+      updateProgressionBtn: document.getElementById('updateProgressionBtn'),
       exportSavedBtn: document.getElementById('exportSavedBtn'),
       importSavedBtn: document.getElementById('importSavedBtn'),
       importSavedInput: document.getElementById('importSavedInput'),
@@ -77,6 +78,90 @@
       dictVoicingList: document.getElementById('dictVoicingList')
     };
 
+    // One row per boolean toggle: the state key, its button, and the two
+    // labels. Both the click handler and the settings-restore path render
+    // from this table, so what clicking shows and what restoring shows can
+    // never drift apart — which they would if each handler kept inlining its
+    // own label strings and a second copy lived in the restore path.
+    const TOGGLES = [
+      { key: 'metronomeOn', el: 'metroBtn', on: 'Click: On', off: 'Click: Off' },
+      { key: 'bassBacking', el: 'bassBackingBtn', on: 'Bass: On', off: 'Bass: Off' },
+      { key: 'octaveRoots', el: 'octaveRootsBtn', on: 'Octaves: On', off: 'Octaves: Off' },
+      { key: 'swing', el: 'swingBtn', on: 'Swing: On', off: 'Swing: Off' },
+      { key: 'hideSymbols', el: 'hideSymbolsBtn', on: 'Symbols: Hidden', off: 'Symbols: Shown' }
+    ];
+    function renderToggle(key) {
+      const row = TOGGLES.find(t => t.key === key);
+      const btn = row && elements[row.el];
+      if (!btn) return;
+      const on = !!state[row.key];
+      const lbl = btn.querySelector('.btn-label');
+      if (lbl) lbl.textContent = on ? row.on : row.off;
+      btn.classList.toggle('active', on);
+    }
+    // padMode and flavor are not booleans, so they get their own renderers —
+    // same contract: one function that both the handler and restore call.
+    function renderPadModeBtn() {
+      const btn = elements.padModeBtn;
+      if (!btn) return;
+      const hold = state.padMode === 'hold';
+      const lbl = btn.querySelector('.btn-label');
+      if (lbl) lbl.textContent = hold ? 'Trigger: Hold' : 'Trigger: One-shot';
+      btn.classList.toggle('active', hold);
+    }
+    function renderFlavorBtn() {
+      const btn = elements.flavorBtn;
+      if (!btn) return;
+      const pretty = state.flavor.charAt(0).toUpperCase() + state.flavor.slice(1);
+      const lbl = btn.querySelector('.btn-label');
+      if (lbl) lbl.textContent = `Flavor: ${pretty}`;
+      btn.setAttribute('aria-label', `Flavor for new progressions: ${state.flavor}`);
+      // Levels must read without the label (mobile hides .btn-label):
+      // Subtle = the standard gold outline + one dot; Bold = filled gold
+      // (flavor-bold) + two dots.
+      btn.classList.toggle('active', state.flavor !== 'off');
+      btn.classList.toggle('flavor-bold', state.flavor === 'bold');
+      const dots = btn.querySelector('.flavor-dots');
+      if (dots) dots.textContent = state.flavor === 'bold' ? '••' : (state.flavor === 'subtle' ? '•' : '');
+    }
+
+    /**
+     * Show Update only while a saved progression is on screen. Driven from the
+     * two choke points every path already goes through — renderSavedProgressions
+     * (save/update/delete/rename) and buildProgressionFromSource (generate,
+     * library load, saved load, key change) — rather than a call bolted onto
+     * each caller, which is how the button would end up stale.
+     */
+    function updateSavedControls() {
+      const btn = elements.updateProgressionBtn;
+      if (!btn) return;
+      btn.hidden = !state.loadedSavedId;
+    }
+
+    /**
+     * Push state -> every settings control. Nothing here decides anything;
+     * it only makes the panel agree with state after something OTHER than a
+     * click changed it — loading a saved progression that carries settings,
+     * or restoring the previous session. Rendering through the same
+     * renderToggle/renderFlavorBtn the handlers use is what keeps the two
+     * paths from disagreeing.
+     */
+    function syncSettingsControls() {
+      TOGGLES.forEach(t => renderToggle(t.key));
+      renderPadModeBtn();
+      renderFlavorBtn();
+      if (elements.grooveSelect) elements.grooveSelect.value = state.groove;
+      if (elements.leftHandSelect) elements.leftHandSelect.value = state.leftHand;
+      if (elements.lhModeChip) elements.lhModeChip.textContent = ENSEMBLE_CHIP_LABELS[state.leftHand] || state.leftHand;
+      if (elements.rangeSelect) elements.rangeSelect.value = state.range;
+      if (elements.autoTransposeSelect) elements.autoTransposeSelect.value = state.autoTranspose;
+      if (elements.tempoRampSelect) elements.tempoRampSelect.value = String(state.tempoRamp);
+      if (elements.beatsPerChord) elements.beatsPerChord.value = String(state.beatsPerChord);
+      if (elements.chordContainer) elements.chordContainer.classList.toggle('symbols-hidden', state.hideSymbols);
+      setTempo(state.tempo); // owns the slider, the readout and the popover
+      updateSettingsDot();
+    }
+
     // ============================================
     // EVENT HANDLERS
     // ============================================
@@ -90,6 +175,16 @@
       window.addEventListener('scroll', () => {
         if (window.pageYOffset || window.pageXOffset) window.scrollTo(0, 0);
       }, { passive: true });
+
+      // Flush the session snapshot when the app goes away. pagehide is the
+      // reliable one on iOS (beforeunload famously is not), and
+      // visibilitychange catches the far more common "swiped to another app,
+      // never formally closed" case. Both write synchronously, so the 600ms
+      // debounce can never swallow the last edit.
+      window.addEventListener('pagehide', persistSession);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') persistSession();
+      });
 
       // Transport controls
       elements.playBtn.addEventListener('click', () => {
@@ -157,9 +252,7 @@
 
       elements.metroBtn.addEventListener('click', () => {
         state.metronomeOn = !state.metronomeOn;
-        const metroLbl = elements.metroBtn.querySelector('.btn-label');
-        if (metroLbl) metroLbl.textContent = state.metronomeOn ? 'Click: On' : 'Click: Off';
-        elements.metroBtn.classList.toggle('active', state.metronomeOn);
+        renderToggle('metronomeOn');
         elements.metroBtn.blur();
       });
       
@@ -268,26 +361,20 @@
       // plays no roots (rootless/evans), a no-op otherwise.
       elements.bassBackingBtn.addEventListener('click', () => {
         state.bassBacking = !state.bassBacking;
-        const lbl = elements.bassBackingBtn.querySelector('.btn-label');
-        if (lbl) lbl.textContent = state.bassBacking ? 'Bass: On' : 'Bass: Off';
-        elements.bassBackingBtn.classList.toggle('active', state.bassBacking);
+        renderToggle('bassBacking');
         elements.bassBackingBtn.blur();
       });
       // Octave roots: a pure LH realization modifier (no recompute — invariant
       // 11); audio reads it live, the voicing panel just re-renders.
       elements.octaveRootsBtn.addEventListener('click', () => {
         state.octaveRoots = !state.octaveRoots;
-        const lbl = elements.octaveRootsBtn.querySelector('.btn-label');
-        if (lbl) lbl.textContent = state.octaveRoots ? 'Octaves: On' : 'Octaves: Off';
-        elements.octaveRootsBtn.classList.toggle('active', state.octaveRoots);
+        renderToggle('octaveRoots');
         elements.octaveRootsBtn.blur();
         renderVoicing();
       });
       elements.swingBtn.addEventListener('click', () => {
         state.swing = !state.swing;
-        const lbl = elements.swingBtn.querySelector('.btn-label');
-        if (lbl) lbl.textContent = state.swing ? 'Swing: On' : 'Swing: Off';
-        elements.swingBtn.classList.toggle('active', state.swing);
+        renderToggle('swing');
         elements.swingBtn.blur();
       });
 
@@ -301,9 +388,7 @@
       // Tap-to-play pads. Trigger-mode toggle:
       elements.padModeBtn.addEventListener('click', () => {
         state.padMode = state.padMode === 'hold' ? 'oneshot' : 'hold';
-        const lbl = elements.padModeBtn.querySelector('.btn-label');
-        if (lbl) lbl.textContent = state.padMode === 'hold' ? 'Trigger: Hold' : 'Trigger: One-shot';
-        elements.padModeBtn.classList.toggle('active', state.padMode === 'hold');
+        renderPadModeBtn();
         padReleaseAll();
         elements.padModeBtn.blur();
       });
@@ -355,9 +440,7 @@
       elements.hideSymbolsBtn.addEventListener('click', () => {
         state.hideSymbols = !state.hideSymbols;
         elements.chordContainer.classList.toggle('symbols-hidden', state.hideSymbols);
-        const lbl = elements.hideSymbolsBtn.querySelector('.btn-label');
-        if (lbl) lbl.textContent = state.hideSymbols ? 'Symbols: Hidden' : 'Symbols: Shown';
-        elements.hideSymbolsBtn.classList.toggle('active', state.hideSymbols);
+        renderToggle('hideSymbols');
         elements.hideSymbolsBtn.blur();
       });
       
@@ -426,17 +509,7 @@
       elements.flavorBtn.addEventListener('click', () => {
         const order = ['off', 'subtle', 'bold'];
         state.flavor = order[(order.indexOf(state.flavor) + 1) % order.length];
-        const pretty = state.flavor.charAt(0).toUpperCase() + state.flavor.slice(1);
-        const lbl = elements.flavorBtn.querySelector('.btn-label');
-        if (lbl) lbl.textContent = `Flavor: ${pretty}`;
-        elements.flavorBtn.setAttribute('aria-label', `Flavor for new progressions: ${state.flavor}`);
-        // Levels must read without the label (mobile hides .btn-label):
-        // Subtle = the standard gold outline + one dot; Bold = filled gold
-        // (flavor-bold) + two dots.
-        elements.flavorBtn.classList.toggle('active', state.flavor !== 'off');
-        elements.flavorBtn.classList.toggle('flavor-bold', state.flavor === 'bold');
-        const dots = elements.flavorBtn.querySelector('.flavor-dots');
-        if (dots) dots.textContent = state.flavor === 'bold' ? '••' : (state.flavor === 'subtle' ? '•' : '');
+        renderFlavorBtn();
         if (state.showVoicing) renderVoicing(); // tray reorders with the dial
         elements.flavorBtn.blur();
       });
@@ -463,6 +536,14 @@
         try { name = window.prompt('Name this progression', state.progressionName || 'My progression'); } catch (e) { name = ''; }
         if (name === null) return; // user cancelled
         saveCurrentProgression(name);
+      });
+      // Update is the ONLY way a saved progression's content changes. It shows
+      // only while one is loaded, so the destructive action is never one stray
+      // click away from a progression the user never saved.
+      elements.updateProgressionBtn.addEventListener('click', () => {
+        if (!state.loadedSavedId) return;
+        updateSavedProgression(state.loadedSavedId);
+        elements.updateProgressionBtn.blur();
       });
 
       elements.savedList.addEventListener('click', (e) => {
@@ -628,8 +709,10 @@
       setupEventListeners();
       updateStatus();
 
-      // Load a default progression
-      loadProgression(0);
+      // Reopen where the user left off; fall back to the opening tune only
+      // when there is no usable snapshot (first visit, cleared storage, or a
+      // snapshot we refused to trust).
+      if (!restoreSession()) loadProgression(0);
 
       watchForNewVersion();
     }
