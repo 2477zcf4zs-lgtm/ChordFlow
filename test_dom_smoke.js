@@ -664,6 +664,47 @@ async function main() {
       document.getElementById('settingsPanel').contains(document.getElementById('metroBtn')),
       'key select + metronome relocated into settings panel');
 
+    // Stale-version banner: a cached page asks the server whether a newer
+    // build exists. Drive both answers through a stubbed fetch — a banner that
+    // only ever stays hidden would pass a "does it render" check.
+    {
+      const banner = document.getElementById('updateBanner');
+      const meta = document.querySelector('meta[name="app-version"]');
+      check(!!banner && banner.hidden, 'update banner exists and starts hidden');
+      check(!!meta && !!meta.content, 'page carries a build id (meta app-version)');
+
+      const calls = [];
+      const stub = (ver) => (url, opts) => {
+        calls.push({ url, opts });
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ version: ver }) });
+      };
+      const flush = () => new Promise(r => setTimeout(r, 0));
+
+      // Same version -> stay quiet.
+      window.fetch = stub(meta.content);
+      window.watchForNewVersion();
+      await flush();
+      check(banner.hidden, 'same build id leaves the banner hidden');
+      check(/version\.json\?t=/.test(calls[0].url), 'version check defeats the cache with a query');
+      check(calls[0].opts && calls[0].opts.cache === 'no-store', "version check sends cache: 'no-store'");
+
+      // Newer version -> show.
+      window.fetch = stub('deadbeefcafe');
+      window.watchForNewVersion();
+      await flush();
+      check(!banner.hidden, 'a different build id reveals the banner');
+      check(!!document.getElementById('updateReloadBtn'), 'banner offers a Refresh button');
+      document.getElementById('updateDismissBtn').click();
+      check(banner.hidden, 'dismiss hides the banner');
+
+      // A failed check must be silent, not throw.
+      window.fetch = () => Promise.reject(new Error('offline'));
+      window.watchForNewVersion();
+      await flush();
+      check(banner.hidden, 'an offline/failed version check says nothing');
+      delete window.fetch;
+    }
+
     // Settings groups (Stage 6 item 1): Song / Sound / Practice. The chips
     // only show/hide existing rows — no control moves out of #settingsPanel,
     // which is why every settings check above and below still binds by ID.
