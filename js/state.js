@@ -36,7 +36,9 @@
       padMode: 'oneshot', // tap-to-play trigger: 'oneshot' (rings out) | 'hold'
       leftHand: 'mixed',  // LH realization: mixed(default, voice-led)|roots|shells|rootless|evans|bassonly
       bassBacking: false, // rootless playback: sustain a stand-in bass root
-      octaveRoots: false, // Sound setting: double a lone LH bass root an octave down (stride/gospel)
+      octaveRoots: true,  // Sound setting: double a lone LH bass root an octave down (stride/gospel).
+                          // ON by default (owner, 2026-07-28) — the octave is the norm in
+                          // solo/stride playing, and a bare single root reads thin under a voicing.
       lhVoicingIndices: [], // per-chord LH index, DP-chosen; meaning depends on
                             // leftHand: evans = rootless shape index, mixed =
                             // candidate id (0 root / 1 shell / 2 R+3 / 3 R+7)
@@ -538,7 +540,7 @@
       leftHand: 'mixed',   // v3 §4.3 said 'roots'; the default moved to mixed
       range: 'full',
       bassBacking: false,
-      octaveRoots: false,  // added after v3 §4.3 was written
+      octaveRoots: true,   // added after v3 §4.3; default flipped on 2026-07-28
       autoTranspose: 'off',
       tempoRamp: 0,
       hideSymbols: false

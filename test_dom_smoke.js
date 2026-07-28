@@ -1070,6 +1070,10 @@ async function main() {
     window.renderVoicing();
     const rootsLhText = lhNotesEl.textContent;
     const rootsRhText = rhNotesEl.textContent;
+    // Which chord these read is part of the baseline: later blocks move the
+    // selection (the octave-roots scan, the sounding-chord case), so anything
+    // comparing back to these strings has to come home to this chord first.
+    const rootsSelected = st().selectedChordIndex;
 
     lhSelect.value = 'shells';
     lhSelect.dispatchEvent(new window.Event('change')); // listener re-renders the panel
@@ -1178,7 +1182,9 @@ async function main() {
     // must run on a chord that actually HAS a lone-root LH — picking blind
     // fails whenever the random progression seats a triad here.
     const octBtn = document.getElementById('octaveRootsBtn');
-    check(!!octBtn && st().octaveRoots === false, 'octave roots starts off');
+    check(!!octBtn && st().octaveRoots === true, 'octave roots starts ON (default since 2026-07-28)');
+    octBtn.click(); // turn OFF first, so the toggle test below still measures a lone->doubled transition
+    check(st().octaveRoots === false, 'octave roots toggles off');
     let loneRootAt = -1;
     for (let i = 0; i < st().progression.length; i++) {
       window.selectChord(i);
@@ -1199,13 +1205,38 @@ async function main() {
     // Mixed (the app default): the app picks the LH per chord AND the RH
     // jointly, so it owns a full per-chord lhVoicingIndices array and names
     // its decision. (RH may differ from the fixed modes — that's the point.)
+    // Mixed re-picks the RH, and it disagrees with the RH-only optimizer on
+    // roughly half of all progressions, so snapshot the selection the same way
+    // the ensemble-chip lap above does — the evans comparison further down
+    // baselines against ROOTS and would otherwise be a coin flip.
+    const savedRhIdx = st().voicingIndices.slice();
+    const savedRhShifts = st().voicingShifts.slice();
     lhSelect.value = 'mixed';
     lhSelect.dispatchEvent(new window.Event('change'));
     check(st().leftHand === 'mixed' && Array.isArray(st().lhVoicingIndices) &&
       st().lhVoicingIndices.length === st().progression.length,
       'mixed mode: a per-chord LH decision is computed for every chord');
-    check(/Auto: left hand plays .*voice-led/.test(document.getElementById('voicingDescription').textContent),
-      'Auto mode names its per-chord LH decision in the description');
+    // The description names the mixed decision per chord — but WHICH label is
+    // correct depends on the voicing the joint DP picked: an anchored voicing
+    // is one two-hand sonority and says so, and only an ordinary voicing gets
+    // the "Auto: left hand plays …" line. About 29% of random progressions
+    // seat at least one anchored chord here, so check every chord against its
+    // OWN voicing instead of assuming the selected one is ordinary.
+    {
+      const descEl = document.getElementById('voicingDescription');
+      let named = 0, auto = 0, anchored = 0;
+      for (let i = 0; i < st().progression.length; i++) {
+        window.selectChord(i);
+        const txt = descEl.textContent;
+        const vs = window.voicingsFor(st().progression[i].quality, st().complexity);
+        const v = vs[((st().voicingIndices[i] % vs.length) + vs.length) % vs.length];
+        const isAnchored = !!(v && v.anchor != null);
+        if (isAnchored) { anchored++; if (/one sonority/.test(txt)) named++; }
+        else { auto++; if (/Auto: left hand plays .*voice-led/.test(txt)) named++; }
+      }
+      check(named === st().progression.length,
+        `Auto mode names its per-chord LH decision in the description (${auto} auto, ${anchored} anchored)`);
+    }
 
     // --- Sounding chord (chart symbol vs what the voicing plays) ---
     // Force a known case: Cmaj7 voiced Type A (3-5-7-9) sounds as Cmaj9 -> the
@@ -1234,6 +1265,13 @@ async function main() {
     }
 
     // --- Two-hand rootless (evans) + backing bass ---
+    // Put the RH selection (and the selected chord) back exactly as the roots
+    // baseline left them — mixed re-picked the RH above, and the sounding-chord
+    // block moved the selection to chord 0. Without this, "evans leaves the RH
+    // unchanged" is really measuring mixed's joint pick.
+    st().voicingIndices.splice(0, st().voicingIndices.length, ...savedRhIdx);
+    st().voicingShifts.splice(0, st().voicingShifts.length, ...savedRhShifts);
+    st().selectedChordIndex = rootsSelected;
     lhSelect.value = 'evans';
     lhSelect.dispatchEvent(new window.Event('change'));
     check(st().leftHand === 'evans' && Array.isArray(st().lhVoicingIndices),

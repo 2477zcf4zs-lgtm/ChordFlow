@@ -13,7 +13,7 @@ function loadTheoryCore() {
   // touches live inside functions this suite never calls.
   const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/audio.js', 'js/state.js'];
   const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
-  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, realizeMixedCandidateBelow, bestMixedLhForRh, formatChordSymbol, soundingChord, computeInversionComp, coreChordTones, inversionShapesFor, SETTINGS_DEFAULTS, state };');
+  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, realizeMixedCandidateBelow, bestMixedLhForRh, formatChordSymbol, soundingChord, computeInversionComp, coreChordTones, inversionShapesFor, SETTINGS_DEFAULTS, state, realizeCandidateTexture, lhRootlessShapesFor, LH_ROOTLESS_BASE, placeHandBelow };');
   return fn();
 }
 const T = loadTheoryCore();
@@ -1533,6 +1533,68 @@ console.log('\nTest 24: octave roots (v6 Stage 3 — stride/gospel bass octave, 
   const s = T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'roots', octaveRoots: true }).sounding;
   const sOff = T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'roots' }).sounding;
   check(JSON.stringify(s) === JSON.stringify(sOff), 'octave root adds no new pitch class — sounding name unchanged');
+}
+
+console.log('\nTest 26: hands never cross or double (v6 — RH-aware LH placement)');
+{
+  // Reported on-device: evans mode showed the SAME notes in both hands, and
+  // elsewhere the LH top sat above the RH bottom. Cause: only mixed placed its
+  // LH against the realized RH; evans/shells/roots used a fixed base and
+  // ignored it, so a downward RH octave shift landed both hands in one
+  // register. Before this fix, the optimizer produced 3,670 crossed textures
+  // at full range across the library x 12 keys; mixed produced 0.
+  const KEYS = ['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'G', 'D', 'A', 'E', 'B', 'F#'];
+  for (const range of [null, T.RANGE_WINDOWS.reface]) {
+    let tot = 0, crossed = 0, identical = 0, worst = null;
+    for (const key of KEYS) for (const entry of T.PROGRESSION_LIBRARY) for (const m of ['evans', 'shells', 'roots']) {
+      let prog;
+      try { prog = (entry.chords || []).map(n => T.parseRomanNumeral(n, key, entry.mode || 'major', 'seventh', 1.0)); }
+      catch (e) { continue; }
+      prog = prog.filter(c => c && c.root && c.quality);
+      if (!prog.length) continue;
+      const rh = T.computeProgressionVoicings(prog, 'seventh', range, m);
+      const rhMidis = prog.map((c, i) => {
+        const vs = T.voicingsFor(c.quality, 'seventh');
+        const v = vs[rh.indices[i]];
+        return v ? T.realizeCandidateTexture(c.root, v, rh.shifts[i]).rhMidis : [];
+      });
+      const lh = T.computeLeftHandVoicings(prog, rhMidis);
+      prog.forEach((c, i) => {
+        const d = T.getChordNotesAtIndex(c.root, c.quality, 'seventh', rh.indices[i], rh.shifts[i],
+          { leftHandMode: m, lhIndex: lh.indices[i], range });
+        const L = d.leftHandPitches.map(x => x.midi), R = d.rightHandPitches.map(x => x.midi);
+        if (!L.length || !R.length) return;
+        tot++;
+        if (JSON.stringify(L) === JSON.stringify(R)) { identical++; if (!worst) worst = `${key} ${c.root}${c.quality} ${m}`; }
+        else if (Math.max(...L) > Math.min(...R)) crossed++;
+      });
+    }
+    const label = range ? 'reface' : 'full range';
+    // Pin the sample size: without this, a loop that silently produced nothing
+    // would satisfy every assertion below and the test would go vacuous.
+    check(tot > 5000, `${label}: swept a real sample (${tot} textures)`);
+    // Unisons must be gone outright: the LH pool refuses an exact pitch match
+    // with the RH, and the placement backstop separates whatever is left.
+    check(identical === 0, `${label}: no chord doubles the same pitches in both hands (${identical}${worst ? ', e.g. ' + worst : ''})`);
+    // Crossings are all but eliminated. A residue is ALLOWED by design: the
+    // RH may still descend when the LH has nowhere legal to go above C2
+    // (owner: "it has the option if the left hand is already in a lower
+    // register"). The bar is set well under the pre-fix 32%/38%.
+    const pct = (100 * crossed / tot);
+    check(pct < 3, `${label}: hand crossings under 3% of ${tot} textures (${crossed}, ${pct.toFixed(1)}%)`);
+  }
+
+  // The LH pool refuses an exact unison but NOT the same shape an octave away,
+  // nor a different rotation — those are legitimate textures.
+  const prog = [{ root: 'A', quality: 'min7' }];
+  const vs = T.voicingsFor('min7', 'seventh');
+  const typeB = vs.findIndex(v => /Type B/.test(v.name));
+  const rhM = [T.realizeCandidateTexture('A', vs[typeB], 0).rhMidis];
+  const picked = T.computeLeftHandVoicings(prog, rhM).indices[0];
+  const shapes = T.lhRootlessShapesFor('min7');
+  const pickedMidis = T.realizeHand('A', shapes[picked], T.LH_ROOTLESS_BASE).map(n => n.midi);
+  check(JSON.stringify(pickedMidis) !== JSON.stringify(rhM[0]),
+    'evans LH pool refuses an exact unison with the right hand');
 }
 
 console.log('\nTest 25: SETTINGS_DEFAULTS agrees with state (v6 Stage 6 — settings dot)');
