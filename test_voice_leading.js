@@ -13,7 +13,7 @@ function loadTheoryCore() {
   // touches live inside functions this suite never calls.
   const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/audio.js', 'js/state.js'];
   const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
-  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, realizeMixedCandidateBelow, bestMixedLhForRh, formatChordSymbol, soundingChord, computeInversionComp, coreChordTones, inversionShapesFor, SETTINGS_DEFAULTS, state, realizeCandidateTexture, lhRootlessShapesFor, LH_ROOTLESS_BASE, placeHandBelow };');
+  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, realizeMixedCandidateBelow, bestMixedLhForRh, formatChordSymbol, soundingChord, computeInversionComp, coreChordTones, inversionShapesFor, SETTINGS_DEFAULTS, state, densityCost, realizeCandidateTexture, lhRootlessShapesFor, LH_ROOTLESS_BASE, placeHandBelow };');
   return fn();
 }
 const T = loadTheoryCore();
@@ -1595,6 +1595,83 @@ console.log('\nTest 26: hands never cross or double (v6 — RH-aware LH placemen
   const pickedMidis = T.realizeHand('A', shapes[picked], T.LH_ROOTLESS_BASE).map(n => n.midi);
   check(JSON.stringify(pickedMidis) !== JSON.stringify(rhM[0]),
     'evans LH pool refuses an exact unison with the right hand');
+}
+
+console.log('\nTest 27: density continuity (v6 — voice count is voice-led too)');
+{
+  // Reported by the owner: "Very strange to have a very dense chord move to a
+  // very open quartal." voiceMovementCost only measures how far each voice
+  // travels, so a 5-note drop-2 into a 3-note quartal scored well — every
+  // retained voice barely moved — while the texture fell out from under the
+  // progression. densityCost prices the CHANGE IN VOICE COUNT, superlinearly,
+  // so the two-voice swing is priced out while ordinary one-voice breathing
+  // survives.
+  //
+  // Measured over THIS sweep (9,468 transitions), before -> after:
+  //
+  //                 mean |dV|   |dV|>=2   mean voices   distinct voicings
+  //   full range    0.428 ->    3.2% ->   3.64 ->       46 -> 46
+  //                 0.133        0.0%     3.76
+  //   reface        0.470 ->    4.6% ->   3.57 ->       46 -> 47
+  //                 0.154        0.0%     3.69
+  //
+  // The last two columns are the point of the anti-collapse checks below: mean
+  // voice count went UP, not down, and the vocabulary did not narrow. A naive
+  // "prefer equal counts" term buys continuity by settling on the sparsest
+  // shape everywhere, which would show up as both of those falling.
+  const KEYS = ['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'G', 'D', 'A', 'E', 'B', 'F#'];
+  for (const range of [null, T.RANGE_WINDOWS.reface]) {
+    let pairs = 0, jumps = 0, sumDelta = 0, sumCount = 0, notes = 0;
+    const shapes = new Set();
+    let worst = null;
+    for (const key of KEYS) for (const entry of T.PROGRESSION_LIBRARY) for (const m of ['roots', 'shells', 'evans']) {
+      let prog;
+      try { prog = (entry.chords || []).map(n => T.parseRomanNumeral(n, key, entry.mode || 'major', 'seventh', 1.0)); }
+      catch (e) { continue; }
+      prog = prog.filter(c => c && c.root && c.quality);
+      if (prog.length < 2) continue;
+      const rh = T.computeProgressionVoicings(prog, 'seventh', range, m);
+      const counts = prog.map((c, i) => {
+        const vs = T.voicingsFor(c.quality, 'seventh');
+        const v = vs[rh.indices[i]];
+        shapes.add(c.quality + '#' + rh.indices[i]);
+        return v ? T.realizeCandidateTexture(c.root, v, rh.shifts[i]).rhMidis.length : 0;
+      });
+      counts.forEach(n => { sumCount += n; notes++; });
+      for (let i = 1; i < counts.length; i++) {
+        const d = Math.abs(counts[i] - counts[i - 1]);
+        pairs++; sumDelta += d;
+        if (d >= 2) { jumps++; if (!worst) worst = `${key} ${entry.name || '?'} ${m} (${counts[i - 1]}->${counts[i]})`; }
+      }
+    }
+    const label = range ? 'reface' : 'full range';
+    // Pin the sample size — a loop that silently produced nothing would satisfy
+    // every ratio assertion below and the test would go vacuous.
+    check(pairs > 3000, `${label}: swept a real sample (${pairs} transitions)`);
+    const meanDelta = sumDelta / pairs;
+    const jumpPct = 100 * jumps / pairs;
+    // The reported complaint, priced out. Bar set well under the 3.2%/4.6%
+    // this sweep measured before the fix.
+    check(jumpPct < 1, `${label}: two-voice texture swings under 1% (${jumps}, ${jumpPct.toFixed(1)}%${worst ? ', e.g. ' + worst : ''})`);
+    check(meanDelta < 0.40, `${label}: mean |delta voices| under 0.40 (${meanDelta.toFixed(3)}, was 0.43/0.47)`);
+    // The anti-collapse guards: consistency must not be bought by making
+    // everything thin, nor by narrowing to one shape.
+    const meanCount = sumCount / notes;
+    check(meanCount > 3.4, `${label}: voicings did not collapse to the sparsest shape (mean ${meanCount.toFixed(2)} voices)`);
+    check(shapes.size >= 30, `${label}: vocabulary stayed wide (${shapes.size} distinct voicings chosen)`);
+  }
+
+  // Superlinear, and zero for no change — a two-voice swing must cost strictly
+  // more than twice a one-voice one, or the DP would happily trade.
+  const c1 = T.densityCost(4, 3), c2 = T.densityCost(5, 3);
+  check(T.densityCost(4, 4) === 0, 'holding the voice count is free');
+  check(c2 > 2 * c1, `a two-voice swing costs more than twice a one-voice one (${c1} vs ${c2})`);
+  // It must bend, not bind: a triad has no four-note option at strict tier, and
+  // the DP still has to be able to take it.
+  const triad = [{ root: 'C', quality: 'maj' }, { root: 'F', quality: 'maj7' }];
+  const got = T.computeProgressionVoicings(triad, 'seventh-strict', null, 'roots');
+  check(got.indices.length === 2 && got.indices.every(i => typeof i === 'number'),
+    'density cost never empties a layer (mixed triad/seventh progression still realizes)');
 }
 
 console.log('\nTest 25: SETTINGS_DEFAULTS agrees with state (v6 Stage 6 — settings dot)');
