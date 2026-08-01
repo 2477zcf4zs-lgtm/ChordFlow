@@ -13,7 +13,7 @@ function loadTheoryCore() {
   // touches live inside functions this suite never calls.
   const files = ['js/theory.js', 'js/library.js', 'js/voicings.js', 'js/parsing.js', 'js/audio.js', 'js/state.js'];
   const core = files.map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
-  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, realizeMixedCandidateBelow, bestMixedLhForRh, formatChordSymbol, soundingChord, computeInversionComp, coreChordTones, inversionShapesFor, SETTINGS_DEFAULTS, state, densityCost, realizeCandidateTexture, lhRootlessShapesFor, LH_ROOTLESS_BASE, placeHandBelow };');
+  const fn = new Function(core + '\nreturn { spellInterval, INTERVALS, NOTE_TO_SEMITONE, KEYBOARD_VOICINGS, CHORD_TYPES, PROGRESSION_LIBRARY, parseRomanNumeral, realizeHand, realizeVoicing, computeProgressionVoicings, voiceMovementCost, registerPenalty, getChordNotesAtIndex, getChordNotes, voicingsFor, bestShiftForVoicing, RH_BASE, LH_BASE, LH_COMP_BASE, SHELL_TONE_BASE, LH_ROOTLESS_BASE, LH_SOFT_LOW, buildRandomNumerals, SECONDARY_TARGETS, grooveOnsets, guideToneIntervals, realizeShellHand, lhRootlessShapesFor, computeLeftHandVoicings, RANGE_WINDOWS, windowOverflow, buildVoicingCandidates, flavorizeNumerals, isBorrowedNumeral, getChordSubstitutions, computeMixedVoicing, essentialGuideTonePcs, lhMixedCandidateIntervals, realizeMixedCandidate, realizeMixedCandidateBelow, bestMixedLhForRh, formatChordSymbol, soundingChord, computeInversionComp, coreChordTones, inversionShapesFor, SETTINGS_DEFAULTS, state, shellIntervals, densityCost, realizeCandidateTexture, lhRootlessShapesFor, LH_ROOTLESS_BASE, placeHandBelow };');
   return fn();
 }
 const T = loadTheoryCore();
@@ -601,9 +601,32 @@ console.log('\nTest 11: left-hand modes (bassist mode)');
 
   // Shells: LH = root in the C2 zone + guide tones an octave up, correct pitch classes
   const pc = (p) => p.midi % 12;
-  const shells = T.getChordNotesAtIndex('C', 'min7', 'seventh', 0, 0, { leftHandMode: 'shells' });
+  // Terminology (owner, from Open Studio lessons): a SHELL is the 3rd and 7th.
+  // root+3+7 is 'rootguide'. The app used to call root+3+7 "shells" while its
+  // own Root-Shell-Pretty tier used "shell" for the guide tones alone; the two
+  // disagreed and the guide-tone reading won.
+  const shells = T.getChordNotesAtIndex('C', 'min7', 'seventh', 0, 0, { leftHandMode: 'rootguide' });
   check(shells.leftHandPitches.map(pc).join(',') === '0,3,10',
-    'Cm7 shells LH pitch classes = root, b3, b7');
+    'Cm7 rootguide LH pitch classes = root, b3, b7');
+  {
+    const bare = T.getChordNotesAtIndex('C', 'min7', 'seventh', 0, 0, { leftHandMode: 'shells' });
+    check(bare.leftHandPitches.map(pc).join(',') === '3,10',
+      `Cm7 shells LH = the 3rd and 7th ALONE, no root (got ${bare.leftHandPitches.map(pc).join(',')})`);
+    check(bare.leftHandPitches.length === 2, 'a shell is two notes');
+    // Every quality must yield a playable, root-free shell — sus/dim/aug/6ths
+    // all have their own answer for "the 3rd and 7th", and shellIntervals
+    // derives from guideToneIntervals so the two cannot disagree.
+    for (const level of ['simple', 'seventh', 'extended', 'altered']) {
+      for (const q of Object.keys(T.CHORD_TYPES[level])) {
+        const iv = T.shellIntervals(q);
+        check(iv.length >= 1 && iv.indexOf('R') === -1,
+          `shellIntervals(${q}) is root-free and non-empty (got ${iv.join('-')})`);
+        const d = T.getChordNotesAtIndex('C', q, 'seventh', 0, 0, { leftHandMode: 'shells' });
+        check(d.leftHandPitches.length >= 1 && d.leftHandPitches.every(p => p.midi >= T.LH_BASE),
+          `${q} shell realizes above the C2 floor`);
+      }
+    }
+  }
   check(shells.leftHandPitches.every(p => p.midi >= T.SHELL_TONE_BASE) &&
     Math.max(...shells.leftHandPitches.map(p => p.midi)) -
     Math.min(...shells.leftHandPitches.map(p => p.midi)) <= 12,
@@ -618,7 +641,7 @@ console.log('\nTest 11: left-hand modes (bassist mode)');
   check(rootless.rightHandPitches.map(p => p.midi).join(',') === roots.rightHandPitches.map(p => p.midi).join(','),
     'rootless leaves the RH voicing untouched');
   check(shells.rightHandPitches.map(p => p.midi).join(',') === roots.rightHandPitches.map(p => p.midi).join(','),
-    'shells leave the RH voicing untouched');
+    'rootguide leaves the RH voicing untouched');
 
   // Default-mode regression: omitting the argument still realizes the written LH
   const explicit = T.getChordNotesAtIndex('F', 'dom7', 'seventh', 0, 0, { leftHandMode: 'roots' });
@@ -703,7 +726,7 @@ console.log('\nTest 13: 3-octave mode (reface window C2-C5)');
   const ROOTS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
   const QUALITIES = ['maj7', 'min7', 'dom7', 'm7b5', 'dim7', 'maj9', 'min11', 'dom13',
     'dom7alt', 'dom13s11', '6', 'm6', '69', 'sus4', 'maj', 'min', 'aug', 'dom7sus4'];
-  const MODES = ['roots', 'shells', 'evans', 'rootless'];
+  const MODES = ['roots', 'rootguide', 'shells', 'evans', 'rootless'];
   let outOfWindow = 0;
   let checkedNotes = 0;
   for (const root of ROOTS) {
@@ -1614,8 +1637,12 @@ console.log('\nTest 24: octave roots (v6 Stage 3 — stride/gospel bass octave, 
   // and empty LHs are untouched (only a LONE root doubles).
   check(midis(T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'bassonly', octaveRoots: true })).length === 1,
     'bassonly stays a single bass note (emulates a bassist)');
-  check(midis(T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'shells', octaveRoots: true })).length === 3,
-    'shells (multi-note LH) unaffected by octave roots');
+  check(midis(T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'rootguide', octaveRoots: true })).length === 3,
+    'rootguide (multi-note LH) unaffected by octave roots');
+  // A shell has no root to double, so the octave setting must leave it alone
+  // rather than inventing one underneath it.
+  check(midis(T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'shells', octaveRoots: true })).length === 2,
+    'shells have no root, so octave roots adds nothing');
   check(midis(T.getChordNotesAtIndex('C', 'maj7', 'seventh', 6, 0, { leftHandMode: 'rootless', octaveRoots: true })).length === 0,
     'rootless (no LH) unaffected by octave roots');
 

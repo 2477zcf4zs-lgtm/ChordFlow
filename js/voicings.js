@@ -578,6 +578,23 @@
      * Note `aug` already returned R-3 before this change, but only by accident:
      * it has a #5, so the old `has(7)` test missed. Now it is deliberate.
      */
+    /**
+     * The 3rd and 7th alone — no root.
+     *
+     * Terminology, settled by the owner from Open Studio lessons: a SHELL is
+     * the 3rd and 7th. This app previously used "shells" for root+3+7 while its
+     * own Root-Shell-Pretty tier used "shell" for the guide tones with the root
+     * named separately — the two disagreed, and the guide-tone reading is the
+     * one the owner was taught, so it wins. root+3+7 is now `rootguide`.
+     *
+     * Derived from guideToneIntervals rather than re-deriving the quality rules,
+     * so the two can never disagree about what a 3rd or a 7th is for a given
+     * chord (sus, dim, aug and 6th chords all have their own answers there).
+     */
+    function shellIntervals(quality) {
+      return guideToneIntervals(quality).slice(1); // drop the R
+    }
+
     function guideToneIntervals(quality) {
       let chordInfo;
       for (const level of ['simple', 'seventh', 'extended', 'altered']) {
@@ -1073,7 +1090,8 @@
      *   'roots'    — the template's written LH; a lone root comps at C3
      *                (LH_COMP_BASE), a multi-note shell stays low at C2
      *                (LH_BASE) to clear the RH; engine default mode
-     *   'shells'   — root + guide tones (3rd & 7th) for the quality
+     *   'rootguide'— root + guide tones (3rd & 7th) for the quality
+     *   'shells'   — the guide tones alone (3rd & 7th), no root
      *   'evans'    — a second rootless voicing in the tenor range; lhIndex
      *                picks the shape (DP-chosen via computeLeftHandVoicings)
      *   'rootless' — nothing; a bassist or backing track owns the low end
@@ -1119,8 +1137,10 @@
       let left;
       if (leftHandMode === 'rootless') left = [];
       else if (leftHandMode === 'mixed') left = realizeMixedCandidateBelow(rootNote, quality, lhIndex, rhBottom);
-      else if (leftHandMode === 'shells')
+      else if (leftHandMode === 'rootguide')
         left = placeHandBelow(rootNote, guideToneIntervals(quality), SHELL_TONE_BASE, rhBottom).notes;
+      else if (leftHandMode === 'shells')
+        left = placeHandBelow(rootNote, shellIntervals(quality), SHELL_TONE_BASE, rhBottom).notes;
       else if (leftHandMode === 'evans') {
         const shapes = lhRootlessShapesFor(quality);
         const safe = ((lhIndex || 0) % shapes.length + shapes.length) % shapes.length;
@@ -1309,7 +1329,8 @@
       let ivs, base;
       if (leftHandMode === 'rootless' || leftHandMode === 'bassonly' || leftHandMode === 'lhcomp')
         return -Infinity;
-      if (leftHandMode === 'shells') { ivs = guideToneIntervals(quality); base = SHELL_TONE_BASE; }
+      if (leftHandMode === 'rootguide') { ivs = guideToneIntervals(quality); base = SHELL_TONE_BASE; }
+      else if (leftHandMode === 'shells') { ivs = shellIntervals(quality); base = SHELL_TONE_BASE; }
       else if (leftHandMode === 'evans') {
         // Whichever shape wins is decided after the RH, so take the pool's
         // most forgiving member — the one that can sit lowest.
@@ -1519,7 +1540,8 @@
       }
       if (leftHandMode === 'rootless') return [];
       if (leftHandMode === 'bassonly') return ['R'];
-      if (leftHandMode === 'shells') return guideToneIntervals(quality);
+      if (leftHandMode === 'rootguide') return guideToneIntervals(quality);
+      if (leftHandMode === 'shells') return shellIntervals(quality);
       if (leftHandMode === 'mixed') {
         const cands = lhMixedCandidateIntervals(quality);
         return cands[((lhIndex || 0) % cands.length + cands.length) % cands.length];
@@ -1616,7 +1638,7 @@
     /**
      * Get a specific voicing by index, realized in register.
      * Pure function: no hidden state, safe to call from any UI path.
-     * opts: { leftHandMode: 'roots'|'shells'|'evans'|'rootless',
+     * opts: { leftHandMode: 'roots'|'rootguide'|'shells'|'evans'|'rootless',
      *         lhIndex: evans LH shape index,
      *         range: keyboard window ({low, high} midi) or null }
      * The range only steers the DEFAULT octave placement (when octaveShift

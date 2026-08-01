@@ -102,7 +102,8 @@ progression rather than replacing it.
 - **Swing 8ths** — swings the off-beat eighths of whichever comping pattern
 is playing.
 - **Ensemble** — who plays what. *App plays both hands*: Auto (picks a
-left hand per chord and voice-leads it), Bass root, Shells, Two-hand rootless.
+left hand per chord and voice-leads it), Bass root, Root + guide tones (root, 3rd and 7th),
+Shells (the 3rd and 7th alone — a bassist covers the root), Two-hand rootless.
 *App plays left hand*: LH comp — close voicings moving through inversions, so you take
 the melody. *You comp*: With a bassist (app drops the root), App plays bass (app holds
 roots, you play the chords).

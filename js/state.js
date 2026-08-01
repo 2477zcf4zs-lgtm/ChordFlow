@@ -528,8 +528,13 @@
       'hideSymbols', 'padMode', 'flavor'
     ];
 
+    // Bumped whenever a stored value's MEANING changes, so applySettings can
+    // tell an old bag from a new one. v2: 'shells' was root+3+7 and is now the
+    // bare 3rd and 7th; the old sound moved to 'rootguide'.
+    const SETTINGS_VERSION = 2;
+
     function captureSettings() {
-      const out = {};
+      const out = { v: SETTINGS_VERSION };
       for (const k of PROGRESSION_SETTING_KEYS) out[k] = state[k];
       return out;
     }
@@ -542,6 +547,13 @@
      */
     function applySettings(settings) {
       if (!settings || typeof settings !== 'object') return;
+      // A progression saved before the rename asked for root+3+7 by the name
+      // 'shells'. Restoring it as today's 'shells' would silently drop the root
+      // out of a sound the user chose and saved, so re-point it at the mode
+      // that still plays what they picked.
+      if (!(settings.v >= 2) && settings.leftHand === 'shells') {
+        settings = Object.assign({}, settings, { leftHand: 'rootguide' });
+      }
       for (const k of PROGRESSION_SETTING_KEYS) {
         if (Object.prototype.hasOwnProperty.call(settings, k) && settings[k] != null) {
           state[k] = settings[k];

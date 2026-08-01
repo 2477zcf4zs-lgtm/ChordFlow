@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Chord Flow — Practice Progressions</title>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <meta name="app-version" content="121f557ddb07">
+  <meta name="app-version" content="8ca4e7af3007">
   <link rel="stylesheet" href="css/styles.css?v=556b561f">
 </head>
 <body>
@@ -306,7 +306,8 @@
               <optgroup label="App plays both hands">
                 <option value="mixed" selected>Auto</option>
                 <option value="roots">Bass root</option>
-                <option value="shells">Shells</option>
+                <option value="rootguide">Root + guide tones</option>
+                <option value="shells">Shells (3 &amp; 7)</option>
                 <option value="evans">Two-hand rootless</option>
               </optgroup>
               <optgroup label="App plays left hand — you play right">
@@ -480,7 +481,8 @@
               <li><strong>Swing 8ths</strong> — swings the off-beat eighths of whichever comping pattern
               is playing.</li>
               <li><strong>Ensemble</strong> — who plays what. <em>App plays both hands</em>: Auto (picks a
-              left hand per chord and voice-leads it), Bass root, Shells, Two-hand rootless.
+              left hand per chord and voice-leads it), Bass root, Root + guide tones (root, 3rd and 7th),
+              Shells (the 3rd and 7th alone — a bassist covers the root), Two-hand rootless.
               <em>App plays left hand</em>: LH comp — close voicings moving through inversions, so you take
               the melody. <em>You comp</em>: With a bassist (app drops the root), App plays bass (app holds
               roots, you play the chords).</li>
@@ -641,12 +643,12 @@
   <!-- Classic scripts in dependency load order (no build step; jsdom-friendly).
        app.js is last because it calls init() after everything else is defined. -->
   <script src="js/theory.js?v=de07e7cb"></script>
-  <script src="js/voicings.js?v=8b215d9a"></script>
+  <script src="js/voicings.js?v=9020bd68"></script>
   <script src="js/parsing.js?v=adc1b75d"></script>
   <script src="js/library.js?v=2e596dcb"></script>
   <script src="js/audio.js?v=6f69b5fc"></script>
-  <script src="js/state.js?v=25c05762"></script>
-  <script src="js/render.js?v=23ac5590"></script>
+  <script src="js/state.js?v=553bf99c"></script>
+  <script src="js/render.js?v=e21794e3"></script>
   <script src="js/app.js?v=18794b2d"></script>
 </body>
 </html>
