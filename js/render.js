@@ -11,6 +11,7 @@
     const ENSEMBLE_CHIP_LABELS = {
       mixed: 'Auto',
       roots: 'Bass root',
+      rootguide: 'Root+3&7',
       shells: 'Shells',
       evans: '2-hand',
       lhcomp: 'LH comp',
@@ -774,7 +775,8 @@
       }
 
       const LH_MODE_NOTES = {
-        shells: ' • Shells: root + guide tones (3 & 7) in the left hand',
+        rootguide: ' • Root + guide tones: root, 3rd and 7th in the left hand',
+        shells: ' • Shells: the 3rd and 7th alone — the bassist has the root',
         evans: ' • Two-hand rootless: LH color voicing — the bass stays with the bassist',
         rootless: ' • With a bassist: you comp this voicing in the LH over a bass line',
         bassonly: ' • App plays bass: the app holds the roots — you comp the changes',

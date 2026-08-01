@@ -1090,6 +1090,25 @@ async function main() {
 
       // Old entries predate the settings bag; loading one must leave the
       // current sound alone rather than snapping it to defaults.
+      // A progression saved BEFORE the rename asked for root+3+7 under the name
+      // 'shells'. Restoring it as today's 'shells' would silently drop the root
+      // out of a sound the user chose, so an unversioned bag re-points there.
+      {
+        const ls = window.readSavedProgressions().find(e => e.id === withSettings.id);
+        const bag = Object.assign({}, ls.settings, { leftHand: 'shells' });
+        delete bag.v; // pre-rename bags carry no version
+        ls.settings = bag;
+        window.eval('writeSavedProgressions(' + JSON.stringify([ls]) + ')');
+        window.loadSavedProgression(ls.id);
+        check(st().leftHand === 'rootguide',
+          "a pre-rename 'shells' save still plays root+3+7 (got " + st().leftHand + ')');
+        const modern = window.readSavedProgressions().find(e => e.id === withSettings.id);
+        modern.settings = Object.assign({}, modern.settings, { v: 2, leftHand: 'shells' });
+        window.eval('writeSavedProgressions(' + JSON.stringify([modern]) + ')');
+        window.loadSavedProgression(modern.id);
+        check(st().leftHand === 'shells', 'a current save asking for shells gets shells');
+      }
+
       const legacy = window.readSavedProgressions().find(e => e.id === withSettings.id);
       delete legacy.settings;
       window.eval('writeSavedProgressions(' + JSON.stringify([legacy]) + ')');
@@ -1285,6 +1304,18 @@ async function main() {
     check(st().leftHand === 'shells', 'left-hand select drives state');
     check(lhNotesEl.textContent !== rootsLhText && /\d/.test(lhNotesEl.textContent),
       'shells re-realize the LH (guide tones shown with octaves)');
+    // Terminology (owner, from Open Studio lessons): a shell is the 3rd and the
+    // 7th. The root+3+7 sound still exists, under its own name.
+    check(lhNotesEl.textContent.trim().split(/\s+/).length === 2,
+      'Shells plays two notes — the guide tones, no root');
+    check(Array.from(lhSelect.options).map(o => o.value).indexOf('rootguide') !== -1,
+      'root+3+7 is still available as its own mode');
+    lhSelect.value = 'rootguide';
+    lhSelect.dispatchEvent(new window.Event('change'));
+    check(lhNotesEl.textContent.trim().split(/\s+/).length === 3,
+      'Root + guide tones plays three notes');
+    lhSelect.value = 'shells';
+    lhSelect.dispatchEvent(new window.Event('change'));
     check(rhNotesEl.textContent === rootsRhText, 'RH voicing identical across LH modes');
 
     lhSelect.value = 'rootless';
@@ -1536,7 +1567,7 @@ async function main() {
     // Every chord's recomputed voicing fits the window, in every LH mode
     const refaceWin = { low: 36, high: 72 };
     const fitsWindow = () => st().progression.every((c, i) =>
-      ['roots', 'shells', 'evans', 'rootless'].every(mode => {
+      ['roots', 'rootguide', 'shells', 'evans', 'rootless'].every(mode => {
         const d = window.getChordNotesAtIndex(c.root, c.quality, st().complexity,
           st().voicingIndices[i], st().voicingShifts[i],
           { leftHandMode: mode, lhIndex: (st().lhVoicingIndices || [])[i] || 0, range: refaceWin });
